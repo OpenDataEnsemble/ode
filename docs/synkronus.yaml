@@ -1,0 +1,1443 @@
+openapi: 3.0.0
+info:
+  title: Synkronus API
+  version: 1.0.3
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check endpoint
+      description: Returns the current health status of the service
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Current server time
+                  version:
+                    type: string
+                    description: Current API version
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [error]
+                    example: error
+                  error:
+                    type: string
+                    description: Description of the error
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Current server time
+
+  /version:
+    get:
+      operationId: getVersion
+      summary: Get server version and system information
+      description: Returns detailed version information about the server, including build information and system details
+      responses:
+        '200':
+          description: Successful response with version information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemVersionInfo'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /app-bundle/changes:
+    get:
+      operationId: getAppBundleChanges
+      summary: Get changes between two app bundle versions
+      description: Compares two versions of the app bundle and returns detailed changes
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: current
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The current version (defaults to latest)
+        - name: target
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The target version to compare against (defaults to previous version)
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: Successfully retrieved changes between versions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeLog'
+        '400':
+          description: Invalid version format or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: One or both versions not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /app-bundle/manifest:
+    get:
+      operationId: getAppBundleManifest
+      summary: Get the current custom app bundle manifest
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: Bundle file list
+          headers:
+            etag:
+              schema:
+                type: string
+              description: Hash of the manifest for caching
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppBundleManifest'
+
+  /app-bundle/download/{path}:
+    get:
+      operationId: downloadAppBundleFile
+      summary: Download a specific file from the app bundle
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: preview
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: If true, returns the file from the latest version including unreleased changes
+        - name: if-none-match
+          in: header
+          schema:
+            type: string
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: File content
+          headers:
+            etag:
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '304':
+          description: Not Modified
+
+  /app-bundle/versions:
+    get:
+      operationId: getAppBundleVersions
+      summary: Get a list of available app bundle versions
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: List of available app bundle versions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppBundleVersions'
+
+  /app-bundle/push:
+    post:
+      operationId: pushAppBundle
+      summary: Upload a new app bundle (admin only)
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                bundle:
+                  type: string
+                  format: binary
+                  description: ZIP file containing the new app bundle
+      responses:
+        '200':
+          description: App bundle successfully uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppBundlePushResponse'
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '413':
+          description: File too large
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /app-bundle/switch/{version}:
+    post:
+      operationId: switchAppBundleVersion
+      summary: Switch to a specific app bundle version (admin only)
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Version identifier to switch to
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: Successfully switched to the specified version
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Switched to app bundle version 20250507-123456"
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Version not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: Authenticate user and return JWT tokens
+      description: Obtain a JWT token by providing username and password
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  description: User's username
+                password:
+                  type: string
+                  format: password
+                  description: User's password
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Authentication failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      summary: Refresh JWT token
+      description: Obtain a new JWT token using a refresh token
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+                  description: Refresh token obtained from login or previous refresh
+      responses:
+        '200':
+          description: Token refresh successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /users/create:
+    post:
+      operationId: createUser
+      summary: Create a new user (admin only)
+      description: Create a new user with specified username, password, and role
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, role]
+              properties:
+                username:
+                  type: string
+                  description: New user's username
+                password:
+                  type: string
+                  format: password
+                  description: New user's password
+                role:
+                  type: string
+                  enum: [read-only, read-write, admin]
+                  description: User's role
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Conflict - Username already exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /users:
+    get:
+      operationId: listUsers
+      summary: List all users (admin only)
+      description: Retrieve a list of all users in the system. Admin access required.
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: List of all users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /users/{username}:
+    delete:
+      operationId: deleteUser
+      summary: Delete a user (admin only)
+      description: Delete a user by username
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Username of the user to delete
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User deleted successfully"
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: User not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /users/reset-password:
+    post:
+      operationId: resetUserPassword
+      summary: Reset user password (admin only)
+      description: Reset password for a specified user
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, newPassword]
+              properties:
+                username:
+                  type: string
+                  description: Username of the user whose password is being reset
+                newPassword:
+                  type: string
+                  format: password
+                  description: New password for the user
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password reset successfully"
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: User not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /users/change-password:
+    post:
+      operationId: changePassword
+      summary: Change user password (authenticated user)'s password
+      description: Change password for the currently authenticated user
+      security:
+        - bearerAuth: [read-only, read-write, admin]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                  description: Current password for verification
+                newPassword:
+                  type: string
+                  format: password
+                  description: New password to set
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password changed successfully"
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized or incorrect current password
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /sync/pull:
+    post:
+      operationId: syncPull
+      summary: Pull updated records since last sync
+      description: |
+        Retrieves records that have changed since a specified version.
+        
+        **Pagination Pattern:**
+        1. Send initial request with `since.version` (or omit for all records)
+        2. Process returned records
+        3. If `has_more` is true, make next request using `change_cutoff` as the new `since.version`
+        4. Repeat until `has_more` is false
+        
+        Example pagination flow:
+        - Request 1: `since: {version: 100}` → Response: `change_cutoff: 150, has_more: true`
+        - Request 2: `since: {version: 150}` → Response: `change_cutoff: 200, has_more: false`
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: schemaType
+          in: query
+          schema:
+            type: string
+          description: Filter by schemaType
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          description: Maximum number of records to return
+
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPullRequest'
+      responses:
+        '200':
+          description: Sync data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPullResponse'
+
+  /sync/push:
+    post:
+      operationId: syncPush
+      summary: Push new or updated records to the server
+      security:
+        - bearerAuth: [read-write]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPushRequest'
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPushResponse'
+
+  /attachments/manifest:
+    post:
+      operationId: getAttachmentManifest
+      summary: Get attachment manifest for incremental sync
+      description: Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachmentManifestRequest'
+      responses:
+        '200':
+          description: Attachment manifest with changes since specified version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentManifestResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /attachments/{attachment_id}:
+    put:
+      operationId: uploadAttachment
+      summary: Upload a new attachment with specified ID
+      security:
+        - bearerAuth: [read-write]
+      parameters:
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "abc123.jpg"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The binary file to upload
+      responses:
+        '200':
+          description: Successful upload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+        '400':
+          description: Bad request (missing or invalid file)
+        '401':
+          description: Unauthorized
+        '409':
+          description: Conflict (attachment already exists and cannot be overwritten)
+
+    get:
+      operationId: downloadAttachment
+      summary: Download an attachment by ID
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "abc123.jpg"
+      responses:
+        '200':
+          description: The binary attachment content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '404':
+          description: Attachment not found
+
+    head:
+      operationId: checkAttachmentExists
+      summary: Check if an attachment exists
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "abc123.jpg"
+      responses:
+        '200':
+          description: Attachment exists
+        '401':
+          description: Unauthorized
+        '404':
+          description: Attachment not found
+
+  /dataexport/parquet:
+    get:
+      summary: Download a ZIP archive of Parquet exports
+      description: >
+        Returns a ZIP file containing multiple Parquet files,
+        each representing a flattened export of observations per form type.
+        Supports downloading the entire dataset as separate Parquet files bundled together.
+      operationId: getParquetExportZip
+      tags:
+        - DataExport
+      responses:
+        '200':
+          description: ZIP archive stream containing Parquet files
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: [read-only, read-write]
+
+components:
+  schemas:
+    SystemVersionInfo:
+      type: object
+      properties:
+        server:
+          $ref: '#/components/schemas/ServerInfo'
+        database:
+          $ref: '#/components/schemas/DatabaseInfo'
+        system:
+          $ref: '#/components/schemas/SystemInfo'
+        build:
+          $ref: '#/components/schemas/BuildInfo'
+    ServerInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          example: "1.0.0"
+    DatabaseInfo:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "PostgreSQL"
+        version:
+          type: string
+          example: "15.3"
+        database_name:
+          type: string
+          example: "synkronus_db"
+    SystemInfo:
+      type: object
+      properties:
+        os:
+          type: string
+          example: "linux"
+        architecture:
+          type: string
+          example: "amd64"
+        cpus:
+          type: integer
+          example: 4
+    BuildInfo:
+      type: object
+      properties:
+        commit:
+          type: string
+          example: "a1b2c3d4e5f6"
+        build_time:
+          type: string
+          example: "2023-01-01T12:00:00Z"
+        go_version:
+          type: string
+          example: "go1.20.1"
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Failed to get version information"
+    ChangeLog:
+      type: object
+      properties:
+        compare_version_a:
+          type: string
+        compare_version_b:
+          type: string
+        form_changes:
+          type: boolean
+        ui_changes:
+          type: boolean
+        new_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormDiff'
+        removed_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormDiff'
+        modified_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormModification'
+    FormDiff:
+      type: object
+      properties:
+        form:
+          type: string
+    FieldChange:
+      type: object
+      properties:
+        field:
+          type: string
+        type:
+          type: string
+    FormModification:
+      type: object
+      properties:
+        form:
+          type: string
+        schema_changed:
+          type: boolean
+        ui_changed:
+          type: boolean
+        core_changed:
+          type: boolean
+        added_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldChange'
+        removed_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldChange'
+    AppBundleManifest:
+      type: object
+      required: [files, version, generatedAt, hash]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppBundleFile'
+        version:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        hash:
+          type: string
+    AppBundleFile:
+      type: object
+      required: [path, size, hash, mimeType, modTime]
+      properties:
+        path:
+          type: string
+        size:
+          type: integer
+        hash:
+          type: string
+        mimeType:
+          type: string
+        modTime:
+          type: string
+          format: date-time
+    AppBundleVersions:
+      type: object
+      required: [versions]
+      properties:
+        versions:
+          type: array
+          items:
+            type: string
+    AppBundleChangeLog:
+      type: object
+      required: [compare_version_a, compare_version_b, form_changes, ui_changes]
+      properties:
+        compare_version_a:
+          type: string
+        compare_version_b:
+          type: string
+        form_changes:
+          type: boolean
+        ui_changes:
+          type: boolean
+        new_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormDiff'
+        removed_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormDiff'
+        modified_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormModification'
+    AppBundlePushResponse:
+      type: object
+      required: [message, manifest]
+      properties:
+        message:
+          type: string
+        manifest:
+          $ref: '#/components/schemas/AppBundleManifest'
+    AuthResponse:
+      type: object
+      required: [token, refreshToken, expiresAt]
+      properties:
+        token:
+          type: string
+        refreshToken:
+          type: string
+        expiresAt:
+          type: integer
+          format: int64
+    UserResponse:    
+      type: object
+      required: [username, role, createdAt]
+      properties:
+        username:
+          type: string
+        role:
+          type: string
+          enum: [read-only, read-write, admin]
+        createdAt:
+          type: string
+          format: date-time
+
+    SyncPullRequest:
+      type: object
+      required: [client_id]
+      properties:
+        client_id:
+          type: string
+        since:
+          type: object
+          description: Optional pagination cursor indicating the last seen change
+          properties:
+            version:
+              type: integer
+            id:
+              type: string
+        schema_types:
+          type: array
+          items:
+            type: string
+
+    SyncPullResponse:
+      type: object
+      required: [current_version, records, change_cutoff]
+      properties:
+        current_version:
+          type: integer
+          description: Current database version number that increments with each update
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/Observation'
+        change_cutoff:
+          type: integer
+          description: Version number of the last change included in this response. Use this as the next 'since.version' for pagination.
+        has_more:
+          type: boolean
+          description: Indicates if there are more records available beyond this response
+        sync_format_version:
+          type: string
+          example: "1.0"
+
+    SyncPushRequest:
+      type: object
+      required: [transmission_id, client_id, records]
+      properties:
+        transmission_id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/Observation'
+
+    SyncPushResponse:
+      type: object
+      required: [current_version, success_count]
+      properties:
+        current_version:
+          type: integer
+          description: Current database version number after processing the push
+        success_count:
+          type: integer
+        failed_records:
+          type: array
+          items:
+            type: object
+        warnings:
+          type: array
+          items:
+            type: object
+            required: [id, code, message]
+            properties:
+              id:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+
+    Observation:
+      type: object
+      required:
+        - observation_id
+        - form_type
+        - form_version
+        - data
+        - created_at
+        - updated_at
+        - deleted
+      properties:
+        observation_id:
+          type: string
+        form_type:
+          type: string
+        form_version:
+          type: string
+        data:
+          type: object
+          description: Arbitrary JSON object containing form data
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        synced_at:
+          type: string
+          format: date-time
+          nullable: true
+        deleted:
+          type: boolean
+        geolocation:
+          type: object
+          nullable: true
+          description: Optional geolocation data for the observation
+          properties:
+            latitude:
+              type: number
+              format: double
+              minimum: -90
+              maximum: 90
+              description: Latitude in decimal degrees
+            longitude:
+              type: number
+              format: double
+              minimum: -180
+              maximum: 180
+              description: Longitude in decimal degrees
+            accuracy:
+              type: number
+              format: double
+              minimum: 0
+              description: Horizontal accuracy in meters
+            altitude:
+              type: number
+              format: double
+              nullable: true
+              description: Elevation in meters above sea level
+            altitude_accuracy:
+              type: number
+              format: double
+              nullable: true
+              minimum: 0
+              description: Vertical accuracy in meters
+
+
+    ProblemDetail:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    AttachmentManifestRequest:
+      type: object
+      required: [client_id, since_version]
+      properties:
+        client_id:
+          type: string
+          description: Unique identifier for the client requesting the manifest
+          example: "mobile-app-123"
+        since_version:
+          type: integer
+          description: Data version number from which to get attachment changes (0 for all attachments)
+          example: 42
+          minimum: 0
+
+    AttachmentManifestResponse:
+      type: object
+      required: [current_version, operations]
+      properties:
+        current_version:
+          type: integer
+          description: Current database version number
+          example: 45
+        operations:
+          type: array
+          description: List of attachment operations to perform
+          items:
+            $ref: '#/components/schemas/AttachmentOperation'
+        total_download_size:
+          type: integer
+          description: Total size in bytes of all attachments to download
+          example: 1048576
+        operation_count:
+          type: object
+          description: Count of operations by type
+          properties:
+            download:
+              type: integer
+              example: 3
+            delete:
+              type: integer
+              example: 1
+
+    AttachmentOperation:
+      type: object
+      required: [operation, attachment_id]
+      properties:
+        operation:
+          type: string
+          enum: [download, delete]
+          description: Operation to perform on the attachment
+        attachment_id:
+          type: string
+          description: Unique identifier for the attachment
+          example: "abc123-def4-5678-9012-345678901234.jpg"
+        download_url:
+          type: string
+          format: uri
+          description: URL to download the attachment (only present for download operations)
+          example: "https://api.example.com/attachments/abc123-def4-5678-9012-345678901234.jpg"
+        size:
+          type: integer
+          description: Size of the attachment in bytes (only present for download operations)
+          example: 524288
+        content_type:
+          type: string
+          description: MIME type of the attachment (only present for download operations)
+          example: "image/jpeg"
+        version:
+          type: integer
+          description: Version when this attachment was created/modified/deleted
+          example: 43
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Forbidden:
+      description: Forbidden - Admin role required
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'JWT token obtained from /auth/login'

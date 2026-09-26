@@ -1,0 +1,100 @@
+.cardLink {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: transform var(--ode-duration-fast) var(--ode-easing-ease-out), box-shadow var(--ode-duration-fast) var(--ode-easing-ease-out);
+}
+
+.cardLink:hover {
+  text-decoration: none;
+  color: inherit;
+  transform: translateY(calc(var(--ode-spacing-0_5) * -1));
+}
+
+.cardLink:focus {
+  outline: var(--ode-border-width-medium) solid var(--ifm-color-primary);
+  outline-offset: var(--ode-spacing-1);
+  border-radius: var(--ode-border-radius-md);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--ode-spacing-6);
+  background: var(--ifm-card-background-color);
+  border: var(--ode-border-width-thin) solid var(--ifm-color-emphasis-200);
+  border-radius: var(--ode-border-radius-md);
+  height: 100%;
+  transition: border-color var(--ode-duration-fast) var(--ode-easing-ease-out), box-shadow var(--ode-duration-fast) var(--ode-easing-ease-out);
+  box-shadow: var(--ode-shadow-xs);
+}
+
+.cardLink:hover .card {
+  border-color: var(--ifm-color-primary);
+  box-shadow: var(--ode-shadow-md);
+}
+
+[data-theme='dark'] .card {
+  background: var(--ifm-background-surface-color);
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+[data-theme='dark'] .cardLink:hover .card {
+  border-color: var(--ifm-color-primary);
+  box-shadow: var(--ode-shadow-lg);
+}
+
+.cardIcon {
+  margin-bottom: var(--ode-spacing-4);
+  display: flex;
+  align-items: center;
+}
+
+.icon {
+  font-size: 2rem;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.cardContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardTitle {
+  font-size: var(--ode-font-size-xl);
+  font-weight: var(--ode-font-weight-semibold);
+  margin: var(--ode-spacing-0) var(--ode-spacing-0) var(--ode-spacing-2) var(--ode-spacing-0);
+  color: var(--ifm-heading-color);
+  line-height: var(--ode-line-height-tight);
+}
+
+.cardSubtitle {
+  font-size: var(--ode-font-size-sm);
+  color: var(--ifm-color-content-secondary);
+  margin: var(--ode-spacing-0) var(--ode-spacing-0) var(--ode-spacing-3) var(--ode-spacing-0);
+  line-height: var(--ode-line-height-normal);
+}
+
+.cardDescription {
+  font-size: var(--ode-font-size-sm);
+  color: var(--ifm-color-content);
+  line-height: var(--ode-line-height-relaxed);
+  margin-top: auto;
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: var(--ode-spacing-5);
+  }
+
+  .cardTitle {
+    font-size: var(--ode-font-size-lg);
+  }
+
+  .cardSubtitle {
+    font-size: var(--ode-font-size-sm);
+  }
+}
+
