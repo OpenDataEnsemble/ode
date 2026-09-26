@@ -7,6 +7,7 @@
 [![Formulus Android](https://github.com/OpenDataEnsemble/ode/actions/workflows/formulus-android.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/formulus-android.yml)
 [![ODE Desktop](https://github.com/OpenDataEnsemble/ode/actions/workflows/ode-desktop.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/ode-desktop.yml)
 [![E2E attachments](https://github.com/OpenDataEnsemble/ode/actions/workflows/e2e-attachments.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/e2e-attachments.yml)
+[![Docs](https://github.com/OpenDataEnsemble/ode/actions/workflows/docs.yml/badge.svg?branch=dev)](https://github.com/OpenDataEnsemble/ode/actions/workflows/docs.yml)
 
 <!-- Release & distribution -->
 [![Latest release](https://img.shields.io/github/v/release/OpenDataEnsemble/ode?include_prereleases&sort=semver)](https://github.com/OpenDataEnsemble/ode/releases)
@@ -26,7 +27,7 @@ ODE is a monorepo containing all the core components in the ODE universe - the e
 
 ## Architecture
 
-This repository houses four main components:
+This repository houses the core components plus the public documentation site:
 
 ### **formulus**
 A React Native project containing the code for Android and iOS apps. This is your mobile data collection companion, designed for field work and offline-first data gathering.
@@ -57,6 +58,9 @@ curl -fsSL https://raw.githubusercontent.com/OpenDataEnsemble/ode/main/scripts/i
 
 ### **synkronus-portal**
 A web-based version of the the **synkronus-cli**
+
+### **docs**
+The public documentation site (Docusaurus), published at [opendataensemble.org](https://opendataensemble.org/). It is an independent npm project inside this monorepo — see [docs/README.md](docs/README.md).
 
 ## We're Young & Fresh! 🌱🌱🌱
 
@@ -89,6 +93,7 @@ This monorepo uses GitHub Actions for CI/CD. For details (trigger conditions, ta
 
 - Synkronus Docker build & publish: `.github/workflows/synkronus-docker.yml`
 - Formulus Android build (includes Formplayer asset build): `.github/workflows/formulus-android.yml`
+- Documentation site: `.github/workflows/docs.yml` (validates PRs; deploys from `dev`)
 - Synkronus deployment docs: `synkronus/DOCKER.md`, `synkronus/DEPLOYMENT.md`
 
 ## Code Quality: Linting & Formatting 
