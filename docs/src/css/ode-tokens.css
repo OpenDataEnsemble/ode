@@ -1,0 +1,277 @@
+/**
+ * ODE Design System Tokens for Docusaurus Documentation Site
+ * 
+ * This file contains CSS custom properties (tokens) based on the
+ * ODE Design System specification. These tokens provide a unified
+ * design language across the documentation site.
+ * 
+ * Usage: var(--ode-color-brand-primary-500)
+ */
+
+:root {
+  /* ============================================
+     BRAND COLORS - Primary (Green)
+     ============================================ */
+  --ode-color-brand-primary-50: #F0F7EF;
+  --ode-color-brand-primary-100: #D9E9D8;
+  --ode-color-brand-primary-200: #B9D5B8;
+  --ode-color-brand-primary-300: #90BD8F;
+  --ode-color-brand-primary-400: #6FA46E;
+  --ode-color-brand-primary-500: #4F7F4E; /* ★ PRIMARY BRAND */
+  --ode-color-brand-primary-600: #3F6A3E;
+  --ode-color-brand-primary-700: #30552F;
+  --ode-color-brand-primary-800: #224021;
+  --ode-color-brand-primary-900: #173016;
+
+  /* ============================================
+     BRAND COLORS - Secondary (Gold)
+     ============================================ */
+  --ode-color-brand-secondary-50: #FEF9EE;
+  --ode-color-brand-secondary-100: #FCEFD2;
+  --ode-color-brand-secondary-200: #F9E0A8;
+  --ode-color-brand-secondary-300: #F5CC75;
+  --ode-color-brand-secondary-400: #F0B84D;
+  --ode-color-brand-secondary-500: #E9B85B; /* ★ SECONDARY BRAND */
+  --ode-color-brand-secondary-600: #D9A230;
+  --ode-color-brand-secondary-700: #B8861C;
+  --ode-color-brand-secondary-800: #976D1A;
+  --ode-color-brand-secondary-900: #7C5818;
+
+  /* ============================================
+     SEMANTIC COLORS - Success
+     ============================================ */
+  --ode-color-semantic-success-50: #F0F9F0;
+  --ode-color-semantic-success-500: #34C759;
+  --ode-color-semantic-success-600: #2E7D32;
+
+  /* ============================================
+     SEMANTIC COLORS - Error
+     ============================================ */
+  --ode-color-semantic-error-50: #FEF2F2;
+  --ode-color-semantic-error-500: #F44336;
+  --ode-color-semantic-error-600: #DC2626;
+
+  /* ============================================
+     SEMANTIC COLORS - Warning
+     ============================================ */
+  --ode-color-semantic-warning-50: #FFFBEB;
+  --ode-color-semantic-warning-500: #FF9500;
+  --ode-color-semantic-warning-600: #D97706;
+
+  /* ============================================
+     SEMANTIC COLORS - Info
+     ============================================ */
+  --ode-color-semantic-info-50: #EFF6FF;
+  --ode-color-semantic-info-500: #2196F3;
+  --ode-color-semantic-info-600: #2563EB;
+
+  /* ============================================
+     NEUTRAL COLORS
+     ============================================ */
+  --ode-color-neutral-white: #FFFFFF;
+  --ode-color-neutral-50: #FAFAFA;
+  --ode-color-neutral-100: #F5F5F5;
+  --ode-color-neutral-200: #EEEEEE;
+  --ode-color-neutral-300: #E0E0E0;
+  --ode-color-neutral-400: #BDBDBD;
+  --ode-color-neutral-500: #9E9E9E;
+  --ode-color-neutral-600: #757575;
+  --ode-color-neutral-700: #616161;
+  --ode-color-neutral-800: #424242;
+  --ode-color-neutral-900: #212121;
+  --ode-color-neutral-black: #000000;
+
+  /* ============================================
+     SPACING SCALE (4px base unit)
+     ============================================ */
+  --ode-spacing-0: 0;
+  --ode-spacing-1: 0.25rem;  /* 4px */
+  --ode-spacing-2: 0.5rem;   /* 8px */
+  --ode-spacing-3: 0.75rem;  /* 12px */
+  --ode-spacing-4: 1rem;     /* 16px ★ DEFAULT */
+  --ode-spacing-5: 1.25rem;  /* 20px */
+  --ode-spacing-6: 1.5rem;   /* 24px */
+  --ode-spacing-8: 2rem;     /* 32px */
+  --ode-spacing-10: 2.5rem;  /* 40px */
+  --ode-spacing-12: 3rem;    /* 48px */
+  --ode-spacing-16: 4rem;    /* 64px */
+  --ode-spacing-20: 5rem;    /* 80px */
+  --ode-spacing-24: 6rem;    /* 96px */
+  
+  /* Additional spacing for common use cases */
+  --ode-spacing-0_5: 0.125rem; /* 2px */
+  --ode-spacing-2_5: 0.625rem; /* 10px */
+
+  /* ============================================
+     TYPOGRAPHY - Font Families
+     ============================================ */
+  --ode-font-family-sans: 'Josefin Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --ode-font-family-mono: 'Courier New', Consolas, monospace;
+  --ode-font-family-display: 'Josefin Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* ============================================
+     TYPOGRAPHY - Font Sizes
+     ============================================ */
+  --ode-font-size-xs: 0.75rem;    /* 12px */
+  --ode-font-size-sm: 0.875rem;   /* 14px */
+  --ode-font-size-base: 1rem;     /* 16px ★ DEFAULT */
+  --ode-font-size-lg: 1.125rem;   /* 18px */
+  --ode-font-size-xl: 1.25rem;    /* 20px */
+  --ode-font-size-2xl: 1.5rem;    /* 24px */
+  --ode-font-size-3xl: 2rem;      /* 32px */
+  --ode-font-size-4xl: 2.5rem;    /* 40px */
+  --ode-font-size-5xl: 3rem;      /* 48px */
+  --ode-font-size-6xl: 3.75rem;   /* 60px */
+
+  /* ============================================
+     TYPOGRAPHY - Font Weights
+     ============================================ */
+  --ode-font-weight-light: 300;
+  --ode-font-weight-regular: 400;  /* ★ DEFAULT */
+  --ode-font-weight-medium: 500;
+  --ode-font-weight-semibold: 600;
+  --ode-font-weight-bold: 700;
+
+  /* ============================================
+     TYPOGRAPHY - Font Weights by Element Type
+     ============================================ */
+  --ode-font-weight-body: var(--ode-font-weight-light);        /* 300 - Body text */
+  --ode-font-weight-heading-primary: var(--ode-font-weight-semibold);  /* 600 - h1, h2, h3 */
+  --ode-font-weight-heading-secondary: var(--ode-font-weight-medium);  /* 500 - h4, h5, h6 */
+  --ode-font-weight-button: var(--ode-font-weight-regular);   /* 400 - Buttons */
+  --ode-font-weight-link: var(--ode-font-weight-light);      /* 300 - Links */
+
+  /* ============================================
+     TYPOGRAPHY - Line Heights
+     ============================================ */
+  --ode-line-height-none: 1;
+  --ode-line-height-tight: 1.25;
+  --ode-line-height-normal: 1.5;   /* ★ DEFAULT */
+  --ode-line-height-relaxed: 1.75;
+  --ode-line-height-loose: 2;
+
+  /* ============================================
+     BORDERS - Radius
+     ============================================ */
+  --ode-border-radius-none: 0;
+  --ode-border-radius-sm: 0.25rem;   /* 4px */
+  --ode-border-radius-md: 0.5rem;    /* 8px ★ DEFAULT */
+  --ode-border-radius-lg: 0.75rem;   /* 12px */
+  --ode-border-radius-xl: 1rem;      /* 16px */
+  --ode-border-radius-full: 9999px;  /* Pills, circles */
+
+  /* ============================================
+     BORDERS - Width
+     ============================================ */
+  --ode-border-width-none: 0;
+  --ode-border-width-hairline: 0.5px;
+  --ode-border-width-thin: 1px;      /* ★ DEFAULT */
+  --ode-border-width-medium: 2px;
+  --ode-border-width-thick: 3px;
+
+  /* ============================================
+     SHADOWS
+     ============================================ */
+  --ode-shadow-none: none;
+  --ode-shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --ode-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  --ode-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --ode-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --ode-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --ode-shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  /* ============================================
+     MOTION - Duration
+     ============================================ */
+  --ode-duration-instant: 0ms;
+  --ode-duration-fast: 150ms;
+  --ode-duration-normal: 250ms;      /* ★ DEFAULT */
+  --ode-duration-slow: 350ms;
+  --ode-duration-slower: 500ms;
+
+  /* ============================================
+     MOTION - Easing
+     ============================================ */
+  --ode-easing-linear: linear;
+  --ode-easing-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ode-easing-ease-out: cubic-bezier(0, 0, 0.2, 1);  /* ★ DEFAULT */
+  --ode-easing-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ============================================
+     LAYOUT - Breakpoints
+     ============================================ */
+  --ode-breakpoint-sm: 640px;
+  --ode-breakpoint-md: 768px;
+  --ode-breakpoint-lg: 1024px;
+  --ode-breakpoint-xl: 1280px;
+  --ode-breakpoint-2xl: 1536px;
+
+  /* ============================================
+     LAYOUT - Container Max Widths
+     ============================================ */
+  --ode-container-sm: 640px;
+  --ode-container-md: 768px;
+  --ode-container-lg: 1024px;
+  --ode-container-xl: 1280px;
+  --ode-container-2xl: 1536px;
+
+  /* ============================================
+     OPACITY
+     ============================================ */
+  --ode-opacity-0: 0;
+  --ode-opacity-10: 0.1;
+  --ode-opacity-20: 0.2;
+  --ode-opacity-30: 0.3;
+  --ode-opacity-40: 0.4;
+  --ode-opacity-50: 0.5;
+  --ode-opacity-60: 0.6;
+  --ode-opacity-70: 0.7;
+  --ode-opacity-80: 0.8;
+  --ode-opacity-90: 0.9;
+  --ode-opacity-100: 1;
+}
+
+/* ============================================
+   DARK MODE OVERRIDES
+   ============================================ */
+[data-theme='dark'] {
+  /* Background colors for dark mode */
+  --ode-color-background-primary: #1A1A1A;
+  --ode-color-background-secondary: #2D2D2D;
+  
+  /* Text colors for dark mode */
+  --ode-color-text-primary: #FFFFFF;
+  --ode-color-text-secondary: #BDBDBD;
+  
+  /* Border colors for dark mode */
+  --ode-color-border-default: #424242;
+  --ode-color-border-light: rgba(255, 255, 255, 0.1);
+  --ode-color-border-medium: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================
+   DOCUSAURUS THEME INTEGRATION
+   Map ODE tokens to Docusaurus theme variables
+   ============================================ */
+:root {
+  /* Primary colors mapped to Docusaurus */
+  --ifm-color-primary: var(--ode-color-brand-primary-500);
+  --ifm-color-primary-dark: var(--ode-color-brand-primary-600);
+  --ifm-color-primary-darker: var(--ode-color-brand-primary-700);
+  --ifm-color-primary-darkest: var(--ode-color-brand-primary-800);
+  --ifm-color-primary-light: var(--ode-color-brand-primary-400);
+  --ifm-color-primary-lighter: var(--ode-color-brand-primary-300);
+  --ifm-color-primary-lightest: var(--ode-color-brand-primary-200);
+}
+
+[data-theme='dark'] {
+  /* Dark mode primary colors */
+  --ifm-color-primary: var(--ode-color-brand-primary-400);
+  --ifm-color-primary-dark: var(--ode-color-brand-primary-500);
+  --ifm-color-primary-darker: var(--ode-color-brand-primary-600);
+  --ifm-color-primary-darkest: var(--ode-color-brand-primary-700);
+  --ifm-color-primary-light: var(--ode-color-brand-primary-300);
+  --ifm-color-primary-lighter: var(--ode-color-brand-primary-200);
+  --ifm-color-primary-lightest: var(--ode-color-brand-primary-100);
+}
+
