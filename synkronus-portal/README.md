@@ -68,7 +68,7 @@ Before starting, ensure you have:
 
 5. **Login with:** `admin` / `admin`
 
-That's it! 🎉
+That's it!
 
 ### Option 2: Development Mode (Dockerless - No Docker Required)
 

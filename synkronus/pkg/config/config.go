@@ -5,12 +5,29 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // Config holds all configuration for the application
+const (
+	DefaultMaxAttachmentUploadBytes       int64 = 128 << 20
+	DefaultMaxConcurrentAttachmentUploads       = 4
+	DefaultMaxConcurrentImageProcessing         = 2
+	DefaultMaxDecodedImageDimensionPx           = 16384
+	DefaultMaxDecodedImagePixels          int64 = 40_000_000
+	DefaultAuthMaxBodyBytes               int64 = 16 << 10
+	DefaultAuthIPAttempts                       = 60
+	DefaultAuthIPWindowSeconds                  = 60
+	DefaultAuthLoginAttempts                    = 10
+	DefaultAuthLoginWindowSeconds               = 300
+	DefaultAuthAccountAttempts                  = 100
+	DefaultAuthAccountWindowSeconds             = 900
+	DefaultAuthLimiterMaxKeys                   = 10_000
+)
+
 type Config struct {
 	// Server settings
 	Port string
@@ -19,7 +36,16 @@ type Config struct {
 	DatabaseURL string
 
 	// Authentication
-	JWTSecret string
+	JWTSecret                string
+	AuthMaxBodyBytes         int64
+	AuthIPAttempts           int
+	AuthIPWindowSeconds      int
+	AuthLoginAttempts        int
+	AuthLoginWindowSeconds   int
+	AuthAccountAttempts      int
+	AuthAccountWindowSeconds int
+	AuthLimiterMaxKeys       int
+	AuthTrustedProxyCIDRs    []string
 
 	// Logging
 	LogLevel string
@@ -32,11 +58,16 @@ type Config struct {
 	AppBundleVersionsPath string
 	MaxVersionsKept       int
 
-	// Attachment image processing (all optional).
-	ImageCompressionLevel     int  // 0..10; 0 disables compression
-	ImageMaxWidthPx           int  // 0 disables width limit
-	ImageMaxHeightPx          int  // 0 disables height limit
-	ImageApplyExifOrientation bool // true enables EXIF orientation normalization
+	// Attachment upload and image-processing limits.
+	MaxAttachmentUploadBytes       int64
+	MaxConcurrentAttachmentUploads int
+	MaxConcurrentImageProcessing   int
+	MaxDecodedImageDimensionPx     int
+	MaxDecodedImagePixels          int64
+	ImageCompressionLevel          int  // 0..10; 0 disables compression
+	ImageMaxWidthPx                int  // 0 disables width limit
+	ImageMaxHeightPx               int  // 0 disables height limit
+	ImageApplyExifOrientation      bool // true enables EXIF orientation normalization
 
 	// Internal tracking
 	Source string // Source of the configuration (env, .env file path, etc.)
@@ -148,25 +179,54 @@ func Load(log *logger.Logger) (*Config, error) {
 	appBundlePath := filepath.Join(dataDir, "app-bundle", "active")
 	appBundleVersionsPath := filepath.Join(dataDir, "app-bundle", "versions")
 
+	authMaxBodyBytes := getEnvPositiveInt64WithWarnings(log, "SYNKRONUS_AUTH_MAX_BODY_BYTES", DefaultAuthMaxBodyBytes)
+	authIPAttempts := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_AUTH_IP_ATTEMPTS", DefaultAuthIPAttempts)
+	authIPWindowSeconds := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_AUTH_IP_WINDOW_SECONDS", DefaultAuthIPWindowSeconds)
+	authLoginAttempts := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_AUTH_LOGIN_ATTEMPTS", DefaultAuthLoginAttempts)
+	authLoginWindowSeconds := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_AUTH_LOGIN_WINDOW_SECONDS", DefaultAuthLoginWindowSeconds)
+	authAccountAttempts := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_AUTH_ACCOUNT_ATTEMPTS", DefaultAuthAccountAttempts)
+	authAccountWindowSeconds := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_AUTH_ACCOUNT_WINDOW_SECONDS", DefaultAuthAccountWindowSeconds)
+	authLimiterMaxKeys := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_AUTH_LIMITER_MAX_KEYS", DefaultAuthLimiterMaxKeys)
+	authTrustedProxyCIDRs := splitCommaSeparated(getEnvOrDefault("SYNKRONUS_AUTH_TRUSTED_PROXY_CIDRS", ""))
+
+	maxAttachmentUploadBytes := getEnvPositiveInt64WithWarnings(log, "SYNKRONUS_MAX_ATTACHMENT_UPLOAD_BYTES", DefaultMaxAttachmentUploadBytes)
+	maxConcurrentAttachmentUploads := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_MAX_CONCURRENT_ATTACHMENT_UPLOADS", DefaultMaxConcurrentAttachmentUploads)
+	maxConcurrentImageProcessing := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_MAX_CONCURRENT_IMAGE_PROCESSING", DefaultMaxConcurrentImageProcessing)
+	maxDecodedImageDimensionPx := getEnvPositiveIntWithWarnings(log, "SYNKRONUS_MAX_DECODED_IMAGE_DIMENSION_PX", DefaultMaxDecodedImageDimensionPx)
+	maxDecodedImagePixels := getEnvPositiveInt64WithWarnings(log, "SYNKRONUS_MAX_DECODED_IMAGE_PIXELS", DefaultMaxDecodedImagePixels)
 	imageCompressionLevel := getEnvClampedIntWithWarnings(log, "SYNKRONUS_IMAGE_COMPRESSION_LEVEL", 0, 0, 10)
 	imageMaxWidthPx := getEnvNonNegativeIntWithWarnings(log, "SYNKRONUS_IMAGE_MAX_WIDTH_PX", 0)
 	imageMaxHeightPx := getEnvNonNegativeIntWithWarnings(log, "SYNKRONUS_IMAGE_MAX_HEIGHT_PX", 0)
 	imageApplyExifOrientation := getEnvBoolWithWarnings(log, "SYNKRONUS_IMAGE_APPLY_EXIF_ORIENTATION", true)
 
 	return &Config{
-		Port:                      getEnvOrDefault("PORT", "8080"),
-		DatabaseURL:               getEnvOrDefault("DB_CONNECTION", "postgres://user:password@localhost:5432/synkronus"),
-		JWTSecret:                 getEnvOrDefault("JWT_SECRET", ""),
-		LogLevel:                  getEnvOrDefault("LOG_LEVEL", "info"),
-		DataDir:                   dataDir,
-		AppBundlePath:             appBundlePath,
-		AppBundleVersionsPath:     appBundleVersionsPath,
-		MaxVersionsKept:           getEnvIntOrDefault("MAX_VERSIONS_KEPT", 5),
-		ImageCompressionLevel:     imageCompressionLevel,
-		ImageMaxWidthPx:           imageMaxWidthPx,
-		ImageMaxHeightPx:          imageMaxHeightPx,
-		ImageApplyExifOrientation: imageApplyExifOrientation,
-		Source:                    configSource,
+		Port:                           getEnvOrDefault("PORT", "8080"),
+		DatabaseURL:                    getEnvOrDefault("DB_CONNECTION", "postgres://user:password@localhost:5432/synkronus"),
+		JWTSecret:                      getEnvOrDefault("JWT_SECRET", ""),
+		AuthMaxBodyBytes:               authMaxBodyBytes,
+		AuthIPAttempts:                 authIPAttempts,
+		AuthIPWindowSeconds:            authIPWindowSeconds,
+		AuthLoginAttempts:              authLoginAttempts,
+		AuthLoginWindowSeconds:         authLoginWindowSeconds,
+		AuthAccountAttempts:            authAccountAttempts,
+		AuthAccountWindowSeconds:       authAccountWindowSeconds,
+		AuthLimiterMaxKeys:             authLimiterMaxKeys,
+		AuthTrustedProxyCIDRs:          authTrustedProxyCIDRs,
+		LogLevel:                       getEnvOrDefault("LOG_LEVEL", "info"),
+		DataDir:                        dataDir,
+		AppBundlePath:                  appBundlePath,
+		AppBundleVersionsPath:          appBundleVersionsPath,
+		MaxVersionsKept:                getEnvIntOrDefault("MAX_VERSIONS_KEPT", 5),
+		MaxAttachmentUploadBytes:       maxAttachmentUploadBytes,
+		MaxConcurrentAttachmentUploads: maxConcurrentAttachmentUploads,
+		MaxConcurrentImageProcessing:   maxConcurrentImageProcessing,
+		MaxDecodedImageDimensionPx:     maxDecodedImageDimensionPx,
+		MaxDecodedImagePixels:          maxDecodedImagePixels,
+		ImageCompressionLevel:          imageCompressionLevel,
+		ImageMaxWidthPx:                imageMaxWidthPx,
+		ImageMaxHeightPx:               imageMaxHeightPx,
+		ImageApplyExifOrientation:      imageApplyExifOrientation,
+		Source:                         configSource,
 	}, nil
 }
 
@@ -211,6 +271,46 @@ func getEnvClampedIntWithWarnings(log *logger.Logger, key string, defaultValue, 
 			log.Warn("Environment variable above maximum, clamping", "key", key, "value", intValue, "max", maxValue)
 		}
 		return maxValue
+	}
+	return intValue
+}
+
+func splitCommaSeparated(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func getEnvPositiveIntWithWarnings(log *logger.Logger, key string, defaultValue int) int {
+	value := getEnvPositiveInt64WithWarnings(log, key, int64(defaultValue))
+	if value > int64(^uint(0)>>1) {
+		if log != nil {
+			log.Warn("Integer environment variable is too large, using default", "key", key, "value", value, "default", defaultValue)
+		}
+		return defaultValue
+	}
+	return int(value)
+}
+
+func getEnvPositiveInt64WithWarnings(log *logger.Logger, key string, defaultValue int64) int64 {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return defaultValue
+	}
+	intValue, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || intValue <= 0 {
+		if log != nil {
+			log.Warn("Environment variable must be a positive integer, using default", "key", key, "value", value, "default", defaultValue)
+		}
+		return defaultValue
 	}
 	return intValue
 }

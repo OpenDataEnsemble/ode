@@ -933,6 +933,8 @@ No authorization required
 |**200** | Authentication successful |  -  |
 |**400** | Bad request |  -  |
 |**401** | Authentication failed |  -  |
+|**413** | Authentication request exceeds the configured size limit |  -  |
+|**429** | Too many authentication attempts |  * Retry-After - Seconds until the client should retry <br>  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -1047,6 +1049,8 @@ No authorization required
 |**200** | Token refresh successful |  -  |
 |**400** | Bad request |  -  |
 |**401** | Invalid or expired refresh token |  -  |
+|**413** | Authentication request exceeds the configured size limit |  -  |
+|**429** | Too many authentication attempts |  * Retry-After - Seconds until the client should retry <br>  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -1353,6 +1357,8 @@ const { status, data } = await apiInstance.uploadAttachment(
 |**200** | Successful upload |  -  |
 |**400** | Bad request (missing or invalid file) |  -  |
 |**401** | Unauthorized |  -  |
+|**403** | Authenticated account does not have write access |  -  |
+|**413** | Attachment or multipart request exceeds the configured upload limit |  -  |
 |**409** | Conflict — attachment already exists, or repository_generation mismatch (epoch; align before upload) |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

@@ -174,7 +174,7 @@ Dynamic Choice Lists enable:
 
 ## Real-World Examples
 
-### 📍 Location Selection (Static Filters)
+### Location Selection (Static Filters)
 
 ```json
 {
@@ -209,7 +209,7 @@ Dynamic Choice Lists enable:
 
 **Note:** Template parameters (`{{data.field}}`) are not supported. Use static filter values.
 
-### 👥 Select Person (ODK-X Pattern)
+### Select Person (ODK-X Pattern)
 
 **Basic - All Persons:**
 ```json
@@ -292,7 +292,7 @@ Dynamic Choice Lists enable:
 }
 ```
 
-### 🏆 Ranking Survey
+### Ranking Survey
 
 ```json
 {
@@ -329,7 +329,7 @@ Dynamic Choice Lists enable:
 
 **Note:** Template parameters are not supported. Use static filters only.
 
-### 👨‍👩‍👧‍👦 Kinship Survey
+### Kinship Survey
 
 ```json
 {
@@ -368,7 +368,7 @@ Dynamic Choice Lists enable:
 }
 ```
 
-### 🔢 Age-Based Filtering
+### Age-Based Filtering
 
 **Adults Only (18+) - Using age_from_dob():**
 ```json

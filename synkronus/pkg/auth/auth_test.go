@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/internal/repository/mocks"
@@ -34,6 +35,11 @@ func setupTestService() (*Service, *mocks.MockUserRepository) {
 	service := NewService(config, mockRepo, log)
 
 	return service, mockRepo
+}
+
+func TestDummyPasswordHashIsValid(t *testing.T) {
+	_, err := bcrypt.Cost([]byte(dummyPasswordHash))
+	require.NoError(t, err)
 }
 
 func TestAuthenticate(t *testing.T) {
@@ -127,6 +133,11 @@ func TestRefreshToken(t *testing.T) {
 	err := mockRepo.Create(ctx, user)
 	require.NoError(t, err)
 
+	accessToken, err := service.GenerateToken(user)
+	require.NoError(t, err)
+	_, _, err = service.RefreshToken(ctx, accessToken)
+	assert.Error(t, err, "an access token must never be accepted by the refresh endpoint")
+
 	// Generate a valid refresh token
 	refreshToken, err := service.GenerateRefreshToken(user)
 	require.NoError(t, err)
@@ -185,9 +196,57 @@ func TestValidateToken(t *testing.T) {
 	assert.Equal(t, user.Username, claims.Username)
 	assert.Equal(t, user.Role, claims.Role)
 	assert.Equal(t, user.ID.String(), claims.Subject)
+	assert.Equal(t, TokenUseAccess, claims.TokenUse)
+	assert.Equal(t, tokenIssuer, claims.Issuer)
+
+	refreshToken, err := service.GenerateRefreshToken(user)
+	require.NoError(t, err)
+	_, err = service.ValidateToken(refreshToken)
+	assert.Error(t, err, "a refresh token must never authorize a protected endpoint")
 
 	// Test invalid token
 	_, err = service.ValidateToken("invalid-token")
+	assert.Error(t, err)
+}
+
+func TestLegacyUntypedTokenCompatibility(t *testing.T) {
+	service, _ := setupTestService()
+	now := time.Now()
+	claims := &AuthClaims{
+		Username: "legacy-user",
+		Role:     models.RoleReadOnly,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   uuid.NewString(),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+		},
+	}
+	legacy, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(service.config.JWTSecret))
+	require.NoError(t, err)
+
+	service.config.AcceptLegacyUntypedTokens = true
+	_, err = service.ValidateToken(legacy)
+	assert.NoError(t, err)
+
+	service.config.AcceptLegacyUntypedTokens = false
+	_, err = service.ValidateToken(legacy)
+	assert.Error(t, err)
+}
+
+func TestRejectsUnexpectedHMACAlgorithm(t *testing.T) {
+	service, _ := setupTestService()
+	claims := &AuthClaims{
+		Username: "user",
+		Role:     models.RoleReadOnly,
+		TokenUse: TokenUseAccess,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    tokenIssuer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+	}
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS512, claims).SignedString([]byte(service.config.JWTSecret))
+	require.NoError(t, err)
+	_, err = service.ValidateToken(token)
 	assert.Error(t, err)
 }
 

@@ -6,6 +6,15 @@
  * never built, was emptied by a database wipe, or cannot represent the value,
  * every predicate simply matches nothing.
  */
+jest.mock(
+  '../../profiles/ProfileActivity',
+  () => ({
+    profileActivity:
+      require('../../services/testUtils/profileMocks').createProfileActivityMock(),
+  }),
+  { virtual: true },
+);
+
 const configIndexes: Array<Record<string, unknown>> = [];
 
 jest.mock('../../database/database', () => ({

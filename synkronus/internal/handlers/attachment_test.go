@@ -13,8 +13,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
+	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/logger"
+	authmw "github.com/opendataensemble/synkronus/pkg/middleware/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -28,12 +30,21 @@ func (m *mockAttachmentService) Save(ctx context.Context, attachmentID string, f
 	return args.Error(0)
 }
 
-func (m *mockAttachmentService) SaveUpload(ctx context.Context, attachmentID string, data []byte, contentType string) (attachment.SaveUploadResult, error) {
+func (m *mockAttachmentService) SaveUpload(ctx context.Context, attachmentID string, file io.Reader, contentType string) (attachment.SaveUploadResult, error) {
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return attachment.SaveUploadResult{}, err
+	}
 	args := m.Called(ctx, attachmentID, data, contentType)
 	if args.Get(0) == nil {
 		return attachment.SaveUploadResult{}, args.Error(1)
 	}
 	return args.Get(0).(attachment.SaveUploadResult), args.Error(1)
+}
+
+func (m *mockAttachmentService) RemoveUpload(ctx context.Context, attachmentID string) error {
+	args := m.Called(ctx, attachmentID)
+	return args.Error(0)
 }
 
 func (m *mockAttachmentService) Get(ctx context.Context, attachmentID string) (io.ReadCloser, error) {
@@ -150,6 +161,24 @@ func TestAttachmentHandler_UploadAttachment(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAttachmentUploadRequiresWriteRole(t *testing.T) {
+	mockSvc := &mockAttachmentService{}
+	handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, &mocks.MockAttachmentManifestService{}, mocks.NewMockSyncService())
+	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			user := &models.User{Username: "reader", Role: models.RoleReadOnly}
+			next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), authmw.UserKey, user)))
+		})
+	})
+	handler.RegisterRoutes(r, func(http.ResponseWriter, *http.Request) {})
+
+	req := httptest.NewRequest(http.MethodPut, "/attachments/file.txt", nil)
+	resp := httptest.NewRecorder()
+	r.ServeHTTP(resp, req)
+	assert.Equal(t, http.StatusForbidden, resp.Code)
 }
 
 func TestAttachmentHandler_DownloadAttachment(t *testing.T) {

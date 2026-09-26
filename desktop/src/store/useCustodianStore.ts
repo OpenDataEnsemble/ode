@@ -123,6 +123,11 @@ async function reauthenticateActiveProfile(
       set({ authSessionsByProfileId: merged });
       return;
     } catch (refreshError) {
+      // Only an invalid refresh credential should fall back to password login.
+      // Retrying immediately after 429 or a transient failure would amplify load.
+      if (!isSyncHttpUnauthorized(refreshError)) {
+        throw refreshError;
+      }
       const cred = await tauriClient.credentialGet(id);
       const password = cred.password ?? '';
       if (!password.trim()) {

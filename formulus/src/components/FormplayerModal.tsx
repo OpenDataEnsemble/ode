@@ -15,6 +15,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
@@ -50,6 +51,10 @@ import { persistObservationWithAttachments } from '../services/attachmentStorage
 import { localeSettingsService } from '../services/LocaleSettingsService';
 import { formLocaleSettingsService } from '../services/FormLocaleSettingsService';
 import { useTranslation } from 'react-i18next';
+import { getActiveProfile } from '../profiles/ProfileRuntime';
+import { profileActivity } from '../profiles/ProfileActivity';
+import { profilePaths } from '../profiles/ProfilePaths';
+import { commonAncestor } from '../utils/commonAncestor';
 
 async function buildLinkedFormSpecs(
   schema: unknown,
@@ -97,11 +102,87 @@ export interface FormplayerModalHandle {
     finalData: Record<string, unknown>;
     observationId?: string | null;
   }) => Promise<string>;
+  /** Ask the Formplayer WebView to flush a pending root draft to localStorage. */
+  flushDraft: () => void;
+  /** Resolves only after refresh and draft storage complete; rejects on error/timeout/unmount. */
+  flushDraftAsync: () => Promise<void>;
 }
 
 const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({ visible, isActive = true, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
+    const [profileId] = useState(() => getActiveProfile().id);
+    const flushSequence = useRef(0);
+    const pendingFlushes = useRef(
+      new Map<
+        string,
+        {
+          resolve: () => void;
+          reject: (error: Error) => void;
+          timer: ReturnType<typeof setTimeout>;
+        }
+      >(),
+    );
+    const handleDraftFlushed = useCallback(
+      (messageId: string, error?: string) => {
+        const pending = pendingFlushes.current.get(messageId);
+        if (!pending) return;
+        pendingFlushes.current.delete(messageId);
+        clearTimeout(pending.timer);
+        if (error) pending.reject(new Error(error));
+        else pending.resolve();
+      },
+      [],
+    );
+    const flushDraftAsync = useCallback(
+      async () =>
+        profileActivity.run(
+          'Formplayer draft flush',
+          () =>
+            new Promise<void>((resolve, reject) => {
+              if (!webViewRef.current) {
+                reject(new Error('Formplayer WebView is unavailable'));
+                return;
+              }
+              const messageId = `draft-flush-${++flushSequence.current}`;
+              const timer = setTimeout(
+                () =>
+                  handleDraftFlushed(
+                    messageId,
+                    'Formplayer draft flush timed out',
+                  ),
+                15000,
+              );
+              pendingFlushes.current.set(messageId, { resolve, reject, timer });
+              webViewRef.current.injectJavaScript(`(function() {
+        const messageId = ${JSON.stringify(messageId)};
+        Promise.resolve().then(function() {
+          if (typeof window.__formulusFlushDraft !== 'function') throw new Error('Formplayer draft flush is unavailable');
+          const result = window.__formulusFlushDraft();
+          if (!result || typeof result.then !== 'function') throw new Error('Acknowledged Formplayer draft flush is unavailable');
+          return result;
+        }).then(function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({type: '__odeDraftFlushed', messageId: messageId}));
+        }, function(error) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({type: '__odeDraftFlushed', messageId: messageId, error: String(error)}));
+        });
+      })(); true;`);
+            }),
+        ),
+      [handleDraftFlushed],
+    );
+    useEffect(() => {
+      const pending = pendingFlushes.current;
+      return () => {
+        for (const item of pending.values()) {
+          clearTimeout(item.timer);
+          item.reject(
+            new Error('Formplayer unmounted before draft flush completed'),
+          );
+        }
+        pending.clear();
+      };
+    }, []);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { showConfirm } = useConfirmModal();
     const { t } = useTranslation();
@@ -142,18 +223,46 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     const [isClosing, setIsClosing] = useState(false);
     const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Path to the formplayer dist folder in assets
+    // Formplayer is an app-owned build shared by every profile; it is never
+    // copied into a profile directory. On iOS the WebView must read both the
+    // bundle and this profile's attachments under Documents, so it is granted
+    // the common ancestor. Profiles are not a security boundary for app code.
     const formplayerUri =
       Platform.OS === 'android'
         ? 'file:///android_asset/formplayer_dist/index.html'
         : `file://${RNFS.MainBundlePath}/formplayer_dist/index.html`;
+    const formplayerReadAccessUrl =
+      Platform.OS === 'ios'
+        ? `file://${commonAncestor(RNFS.MainBundlePath, RNFS.DocumentDirectoryPath)}`
+        : undefined;
 
     // Create a debounced close handler to prevent multiple rapid close attempts
-    const performClose = useCallback(() => {
+    const performClose = useCallback(async () => {
       // Prevent multiple close attempts
       if (isClosing || isSubmitting) return;
 
       setIsClosing(true);
+      // Keep the document mounted until a root draft is durably saved. Nested
+      // sessions return data only, and successful submits must not recreate drafts.
+      if (!formSubmitted && currentFormType && !subObservationModeRef.current) {
+        try {
+          await flushDraftAsync();
+        } catch (error) {
+          console.error(
+            'Cannot close Formplayer before saving its draft:',
+            error,
+          );
+          setIsClosing(false);
+          showConfirm({
+            title: t('common.error'),
+            message: t('formplayer.saveFailed'),
+            buttons: [
+              { text: t('common.ok'), variant: 'primary', onPress: () => {} },
+            ],
+          });
+          return;
+        }
+      }
 
       // Clear any existing timeout
       if (closeTimeoutRef.current) {
@@ -195,6 +304,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       currentOperationId,
       currentFormType,
       formSubmitted,
+      flushDraftAsync,
+      showConfirm,
+      t,
     ]);
 
     const handleClose = useCallback(() => {
@@ -247,294 +359,305 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       subObservationMode: boolean = false,
       skipFinalize: boolean = false,
       skipDraftSelection: boolean = false,
-    ) => {
-      // Check if WebView is ready, if not log a warning (retry logic will handle it)
-      if (!webViewReady) {
-        console.warn(
-          '[FormplayerModal] WebView not ready yet, form init will be queued by message handler',
-        );
-      }
-
-      subObservationModeRef.current = subObservationMode;
-      skipFinalizeRef.current = skipFinalize;
-
-      // GPS session: skip for sub-observations (data is not persisted with geo).
-      if (!subObservationMode) {
-        geolocationService.beginObservationSession();
-      }
-
-      setCurrentFormType(formType.id);
-      setCurrentObservationId(observationId);
-
-      // Resolve display name: ui schema headerTitle > schema title > form spec name
-      const uiSchemaObj = formType.uiSchema as
-        | Record<string, unknown>
-        | undefined;
-      const schemaObj = formType.schema as Record<string, unknown> | undefined;
-      const uiOptions = uiSchemaObj?.options as
-        | Record<string, unknown>
-        | undefined;
-      const displayName =
-        (uiOptions?.headerTitle as string) ||
-        (schemaObj?.title as string) ||
-        formType.name;
-      setCurrentFormDisplayName(displayName);
-      setCurrentObservationData(existingObservationData);
-      setCurrentParams(params);
-      setCurrentOperationId(operationId);
-      setFormSubmitted(false); // Reset submission flag for new form
-
-      // Forward the custom app's theme colors to the Formplayer WebView so
-      // that form UI elements (buttons, inputs, headers) match the branding.
-      const isDark = resolvedMode === 'dark';
-
-      const sessionLocale =
-        params && typeof params.locale === 'string' ? params.locale : null;
-      const resolvedLocale =
-        await localeSettingsService.resolveActiveLocale(sessionLocale);
-
-      const sessionFormLocale =
-        params && typeof params.formLocale === 'string'
-          ? params.formLocale
-          : null;
-      const savedFormLocale =
-        existingObservationData &&
-        typeof existingObservationData.formLocale === 'string'
-          ? existingObservationData.formLocale
-          : null;
-      const resolvedFormLocale =
-        await formLocaleSettingsService.resolveActiveFormLocale(
-          sessionFormLocale,
-          savedFormLocale,
-        );
-
-      const formParams = {
-        theme: 'default',
-        darkMode: isDark,
-        themeColors, // ← custom app palette forwarded to Formplayer
-        ...params,
-        locale: resolvedLocale,
-        formLocale: resolvedFormLocale,
-      };
-
-      // Load extensions for this form
-      const customAppPath = RNFS.DocumentDirectoryPath + '/app';
-      let extensions = undefined;
-      try {
-        const extensionService = ExtensionService.getInstance();
-        const mergedExtensions = await extensionService.getCustomAppExtensions(
-          customAppPath,
-          formType.id,
-        );
-
-        // Note: getDynamicChoiceList is provided by formplayer's builtinExtensions.
-        // Do NOT add a fallback pointing to queryHelpers.js - that file may not exist
-        // in the app bundle, and dynamic import of file:// in WebView often fails.
-        if (!mergedExtensions.functions) {
-          mergedExtensions.functions = {};
-        }
-
-        // Convert to formplayer format
-        if (
-          mergedExtensions.definitions ||
-          mergedExtensions.functions ||
-          mergedExtensions.renderers
-        ) {
-          extensions = {
-            definitions: mergedExtensions.definitions,
-            functions: Object.entries(mergedExtensions.functions).reduce(
-              (acc, [key, func]) => {
-                // Remove leading slash from module path to avoid double-slash in URL
-                const modulePath = (func.module || '').replace(/^\/+/, '');
-                acc[key] = {
-                  name: func.name,
-                  module: modulePath,
-                  export: func.export,
-                };
-                return acc;
-              },
-              {} as Record<string, unknown>,
-            ),
-            renderers: Object.entries(mergedExtensions.renderers).reduce(
-              (acc, [key, renderer]) => {
-                // Remove leading slash from module path to avoid double-slash in URL
-                const modulePath = (renderer.module || '').replace(/^\/+/, '');
-                acc[key] = {
-                  name: renderer.name,
-                  format: renderer.format,
-                  module: modulePath,
-                  tester: renderer.tester,
-                  renderer: renderer.renderer,
-                };
-                return acc;
-              },
-              {} as Record<string, unknown>,
-            ),
-            // Base path for loading modules (file:// URL for WebView)
-            // Extensions are in the /forms directory
-            basePath: `file://${customAppPath}/forms`,
-          };
-        }
-      } catch (error) {
-        console.warn('Failed to load extensions:', error);
-        // Continue without extensions - not a fatal error
-      }
-
-      if (!formType.schema) {
-        console.error(
-          'FormplayerModal: formType.schema is null/undefined for form:',
-          formType.id,
-        );
-        showConfirm({
-          title: t('formplayer.formErrorTitle'),
-          message: t('formplayer.noSchemaMessage', { name: formType.name }),
-          buttons: [
-            { text: t('common.ok'), variant: 'primary', onPress: () => {} },
-          ],
-        });
-        return;
-      }
-
-      // Scan custom question types and validators, read their source code
-      // Check app/question_types and app/validators (bundle root) and app/forms/question_types, app/forms/validators (legacy)
-      let customQuestionTypes = undefined;
-      try {
-        const qtDirs = [
-          `${customAppPath}/question_types`,
-          `${customAppPath}/forms/question_types`,
-          RNFS.DocumentDirectoryPath + '/forms/question_types',
-        ];
-
-        const validatorDirs = [
-          `${customAppPath}/validators`,
-          `${customAppPath}/forms/validators`,
-          RNFS.DocumentDirectoryPath + '/forms/validators',
-        ];
-
-        const custom_types: Record<string, { source: string }> = {};
-        const validators: Record<string, { source: string }> = {};
-
-        // Scan custom question types
-        for (const qtDir of qtDirs) {
-          const qtDirExists = await RNFS.exists(qtDir);
-          if (!qtDirExists) {
-            continue;
-          }
-
-          const folders = await RNFS.readDir(qtDir);
-
-          for (const folder of folders) {
-            if (folder.isDirectory() && !custom_types[folder.name]) {
-              // Try renderer.js first, then index.js as fallback
-              const rendererPath = `${folder.path}/renderer.js`;
-              const indexPath = `${folder.path}/index.js`;
-              const hasRenderer = await RNFS.exists(rendererPath);
-              const hasIndex = !hasRenderer && (await RNFS.exists(indexPath));
-              const jsPath = hasRenderer
-                ? rendererPath
-                : hasIndex
-                  ? indexPath
-                  : null;
-
-              if (jsPath) {
-                // Read the source code so the WebView can evaluate it directly
-                const source = await RNFS.readFile(jsPath, 'utf8');
-                custom_types[folder.name] = { source };
-              } else {
-                console.warn(
-                  `[FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
-                );
-              }
-            }
-          }
-        }
-
-        // Scan custom validators
-        for (const validatorDir of validatorDirs) {
-          const validatorDirExists = await RNFS.exists(validatorDir);
-          if (!validatorDirExists) {
-            continue;
-          }
-
-          const folders = await RNFS.readDir(validatorDir);
-
-          for (const folder of folders) {
-            if (folder.isDirectory() && !validators[folder.name]) {
-              // Validators use index.js (standard convention)
-              const indexPath = `${folder.path}/index.js`;
-              const hasIndex = await RNFS.exists(indexPath);
-
-              if (hasIndex) {
-                // Read the source code so the WebView can evaluate it directly
-                const source = await RNFS.readFile(indexPath, 'utf8');
-                validators[folder.name] = { source };
-              } else {
-                console.warn(
-                  `[FormplayerModal] Skipping validator "${folder.name}": no index.js found`,
-                );
-              }
-            }
-          }
-        }
-
-        // Build manifest with both question types and validators
-        if (
-          Object.keys(custom_types).length > 0 ||
-          Object.keys(validators).length > 0
-        ) {
-          customQuestionTypes = {
-            custom_types:
-              Object.keys(custom_types).length > 0 ? custom_types : undefined,
-            validators:
-              Object.keys(validators).length > 0 ? validators : undefined,
-          };
-        } else {
+    ) =>
+      profileActivity.run('Formplayer initialize', async () => {
+        // Check if WebView is ready, if not log a warning (retry logic will handle it)
+        if (!webViewReady) {
           console.warn(
-            '[FormplayerModal] No custom question types or validators found in any path',
+            '[FormplayerModal] WebView not ready yet, form init will be queued by message handler',
           );
         }
-      } catch (error) {
-        console.warn(
-          'Failed to scan custom question types and validators:',
-          error,
-        );
-      }
 
-      const formInitData = {
-        formType: formType.id,
-        observationId: observationId,
-        params: formParams,
-        savedData: existingObservationData || {},
-        formSchema: formType.schema,
-        uiSchema: formType.uiSchema ?? {},
-        extensions,
-        customQuestionTypes,
-        subObservationMode,
-        skipFinalize,
-        skipDraftSelection,
-        linkedFormSpecs: await buildLinkedFormSpecs(formType.schema),
-      } as FormInitData;
+        subObservationModeRef.current = subObservationMode;
+        skipFinalizeRef.current = skipFinalize;
 
-      if (!webViewRef.current) {
-        console.warn(
-          'FormplayerModal: WebView ref is not available when trying to initialize form',
-        );
-        return;
-      }
+        // GPS session: skip for sub-observations (data is not persisted with geo).
+        if (!subObservationMode) {
+          geolocationService.beginObservationSession();
+        }
 
-      try {
-        await webViewRef.current.sendFormInit(formInitData);
-      } catch (error) {
-        console.error('FormplayerModal: Error sending form init data:', error);
-        showConfirm({
-          title: t('common.error'),
-          message: t('formplayer.initFailed'),
-          buttons: [
-            { text: t('common.ok'), variant: 'primary', onPress: () => {} },
-          ],
-        });
-      }
-    };
+        setCurrentFormType(formType.id);
+        setCurrentObservationId(observationId);
+
+        // Resolve display name: ui schema headerTitle > schema title > form spec name
+        const uiSchemaObj = formType.uiSchema as
+          | Record<string, unknown>
+          | undefined;
+        const schemaObj = formType.schema as
+          | Record<string, unknown>
+          | undefined;
+        const uiOptions = uiSchemaObj?.options as
+          | Record<string, unknown>
+          | undefined;
+        const displayName =
+          (uiOptions?.headerTitle as string) ||
+          (schemaObj?.title as string) ||
+          formType.name;
+        setCurrentFormDisplayName(displayName);
+        setCurrentObservationData(existingObservationData);
+        setCurrentParams(params);
+        setCurrentOperationId(operationId);
+        setFormSubmitted(false); // Reset submission flag for new form
+
+        // Forward the custom app's theme colors to the Formplayer WebView so
+        // that form UI elements (buttons, inputs, headers) match the branding.
+        const isDark = resolvedMode === 'dark';
+
+        const sessionLocale =
+          params && typeof params.locale === 'string' ? params.locale : null;
+        const resolvedLocale =
+          await localeSettingsService.resolveActiveLocale(sessionLocale);
+
+        const sessionFormLocale =
+          params && typeof params.formLocale === 'string'
+            ? params.formLocale
+            : null;
+        const savedFormLocale =
+          existingObservationData &&
+          typeof existingObservationData.formLocale === 'string'
+            ? existingObservationData.formLocale
+            : null;
+        const resolvedFormLocale =
+          await formLocaleSettingsService.resolveActiveFormLocale(
+            sessionFormLocale,
+            savedFormLocale,
+          );
+
+        const formParams = {
+          theme: 'default',
+          darkMode: isDark,
+          themeColors, // ← custom app palette forwarded to Formplayer
+          ...params,
+          locale: resolvedLocale,
+          formLocale: resolvedFormLocale,
+          profileId,
+        };
+
+        // Load extensions for this form
+        const customAppPath = profilePaths.app();
+        let extensions = undefined;
+        try {
+          const extensionService = ExtensionService.getInstance();
+          const mergedExtensions =
+            await extensionService.getCustomAppExtensions(
+              customAppPath,
+              formType.id,
+            );
+
+          // Note: getDynamicChoiceList is provided by formplayer's builtinExtensions.
+          // Do NOT add a fallback pointing to queryHelpers.js - that file may not exist
+          // in the app bundle, and dynamic import of file:// in WebView often fails.
+          if (!mergedExtensions.functions) {
+            mergedExtensions.functions = {};
+          }
+
+          // Convert to formplayer format
+          if (
+            mergedExtensions.definitions ||
+            mergedExtensions.functions ||
+            mergedExtensions.renderers
+          ) {
+            extensions = {
+              definitions: mergedExtensions.definitions,
+              functions: Object.entries(mergedExtensions.functions).reduce(
+                (acc, [key, func]) => {
+                  // Remove leading slash from module path to avoid double-slash in URL
+                  const modulePath = (func.module || '').replace(/^\/+/, '');
+                  acc[key] = {
+                    name: func.name,
+                    module: modulePath,
+                    export: func.export,
+                  };
+                  return acc;
+                },
+                {} as Record<string, unknown>,
+              ),
+              renderers: Object.entries(mergedExtensions.renderers).reduce(
+                (acc, [key, renderer]) => {
+                  // Remove leading slash from module path to avoid double-slash in URL
+                  const modulePath = (renderer.module || '').replace(
+                    /^\/+/,
+                    '',
+                  );
+                  acc[key] = {
+                    name: renderer.name,
+                    format: renderer.format,
+                    module: modulePath,
+                    tester: renderer.tester,
+                    renderer: renderer.renderer,
+                  };
+                  return acc;
+                },
+                {} as Record<string, unknown>,
+              ),
+              // Base path for loading modules (file:// URL for WebView)
+              // Match ExtensionService's profile-local app/forms lookup.
+              basePath: `file://${customAppPath}/forms`,
+            };
+          }
+        } catch (error) {
+          console.warn('Failed to load extensions:', error);
+          // Continue without extensions - not a fatal error
+        }
+
+        if (!formType.schema) {
+          console.error(
+            'FormplayerModal: formType.schema is null/undefined for form:',
+            formType.id,
+          );
+          showConfirm({
+            title: t('formplayer.formErrorTitle'),
+            message: t('formplayer.noSchemaMessage', { name: formType.name }),
+            buttons: [
+              { text: t('common.ok'), variant: 'primary', onPress: () => {} },
+            ],
+          });
+          return;
+        }
+
+        // Scan custom question types and validators, read their source code
+        // Check app/question_types and app/validators (bundle root) and app/forms/question_types, app/forms/validators (legacy)
+        let customQuestionTypes = undefined;
+        try {
+          const qtDirs = [
+            `${customAppPath}/question_types`,
+            `${customAppPath}/forms/question_types`,
+            `${profilePaths.forms()}/question_types`,
+          ];
+
+          const validatorDirs = [
+            `${customAppPath}/validators`,
+            `${customAppPath}/forms/validators`,
+            `${profilePaths.forms()}/validators`,
+          ];
+
+          const custom_types: Record<string, { source: string }> = {};
+          const validators: Record<string, { source: string }> = {};
+
+          // Scan custom question types
+          for (const qtDir of qtDirs) {
+            const qtDirExists = await RNFS.exists(qtDir);
+            if (!qtDirExists) {
+              continue;
+            }
+
+            const folders = await RNFS.readDir(qtDir);
+
+            for (const folder of folders) {
+              if (folder.isDirectory() && !custom_types[folder.name]) {
+                // Try renderer.js first, then index.js as fallback
+                const rendererPath = `${folder.path}/renderer.js`;
+                const indexPath = `${folder.path}/index.js`;
+                const hasRenderer = await RNFS.exists(rendererPath);
+                const hasIndex = !hasRenderer && (await RNFS.exists(indexPath));
+                const jsPath = hasRenderer
+                  ? rendererPath
+                  : hasIndex
+                    ? indexPath
+                    : null;
+
+                if (jsPath) {
+                  // Read the source code so the WebView can evaluate it directly
+                  const source = await RNFS.readFile(jsPath, 'utf8');
+                  custom_types[folder.name] = { source };
+                } else {
+                  console.warn(
+                    `[FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
+                  );
+                }
+              }
+            }
+          }
+
+          // Scan custom validators
+          for (const validatorDir of validatorDirs) {
+            const validatorDirExists = await RNFS.exists(validatorDir);
+            if (!validatorDirExists) {
+              continue;
+            }
+
+            const folders = await RNFS.readDir(validatorDir);
+
+            for (const folder of folders) {
+              if (folder.isDirectory() && !validators[folder.name]) {
+                // Validators use index.js (standard convention)
+                const indexPath = `${folder.path}/index.js`;
+                const hasIndex = await RNFS.exists(indexPath);
+
+                if (hasIndex) {
+                  // Read the source code so the WebView can evaluate it directly
+                  const source = await RNFS.readFile(indexPath, 'utf8');
+                  validators[folder.name] = { source };
+                } else {
+                  console.warn(
+                    `[FormplayerModal] Skipping validator "${folder.name}": no index.js found`,
+                  );
+                }
+              }
+            }
+          }
+
+          // Build manifest with both question types and validators
+          if (
+            Object.keys(custom_types).length > 0 ||
+            Object.keys(validators).length > 0
+          ) {
+            customQuestionTypes = {
+              custom_types:
+                Object.keys(custom_types).length > 0 ? custom_types : undefined,
+              validators:
+                Object.keys(validators).length > 0 ? validators : undefined,
+            };
+          } else {
+            console.warn(
+              '[FormplayerModal] No custom question types or validators found in any path',
+            );
+          }
+        } catch (error) {
+          console.warn(
+            'Failed to scan custom question types and validators:',
+            error,
+          );
+        }
+
+        const formInitData = {
+          formType: formType.id,
+          observationId: observationId,
+          params: formParams,
+          savedData: existingObservationData || {},
+          formSchema: formType.schema,
+          uiSchema: formType.uiSchema ?? {},
+          extensions,
+          customQuestionTypes,
+          subObservationMode,
+          skipFinalize,
+          skipDraftSelection,
+          linkedFormSpecs: await buildLinkedFormSpecs(formType.schema),
+        } as FormInitData;
+
+        if (!webViewRef.current) {
+          console.warn(
+            'FormplayerModal: WebView ref is not available when trying to initialize form',
+          );
+          return;
+        }
+
+        try {
+          await webViewRef.current.sendFormInit(formInitData);
+        } catch (error) {
+          console.error(
+            'FormplayerModal: Error sending form init data:',
+            error,
+          );
+          showConfirm({
+            title: t('common.error'),
+            message: t('formplayer.initFailed'),
+            buttons: [
+              { text: t('common.ok'), variant: 'primary', onPress: () => {} },
+            ],
+          });
+        }
+      });
 
     // Handle form submission directly (called by WebView message handler)
     const handleSubmission = useCallback(
@@ -542,120 +665,125 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         formType: string;
         finalData: Record<string, unknown>;
         observationId?: string | null;
-      }): Promise<string> => {
-        const {
-          formType,
-          finalData,
-          observationId: observationIdFromBridge,
-        } = data;
-        const effectiveObservationId =
-          observationIdFromBridge ?? currentObservationId;
+      }): Promise<string> =>
+        profileActivity.run('Formplayer submit', async () => {
+          const {
+            formType,
+            finalData,
+            observationId: observationIdFromBridge,
+          } = data;
+          const effectiveObservationId =
+            observationIdFromBridge ?? currentObservationId;
 
-        // Set submitting state
-        setIsSubmitting(true);
+          // Set submitting state
+          setIsSubmitting(true);
 
-        try {
-          const subObservationMode = subObservationModeRef.current;
-          const localRepo = subObservationMode
-            ? null
-            : databaseService.getLocalRepo();
-          if (!subObservationMode && !localRepo) {
-            throw new Error('Database repository not available');
-          }
+          try {
+            const subObservationMode = subObservationModeRef.current;
+            const localRepo = subObservationMode
+              ? null
+              : databaseService.getLocalRepo();
+            if (!subObservationMode && !localRepo) {
+              throw new Error('Database repository not available');
+            }
 
-          const persistResult = await persistObservationWithAttachments(
-            {
-              formType,
-              finalData,
-              observationId: effectiveObservationId,
-              subObservationMode,
-            },
-            {
-              saveObservation: args =>
-                localRepo
-                  ? localRepo.saveObservation(args)
-                  : Promise.resolve(null),
-              updateObservation: args =>
-                localRepo
-                  ? localRepo.updateObservation(args)
-                  : Promise.resolve(false),
-            },
-          );
-
-          const resultObservationId = persistResult.observationId;
-          const resultFormData = persistResult.formData;
-
-          // Mark form as successfully submitted
-          setFormSubmitted(true);
-
-          // Resolve the form operation with success result
-          const completionResult: FormCompletionResult = {
-            status: effectiveObservationId ? 'form_updated' : 'form_submitted',
-            observationId: resultObservationId,
-            formData: resultFormData,
-            formType: formType,
-          };
-
-          if (currentOperationId) {
-            resolveFormOperation(currentOperationId, completionResult);
-            setCurrentOperationId(null);
-          } else {
-            resolveFormOperationByType(formType, completionResult);
-          }
-
-          if (subObservationModeRef.current && skipFinalizeRef.current) {
-            setIsSubmitting(false);
-            onClose();
-            return resultObservationId;
-          }
-
-          const successMessage = effectiveObservationId
-            ? t('formplayer.submitSuccessUpdated')
-            : t('formplayer.submitSuccessSubmitted');
-          showConfirm({
-            title: t('common.success'),
-            message: successMessage,
-            buttons: [
+            const persistResult = await persistObservationWithAttachments(
               {
-                text: t('common.ok'),
-                variant: 'primary',
-                onPress: () => {
-                  setIsSubmitting(false);
-                  onClose();
-                },
+                formType,
+                finalData,
+                observationId: effectiveObservationId,
+                subObservationMode,
               },
-            ],
-          });
+              {
+                saveObservation: args =>
+                  localRepo
+                    ? localRepo.saveObservation(args)
+                    : Promise.resolve(null),
+                updateObservation: args =>
+                  localRepo
+                    ? localRepo.updateObservation(args)
+                    : Promise.resolve(false),
+              },
+            );
 
-          return resultObservationId;
-        } catch (error) {
-          console.error('FormplayerModal: Error in handleSubmission:', error);
-          setIsSubmitting(false);
+            const resultObservationId = persistResult.observationId;
+            const resultFormData = persistResult.formData;
 
-          // Resolve the form operation with error result
-          const errorResult: FormCompletionResult = {
-            status: 'error',
-            formType: formType,
-            message:
-              error instanceof Error ? error.message : 'Unknown error occurred',
-          };
+            // Mark form as successfully submitted
+            setFormSubmitted(true);
 
-          if (currentOperationId) {
-            resolveFormOperation(currentOperationId, errorResult);
-          } else {
-            resolveFormOperationByType(formType, errorResult);
+            // Resolve the form operation with success result
+            const completionResult: FormCompletionResult = {
+              status: effectiveObservationId
+                ? 'form_updated'
+                : 'form_submitted',
+              observationId: resultObservationId,
+              formData: resultFormData,
+              formType: formType,
+            };
+
+            if (currentOperationId) {
+              resolveFormOperation(currentOperationId, completionResult);
+              setCurrentOperationId(null);
+            } else {
+              resolveFormOperationByType(formType, completionResult);
+            }
+
+            if (subObservationModeRef.current && skipFinalizeRef.current) {
+              setIsSubmitting(false);
+              onClose();
+              return resultObservationId;
+            }
+
+            const successMessage = effectiveObservationId
+              ? t('formplayer.submitSuccessUpdated')
+              : t('formplayer.submitSuccessSubmitted');
+            showConfirm({
+              title: t('common.success'),
+              message: successMessage,
+              buttons: [
+                {
+                  text: t('common.ok'),
+                  variant: 'primary',
+                  onPress: () => {
+                    setIsSubmitting(false);
+                    onClose();
+                  },
+                },
+              ],
+            });
+
+            return resultObservationId;
+          } catch (error) {
+            console.error('FormplayerModal: Error in handleSubmission:', error);
+            setIsSubmitting(false);
+
+            // Resolve the form operation with error result
+            const errorResult: FormCompletionResult = {
+              status: 'error',
+              formType: formType,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Unknown error occurred',
+            };
+
+            if (currentOperationId) {
+              resolveFormOperation(currentOperationId, errorResult);
+            } else {
+              resolveFormOperationByType(formType, errorResult);
+            }
+
+            showConfirm({
+              title: t('common.error'),
+              message: t('formplayer.saveFailed'),
+              buttons: [
+                { text: t('common.ok'), variant: 'primary', onPress: () => {} },
+              ],
+            });
+            throw error;
           }
-
-          showConfirm({
-            title: t('common.error'),
-            message: t('formplayer.saveFailed'),
-            buttons: [
-              { text: t('common.ok'), variant: 'primary', onPress: () => {} },
-            ],
-          });
-          throw error;
-        }
-      },
+        }),
       [currentObservationId, currentOperationId, onClose, showConfirm, t],
     );
 
@@ -700,7 +828,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       previousIsActiveRef.current = isActive;
     }, [visible, isActive, webViewReady, currentFormType]);
 
-    useImperativeHandle(ref, () => ({ initializeForm, handleSubmission }));
+    useImperativeHandle(ref, () => ({
+      initializeForm,
+      handleSubmission,
+      flushDraftAsync,
+      flushDraft: () => {
+        void flushDraftAsync().catch(error =>
+          console.warn('Draft flush failed:', error),
+        );
+      },
+    }));
 
     return (
       <Modal
@@ -710,7 +847,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         onRequestClose={handleClose}
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
-        <View style={shellStyle}>
+        <SafeAreaView style={shellStyle} edges={['top']}>
           <View
             style={[
               styles.container,
@@ -761,9 +898,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             <CustomAppWebView
               ref={webViewRef}
               appUrl={formplayerUri}
+              iosReadAccessUrl={formplayerReadAccessUrl}
               appName="Formplayer"
               backgroundColor={themeColors.background as string}
               onLoadEndProp={handleWebViewLoad}
+              onDraftFlushed={handleDraftFlushed}
             />
 
             {/* Loading overlay */}
@@ -781,7 +920,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               </View>
             )}
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
     );
   },

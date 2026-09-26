@@ -30,3 +30,4 @@ overrides:
 patchedDependencies:
   '@nozbe/watermelondb@0.28.0': patches/@nozbe__watermelondb@0.28.0.patch
   'react-native-fs@2.20.0': patches/react-native-fs@2.20.0.patch
+  'react-native-camera-kit-no-google@17.0.4': patches/react-native-camera-kit-no-google@17.0.4.patch

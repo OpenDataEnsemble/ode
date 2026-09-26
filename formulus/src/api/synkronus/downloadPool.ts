@@ -29,6 +29,8 @@ export async function runWithConcurrency<T, R>(
   const results: R[] = new Array(items.length);
   let nextIndex = 0;
   let cancelNotified = false;
+  let failed = false;
+  let firstError: unknown;
 
   const cancelled = (): boolean => {
     if (!options?.isCancelled?.()) {
@@ -42,17 +44,30 @@ export async function runWithConcurrency<T, R>(
   };
 
   const runWorker = async (): Promise<void> => {
-    while (!cancelled()) {
+    while (!failed && !cancelled()) {
       const i = nextIndex;
       if (i >= items.length) {
         return;
       }
       nextIndex += 1;
-      results[i] = await worker(items[i], i);
+      try {
+        results[i] = await worker(items[i], i);
+      } catch (error) {
+        if (!failed) firstError = error;
+        failed = true;
+        throw error;
+      }
     }
   };
 
-  await Promise.all(Array.from({ length: limit }, () => runWorker()));
+  // Promise.all rejects early and would let the profile switch while sibling
+  // native jobs are still writing. Drain every worker, including on failure.
+  const settled = await Promise.allSettled(
+    Array.from({ length: limit }, () => runWorker()),
+  );
+  if (failed) throw firstError;
+  const rejected = settled.find(result => result.status === 'rejected');
+  if (rejected?.status === 'rejected') throw rejected.reason;
 
   if (cancelled()) {
     throw new Error(SYNC_CANCELLED_MESSAGE);

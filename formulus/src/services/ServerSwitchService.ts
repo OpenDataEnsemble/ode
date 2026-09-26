@@ -1,86 +1,32 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import RNFS from 'react-native-fs';
-import { database } from '../database/database';
 import { databaseService } from '../database/DatabaseService';
+import { profileActivity } from '../profiles/ProfileActivity';
 import { synkronusApi } from '../api/synkronus';
-import { logout } from '../api/synkronus/Auth';
 import { serverConfigService } from './ServerConfigService';
 import { invalidateSettingsHydrationCache } from './SettingsHydrationCache';
-import ObservationIndexService from './ObservationIndexService';
 
-/**
- * Handles cleanup when switching Synkronus servers to avoid cross-server data.
- */
+/** @deprecated Server changes require a separate profile once its URL is bound. */
 class ServerSwitchService {
-  /**
-   * Count pending local observations (unsynced).
-   */
   async getPendingObservationCount(): Promise<number> {
-    const localRepo = databaseService.getLocalRepo();
-    const pending = await localRepo.getPendingChanges();
-    return pending.length;
+    return profileActivity.run('Count pending observations', async () => {
+      const pending = await databaseService.getLocalRepo().getPendingChanges();
+      return pending.length;
+    });
   }
 
-  /**
-   * Count pending attachment uploads.
-   */
   async getPendingAttachmentCount(): Promise<number> {
-    return await synkronusApi.getUnsyncedAttachmentCount();
+    return synkronusApi.getUnsyncedAttachmentCount();
   }
 
   /**
-   * Fully reset local state and persist the new server URL.
+   * Compatibility for older callers: never erase data for a URL edit. The registry
+   * rejects replacement of a bound URL and directs the user to another profile.
    */
   async resetForServerChange(serverUrl: string): Promise<void> {
-    // 1) Clear attachments on disk (fail fast)
-    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-    try {
-      if (await RNFS.exists(attachmentsDirectory)) {
-        await RNFS.unlink(attachmentsDirectory);
-      }
-    } catch (error) {
-      throw new Error(`Failed to delete attachments directory: ${error}`);
-    }
-    await RNFS.mkdir(attachmentsDirectory);
-    await RNFS.mkdir(`${attachmentsDirectory}/synced`);
-    await RNFS.mkdir(`${attachmentsDirectory}/pending`);
-    await RNFS.mkdir(`${attachmentsDirectory}/draft`);
-
-    // 2) Clear app bundle and forms (fail fast)
-    await synkronusApi.removeAppBundleFiles();
-
-    // 3) Reset DB
-    await database.write(async () => {
-      await database.unsafeResetDatabase();
+    return profileActivity.run('Change unbound profile URL', async () => {
+      await serverConfigService.saveServerUrl(serverUrl);
+      synkronusApi.clearTokenCache();
+      invalidateSettingsHydrationCache();
     });
-
-    // The index tables come back empty, but the service is a singleton and
-    // still believes it has a completed rebuild behind it.
-    ObservationIndexService.getInstance(database).reset();
-
-    // 4) Clear sync/app metadata + tokens
-    await AsyncStorage.multiRemove([
-      '@last_seen_version',
-      '@last_attachment_version',
-      '@lastSync',
-      '@appVersion',
-      '@settings',
-      '@server_url',
-      '@token',
-      '@refreshToken',
-      '@tokenExpiresAt',
-      '@user',
-    ]);
-    await AsyncStorage.setItem('@appVersion', '0');
-
-    // 5) Clear auth/session
-    await logout().catch(error =>
-      console.warn('Logout during server switch failed:', error),
-    );
-
-    // 6) Save the new server URL (recreates @settings/@server_url)
-    await serverConfigService.saveServerUrl(serverUrl);
-    invalidateSettingsHydrationCache();
   }
 }
 

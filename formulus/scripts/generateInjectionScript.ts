@@ -161,6 +161,13 @@ function generateInjectionScript(interfaceFilePath: string): string {
   // Generate the injection script
   const methodImpls = methods
     .map((method: MethodInfo) => {
+      // Browser-local synchronous APIs must never become promise-based RPCs.
+      if (method.name === 'getProfileId') {
+        return 'getProfileId: function() { return profileId; },';
+      }
+      if (method.name === 'getLocalStorageRef') {
+        return 'getLocalStorageRef: function() { return profileLocalStorage; },';
+      }
       const params = method.parameters.map(p => p.name).join(', ');
       const messageProps = method.parameters
         .map(p => `            ${p.name}: ${p.name}`)
@@ -239,6 +246,39 @@ function generateInjectionScript(interfaceFilePath: string): string {
 // Last generated: ${new Date().toISOString()}
 
 (function() {
+  const profileId = globalThis.__odeProfileId;
+  if (typeof profileId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(profileId)) {
+    throw new Error('Formulus requires a host profile ID before bridge initialization');
+  }
+  const deletedIds = globalThis.__odeDeletedProfileIds || [];
+  if (!Array.isArray(deletedIds) || deletedIds.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(id))) {
+    throw new Error('Invalid deleted profile IDs');
+  }
+  // Tombstones are permanent: each origin is cleaned when it is next loaded.
+  // Never clear the whole origin; unrelated third-party storage is not ours.
+  function removePrefix(storage, prefix) {
+    for (let i = storage.length - 1; i >= 0; i--) {
+      const key = storage.key(i);
+      if (key !== null && key.startsWith(prefix)) storage.removeItem(key);
+    }
+  }
+  if (deletedIds.length) {
+    const storage = globalThis.localStorage;
+    deletedIds.forEach(id => removePrefix(storage, 'ode:' + id + ':'));
+    if (deletedIds.includes(globalThis.__odeLegacyWebStorageProfileId)) {
+      storage.removeItem('formulus_drafts');
+      storage.removeItem('formulus_sticky_fields');
+    }
+  }
+  if (deletedIds.includes(profileId)) throw new Error('Active profile has been deleted');
+  const appPrefix = 'ode:' + profileId + ':app:';
+  const profileLocalStorage = Object.freeze({
+    getItem: function(key) { return globalThis.localStorage.getItem(appPrefix + String(key)); },
+    setItem: function(key, value) { globalThis.localStorage.setItem(appPrefix + String(key), String(value)); },
+    removeItem: function(key) { globalThis.localStorage.removeItem(appPrefix + String(key)); },
+    clear: function() { removePrefix(globalThis.localStorage, appPrefix); }
+  });
+
   // Enhanced API availability detection and recovery
   function getFormulus() {
     // Check multiple locations where the API might exist
@@ -247,11 +287,15 @@ function generateInjectionScript(interfaceFilePath: string): string {
 
   function isFormulusAvailable() {
     const api = getFormulus();
-    return api && typeof api === 'object' && typeof api.getVersion === 'function';
+    if (api && typeof api.getProfileId === 'function' && api.getProfileId() !== profileId) {
+      throw new Error('A Formulus browser context cannot change profiles; remount it');
+    }
+    return api && typeof api === 'object' && typeof api.getVersion === 'function' &&
+      typeof api.getProfileId === 'function' && typeof api.getLocalStorageRef === 'function';
   }
 
   // Idempotent guard to avoid double-initialization when scripts are reinjected
-  if ((globalThis as any).__formulusBridgeInitialized) {
+  if (globalThis.__formulusBridgeInitialized) {
     if (isFormulusAvailable()) {
       console.debug('Formulus bridge already initialized and functional. Skipping duplicate injection.');
       return;
@@ -328,7 +372,7 @@ function generateInjectionScript(interfaceFilePath: string): string {
   
   // Notify that the interface is ready
   console.log('Formulus interface initialized');
-  (globalThis as any).__formulusBridgeInitialized = true;
+  globalThis.__formulusBridgeInitialized = true;
 
   // Simple API availability check for internal use
   function requestApiReinjection() {
@@ -400,6 +444,13 @@ function generateJSDocInterface(interfacePath: string): string {
 /** @typedef {Object} FormInfo */
 /** @typedef {Object} FormObservation */
 /** @typedef {Object} AttachmentData */
+/**
+ * @typedef {Object} ProfileLocalStorage
+ * @property {function(string): (string|null)} getItem
+ * @property {function(string, string): void} setItem
+ * @property {function(string): void} removeItem
+ * @property {function(): void} clear Removes only this profile's app namespace.
+ */
 
 /**
  * Formulus API interface
@@ -610,12 +661,7 @@ if (isRunAsCli()) {
 
     // Generate and write the injection script
     console.log('Generating injection script...');
-    let injectionScript = generateInjectionScript(interfacePath);
-
-    // Remove TypeScript interface declarations and type assertions
-    injectionScript = injectionScript
-      .replace(/interface\s+\w+\s*{[^}]*}/gs, '') // Remove interface blocks
-      .replace(/\s+as\s+\w+/g, ''); // Remove type assertions
+    const injectionScript = generateInjectionScript(interfacePath);
 
     fs.writeFileSync(injectionScriptPath, injectionScript);
     console.log(

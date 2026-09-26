@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import MainTabNavigator from './MainTabNavigator';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import ObservationDetailScreen from '../screens/ObservationDetailScreen';
-import { MainAppStackParamList } from '../types/NavigationTypes';
-import { serverConfigService } from '../services/ServerConfigService';
-import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
+import { MainAppStackParamList } from './ProfileNavigationTypes';
+import { useProfiles } from './useProfiles';
+import { consumeProfilesNavigationIntent } from './ProfileNavigationIntent';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { ThemeColors } from '../types/AppConfig';
 import {
@@ -28,6 +28,7 @@ function ObservationDetailHeader({
   navigation: { goBack: () => void };
   themeColors: ThemeColors;
 }) {
+  const insets = useSafeAreaInsets();
   return (
     <View
       style={[
@@ -35,6 +36,7 @@ function ObservationDetailHeader({
         {
           backgroundColor: themeColors.surface,
           borderBottomColor: themeColors.divider as string,
+          paddingTop: insets.top + odeSpacing.md,
         },
       ]}>
       <TouchableOpacity
@@ -59,7 +61,8 @@ const observationDetailHeaderStyles = StyleSheet.create({
   wrapper: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: odeSpacing.md,
+    paddingHorizontal: odeSpacing.md,
+    paddingBottom: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
     overflow: 'visible',
     borderTopWidth: 0,
@@ -85,39 +88,27 @@ const observationDetailHeaderStyles = StyleSheet.create({
 });
 
 const MainAppNavigator: React.FC = () => {
-  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
+  const { activeProfile } = useProfiles();
+  const isConfigured = !!activeProfile.serverUrl;
+  const [openProfiles, setOpenProfiles] = useState<boolean | null>(null);
+  const startupProfilesIntent = useRef<Promise<boolean> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    startupProfilesIntent.current ??= consumeProfilesNavigationIntent();
+    void startupProfilesIntent.current.then(open => {
+      if (!cancelled) setOpenProfiles(open);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Theme colors come from AppThemeContext — they update automatically
   // when the custom app's config is loaded or the color scheme changes.
   const { themeColors } = useAppTheme();
 
-  useEffect(() => {
-    const checkConfiguration = async () => {
-      const serverUrl = await serverConfigService.getServerUrl();
-      setIsConfigured(!!serverUrl);
-    };
-    checkConfiguration();
-  }, []);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      const checkConfig = async () => {
-        const serverUrl = await serverConfigService.getServerUrl();
-        setIsConfigured(!!serverUrl);
-      };
-      checkConfig();
-    }, []),
-  );
-
-  useEffect(() => {
-    if (isConfigured === true) {
-      void loadSettingsHydrationFromStorage();
-    }
-  }, [isConfigured]);
-
-  if (isConfigured === null) {
-    return null;
-  }
+  if (openProfiles === null) return null;
 
   return (
     <Stack.Navigator
@@ -126,7 +117,7 @@ const MainAppNavigator: React.FC = () => {
         headerTintColor: themeColors.onBackground,
         headerTitleStyle: { color: themeColors.onBackground },
       }}
-      initialRouteName={isConfigured ? 'MainApp' : 'Welcome'}>
+      initialRouteName={openProfiles || isConfigured ? 'MainApp' : 'Welcome'}>
       <Stack.Screen
         name="Welcome"
         component={WelcomeScreen}
@@ -135,6 +126,7 @@ const MainAppNavigator: React.FC = () => {
       <Stack.Screen
         name="MainApp"
         component={MainTabNavigator}
+        initialParams={openProfiles ? { screen: 'Profiles' } : undefined}
         options={{ headerShown: false }}
       />
       <Stack.Screen

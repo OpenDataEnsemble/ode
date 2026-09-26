@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -12,6 +13,7 @@ import (
 	"github.com/opendataensemble/synkronus/internal/handlers"
 	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/pkg/attachment"
+	"github.com/opendataensemble/synkronus/pkg/authlimit"
 	"github.com/opendataensemble/synkronus/pkg/httptimeout"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
@@ -36,6 +38,9 @@ func FileServer(r chi.Router, path string, root http.FileSystem) {
 
 func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 	r := chi.NewRouter()
+
+	// Capture the socket peer before RealIP interprets forwarding headers.
+	r.Use(authlimit.CapturePeer)
 
 	// Add middleware
 	r.Use(middleware.RequestID)
@@ -92,11 +97,29 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		FileServer(r, "/openapi", http.Dir(openapiDir))
 	}
 
-	// All REST API routes (except /health) under /api
+	// All REST API routes (except /health) under /api.
+	cfg := h.GetConfig()
+	authGuard, err := authlimit.New(authlimit.Config{
+		MaxBodyBytes:      cfg.AuthMaxBodyBytes,
+		MaxUsernameBytes:  255,
+		MaxPasswordBytes:  1024,
+		MaxTokenBytes:     16 << 10,
+		IPAttempts:        cfg.AuthIPAttempts,
+		IPWindow:          time.Duration(cfg.AuthIPWindowSeconds) * time.Second,
+		LoginAttempts:     cfg.AuthLoginAttempts,
+		LoginWindow:       time.Duration(cfg.AuthLoginWindowSeconds) * time.Second,
+		AccountAttempts:   cfg.AuthAccountAttempts,
+		AccountWindow:     time.Duration(cfg.AuthAccountWindowSeconds) * time.Second,
+		MaxKeys:           cfg.AuthLimiterMaxKeys,
+		TrustedProxyCIDRs: cfg.AuthTrustedProxyCIDRs,
+	})
+	if err != nil {
+		panic("invalid authentication limiter configuration: " + err.Error())
+	}
 	authRoutes := func(r chi.Router) {
 		r.Use(formulusversion.Middleware(log))
-		r.Post("/login", h.Login)
-		r.Post("/refresh", h.RefreshToken)
+		r.With(authGuard.Middleware(authlimit.EndpointLogin)).Post("/login", h.Login)
+		r.With(authGuard.Middleware(authlimit.EndpointRefresh)).Post("/refresh", h.RefreshToken)
 	}
 
 	// Create attachment service
@@ -111,6 +134,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		attachmentService,
 		h.AttachmentManifestService(),
 		h.SyncService(),
+		h.GetConfig(),
 	)
 
 	r.Route("/api", func(r chi.Router) {

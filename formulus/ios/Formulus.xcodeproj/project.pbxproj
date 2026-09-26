@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C8D57190B6474EF1A9281001 /* ProfileDatabaseLifecycle.m in Sources */ = {isa = PBXBuildFile; fileRef = C8D57190B6474EF1A9281002 /* ProfileDatabaseLifecycle.m */; };
+		C8D57190B6474EF1A9281003 /* UserAppModule.m in Sources */ = {isa = PBXBuildFile; fileRef = C8D57190B6474EF1A9281004 /* UserAppModule.m */; };
 		1193EE707CAC4D60AE9E8B77 /* FormulusInjectionScript.js in Resources */ = {isa = PBXBuildFile; fileRef = B9003E8457E34C9983C8BD62 /* FormulusInjectionScript.js */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		26E6854810A440EEBBB569C8 /* formulus-load.js in Resources */ = {isa = PBXBuildFile; fileRef = 19DC13F6A6224E0BB450C5CB /* formulus-load.js */; };
@@ -21,6 +23,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		C8D57190B6474EF1A9281002 /* ProfileDatabaseLifecycle.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = ProfileDatabaseLifecycle.m; path = Formulus/ProfileDatabaseLifecycle.m; sourceTree = "<group>"; };
+		C8D57190B6474EF1A9281004 /* UserAppModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = UserAppModule.m; path = Formulus/UserAppModule.m; sourceTree = "<group>"; };
+		C8D57190B6474EF1A9281005 /* ProfileDatabaseLifecycle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = ProfileDatabaseLifecycle.h; path = Formulus/ProfileDatabaseLifecycle.h; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Formulus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Formulus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Formulus/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Formulus/Info.plist; sourceTree = "<group>"; };
@@ -56,6 +61,9 @@
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				C8D57190B6474EF1A9281002 /* ProfileDatabaseLifecycle.m */,
+				C8D57190B6474EF1A9281004 /* UserAppModule.m */,
+				C8D57190B6474EF1A9281005 /* ProfileDatabaseLifecycle.h */,
 				A1B2C3D4E5F60718293A4B5D /* SceneDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
@@ -296,6 +304,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				C8D57190B6474EF1A9281001 /* ProfileDatabaseLifecycle.m in Sources */,
+				C8D57190B6474EF1A9281003 /* UserAppModule.m in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -310,7 +320,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 64;
+				CURRENT_PROJECT_VERSION = 96;
 				DEVELOPMENT_TEAM = 57WY3GA5K7;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Formulus/Info.plist;
@@ -321,7 +331,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.2;
+				MARKETING_VERSION = 1.3.3;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -335,7 +345,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -347,7 +357,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 64;
+				CURRENT_PROJECT_VERSION = 96;
 				DEVELOPMENT_TEAM = 57WY3GA5K7;
 				INFOPLIST_FILE = Formulus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Formulus;
@@ -357,7 +367,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.2;
+				MARKETING_VERSION = 1.3.3;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -370,7 +380,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;

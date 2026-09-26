@@ -1,0 +1,99 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ode-font-family-sans);
+  font-weight: var(--ode-font-weight-medium);
+  line-height: var(--ode-line-height-none);
+  border-radius: var(--ode-border-radius-full);
+  white-space: nowrap;
+}
+
+/* Size Variants */
+.badge--sm {
+  padding: var(--ode-spacing-0_5) var(--ode-spacing-2);
+  font-size: var(--ode-font-size-xs);
+}
+
+.badge--md {
+  padding: var(--ode-spacing-1) var(--ode-spacing-3);
+  font-size: var(--ode-font-size-sm);
+}
+
+/* Primary Variant */
+.badge--primary {
+  background-color: var(--ode-color-brand-primary-100);
+  color: var(--ode-color-brand-primary-700);
+}
+
+[data-theme='dark'] .badge--primary {
+  background-color: var(--ode-color-brand-primary-900);
+  color: var(--ode-color-brand-primary-200);
+}
+
+/* Secondary Variant */
+.badge--secondary {
+  background-color: var(--ode-color-brand-secondary-100);
+  color: var(--ode-color-brand-secondary-800);
+}
+
+[data-theme='dark'] .badge--secondary {
+  background-color: var(--ode-color-brand-secondary-900);
+  color: var(--ode-color-brand-secondary-200);
+}
+
+/* Success Variant */
+.badge--success {
+  background-color: var(--ode-color-semantic-success-50);
+  color: var(--ode-color-semantic-success-600);
+}
+
+[data-theme='dark'] .badge--success {
+  background-color: rgba(46, 125, 50, 0.2);
+  color: #81c784;
+}
+
+/* Warning Variant */
+.badge--warning {
+  background-color: var(--ode-color-semantic-warning-50);
+  color: var(--ode-color-semantic-warning-600);
+}
+
+[data-theme='dark'] .badge--warning {
+  background-color: rgba(217, 119, 6, 0.2);
+  color: #ffb74d;
+}
+
+/* Error Variant */
+.badge--error {
+  background-color: var(--ode-color-semantic-error-50);
+  color: var(--ode-color-semantic-error-600);
+}
+
+[data-theme='dark'] .badge--error {
+  background-color: rgba(220, 38, 38, 0.2);
+  color: #e57373;
+}
+
+/* Info Variant */
+.badge--info {
+  background-color: var(--ode-color-semantic-info-50);
+  color: var(--ode-color-semantic-info-600);
+}
+
+[data-theme='dark'] .badge--info {
+  background-color: rgba(37, 99, 235, 0.2);
+  color: #64b5f6;
+}
+
+/* Neutral Variant */
+.badge--neutral {
+  background-color: var(--ode-color-neutral-100);
+  color: var(--ode-color-neutral-700);
+}
+
+[data-theme='dark'] .badge--neutral {
+  background-color: var(--ode-color-neutral-800);
+  color: var(--ode-color-neutral-200);
+}
+

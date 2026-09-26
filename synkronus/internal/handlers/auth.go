@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"time"
 )
@@ -23,10 +25,10 @@ type LoginResponse struct {
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
-	// Decode request body
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.log.Error("Failed to decode login request", "error", err)
-		SendErrorResponse(w, http.StatusBadRequest, err, "Invalid request format")
+	// Decode exactly one JSON request value.
+	if err := decodeAuthRequest(r, &req); err != nil {
+		h.log.Warn("Failed to decode login request", "error", err)
+		SendErrorResponse(w, http.StatusBadRequest, nil, "Invalid request format")
 		return
 	}
 
@@ -46,8 +48,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	// Authenticate user
 	user, err := h.authService.Authenticate(r.Context(), req.Username, req.Password)
 	if err != nil {
-		h.log.Error("Authentication failed", "username", req.Username, "error", err)
-		SendErrorResponse(w, http.StatusUnauthorized, err, "Invalid credentials")
+		h.log.Warn("Authentication failed", "error", err)
+		SendErrorResponse(w, http.StatusUnauthorized, nil, "Invalid credentials")
 		return
 	}
 
@@ -55,7 +57,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	token, err := h.authService.GenerateToken(user)
 	if err != nil {
 		h.log.Error("Failed to generate token", "error", err)
-		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to generate token")
+		SendErrorResponse(w, http.StatusInternalServerError, nil, "Failed to generate token")
 		return
 	}
 
@@ -63,14 +65,14 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	refreshToken, err := h.authService.GenerateRefreshToken(user)
 	if err != nil {
 		h.log.Error("Failed to generate refresh token", "error", err)
-		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to generate refresh token")
+		SendErrorResponse(w, http.StatusInternalServerError, nil, "Failed to generate refresh token")
 		return
 	}
 
 	// Calculate token expiration
 	expiresAt := time.Now().Add(h.authService.Config().TokenExpiration).Unix()
 
-	h.log.Info("User logged in successfully", "username", req.Username)
+	h.log.Info("User logged in successfully")
 
 	// Send response
 	SendJSONResponse(w, http.StatusOK, LoginResponse{
@@ -89,10 +91,10 @@ type RefreshRequest struct {
 func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
 
-	// Decode request body
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.log.Error("Failed to decode refresh token request", "error", err)
-		SendErrorResponse(w, http.StatusBadRequest, err, "Invalid request format")
+	// Decode exactly one JSON request value.
+	if err := decodeAuthRequest(r, &req); err != nil {
+		h.log.Warn("Failed to decode refresh token request", "error", err)
+		SendErrorResponse(w, http.StatusBadRequest, nil, "Invalid request format")
 		return
 	}
 
@@ -106,8 +108,8 @@ func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// Refresh token
 	token, refreshToken, err := h.authService.RefreshToken(r.Context(), req.RefreshToken)
 	if err != nil {
-		h.log.Error("Failed to refresh token", "error", err)
-		SendErrorResponse(w, http.StatusUnauthorized, err, "Invalid refresh token")
+		h.log.Warn("Failed to refresh token", "error", err)
+		SendErrorResponse(w, http.StatusUnauthorized, nil, "Invalid refresh token")
 		return
 	}
 
@@ -122,4 +124,19 @@ func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: refreshToken,
 		ExpiresAt:    expiresAt,
 	})
+}
+
+func decodeAuthRequest(r *http.Request, destination any) error {
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("multiple JSON values are not allowed")
+		}
+		return err
+	}
+	return nil
 }

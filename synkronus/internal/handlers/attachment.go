@@ -4,39 +4,57 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/pkg/attachment"
+	"github.com/opendataensemble/synkronus/pkg/config"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 )
 
 type AttachmentHandler struct {
-	service     attachment.Service
-	manifest    attachment.ManifestService
-	syncService sync.ServiceInterface
-	log         *logger.Logger
+	service        attachment.Service
+	manifest       attachment.ManifestService
+	syncService    sync.ServiceInterface
+	log            *logger.Logger
+	maxUploadBytes int64
+	uploadSlots    chan struct{}
 }
 
-const maxAttachmentUploadBytes = 32 << 20
+const multipartMemoryBytes = 1 << 20
 
 func NewAttachmentHandler(
 	log *logger.Logger,
 	service attachment.Service,
 	manifest attachment.ManifestService,
 	syncService sync.ServiceInterface,
+	configs ...*config.Config,
 ) *AttachmentHandler {
+	maxUploadBytes := config.DefaultMaxAttachmentUploadBytes
+	maxConcurrentUploads := config.DefaultMaxConcurrentAttachmentUploads
+	if len(configs) > 0 && configs[0] != nil {
+		if configs[0].MaxAttachmentUploadBytes > 0 {
+			maxUploadBytes = configs[0].MaxAttachmentUploadBytes
+		}
+		if configs[0].MaxConcurrentAttachmentUploads > 0 {
+			maxConcurrentUploads = configs[0].MaxConcurrentAttachmentUploads
+		}
+	}
 	return &AttachmentHandler{
-		service:     service,
-		manifest:    manifest,
-		syncService: syncService,
-		log:         log,
+		service:        service,
+		manifest:       manifest,
+		syncService:    syncService,
+		log:            log,
+		maxUploadBytes: maxUploadBytes,
+		uploadSlots:    make(chan struct{}, maxConcurrentUploads),
 	}
 }
 
@@ -48,7 +66,7 @@ func (h *AttachmentHandler) RegisterRoutes(r chi.Router, manifestHandler func(ht
 		r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/export-zip", h.ExportAllAttachmentsZip)
 
 		r.Route("/{attachment_id}", func(r chi.Router) {
-			r.Put("/", h.UploadAttachment)
+			r.With(auth.RequireRole(models.RoleReadWrite, models.RoleAdmin)).Put("/", h.UploadAttachment)
 			r.Get("/", h.DownloadAttachment)
 			r.Head("/", h.CheckAttachment)
 		})
@@ -104,6 +122,17 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 		SendErrorResponse(w, http.StatusBadRequest, nil, "attachment_id is required")
 		return
 	}
+	if err := attachment.ValidateAttachmentID(attachmentID); err != nil {
+		SendErrorResponse(w, http.StatusBadRequest, nil, "attachment_id is invalid")
+		return
+	}
+	select {
+	case h.uploadSlots <- struct{}{}:
+		defer func() { <-h.uploadSlots }()
+	case <-r.Context().Done():
+		SendErrorResponse(w, http.StatusRequestTimeout, nil, "Upload cancelled")
+		return
+	}
 
 	clientGen, clientGenSent := sync.ParseClientRepositoryGenerationSent(r, nil)
 	serverGen, err := h.syncService.GetRepositoryGeneration(r.Context())
@@ -121,10 +150,21 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Parse the multipart form
-	err = r.ParseMultipartForm(maxAttachmentUploadBytes)
+	// Bound the complete multipart request separately from the attachment content.
+	r.Body = http.MaxBytesReader(w, r.Body, h.maxUploadBytes+multipartMemoryBytes)
+	err = r.ParseMultipartForm(multipartMemoryBytes)
 	if err != nil {
-		SendErrorResponse(w, http.StatusBadRequest, err, "Failed to parse multipart form")
+		var maxBytesError *http.MaxBytesError
+		if errors.As(err, &maxBytesError) {
+			SendErrorResponse(w, http.StatusRequestEntityTooLarge, nil, "Attachment exceeds upload size limit")
+			return
+		}
+		SendErrorResponse(w, http.StatusBadRequest, nil, "Failed to parse multipart form")
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+	if len(r.MultipartForm.File) != 1 || len(r.MultipartForm.File["file"]) != 1 || len(r.MultipartForm.Value) != 0 {
+		SendErrorResponse(w, http.StatusBadRequest, nil, "Exactly one file part is required")
 		return
 	}
 
@@ -140,14 +180,12 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 	}
 	defer file.Close()
 
-	data, err := readAllWithLimit(file, maxAttachmentUploadBytes)
+	saveResult, err := h.service.SaveUpload(r.Context(), attachmentID, file, header.Header.Get("Content-Type"))
 	if err != nil {
-		SendErrorResponse(w, http.StatusRequestEntityTooLarge, err, "Attachment exceeds upload size limit")
-		return
-	}
-
-	saveResult, err := h.service.SaveUpload(r.Context(), attachmentID, data, header.Header.Get("Content-Type"))
-	if err != nil {
+		if errors.Is(err, attachment.ErrAttachmentTooLarge) {
+			SendErrorResponse(w, http.StatusRequestEntityTooLarge, nil, "Attachment exceeds upload size limit")
+			return
+		}
 		if os.IsExist(err) {
 			SendErrorResponse(w, http.StatusConflict, err, "Attachment already exists")
 			return
@@ -160,7 +198,10 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 	// client_id empty => NULL, meaning all clients (see migration comment on attachment_operations).
 	if err := h.recordAttachmentCreate(r.Context(), attachmentID, saveResult.ServedSize, saveResult.ServedContentType); err != nil {
 		h.log.Error("Failed to record attachment manifest operation", "attachmentId", attachmentID, "error", err)
-		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to register attachment for sync")
+		if rollbackErr := h.service.RemoveUpload(context.WithoutCancel(r.Context()), attachmentID); rollbackErr != nil {
+			h.log.Error("Failed to roll back attachment after manifest error", "attachmentId", attachmentID, "error", rollbackErr)
+		}
+		SendErrorResponse(w, http.StatusInternalServerError, nil, "Failed to register attachment for sync")
 		return
 	}
 
@@ -215,7 +256,8 @@ func (h *AttachmentHandler) DownloadAttachment(w http.ResponseWriter, r *http.Re
 
 	// Set headers for file download
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename="+attachmentID)
+	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filepath.Base(attachmentID)})
+	w.Header().Set("Content-Disposition", disposition)
 
 	// Stream the file to the response
 	_, err = io.Copy(w, file)
@@ -263,16 +305,4 @@ func preferOriginalAttachment(r *http.Request) bool {
 		parsed, err := strconv.ParseBool(raw)
 		return err == nil && parsed
 	}
-}
-
-func readAllWithLimit(r io.Reader, maxBytes int64) ([]byte, error) {
-	limited := io.LimitReader(r, maxBytes+1)
-	data, err := io.ReadAll(limited)
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(data)) > maxBytes {
-		return nil, errors.New("attachment too large")
-	}
-	return data, nil
 }

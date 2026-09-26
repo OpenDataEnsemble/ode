@@ -10,7 +10,12 @@ import {
 import { Observation } from '../../database/models/Observation';
 import { ObservationMapper } from '../../mappers/ObservationMapper';
 import RNFS from 'react-native-fs';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../profiles/ProfileStorage';
+import { profilePaths, profilePath } from '../../profiles/ProfilePaths';
+import { profileActivity } from '../../profiles/ProfileActivity';
+import { getActiveProfile } from '../../profiles/ProfileRuntime';
+import { serverConfigService } from '../../services/ServerConfigService';
+import { assertProfileFilePath } from '../../services/profileFileAccess';
 import {
   getApiAuthToken,
   isForbiddenError,
@@ -30,6 +35,18 @@ import {
   parseRepositoryResetFromAxios,
   RepositoryResetRequiredError,
 } from '../../errors/RepositoryResetRequiredError';
+import { asInsufficientStorageError } from '../../errors/InsufficientStorageError';
+import {
+  assertFreeSpace,
+  bundlePreviousPath,
+  bundleStagingPath,
+  bundleTempZipPath,
+  cleanupBundleInstallTemps,
+  commitBundleStagingAtomic,
+  MIN_FREE_BYTES_TO_START_BUNDLE,
+  recoverInterruptedBundleCommit,
+  requiredBytesForExtract,
+} from './bundleInstall';
 import type { AxiosError, AxiosResponse } from 'axios';
 import { effectiveRepositoryGenerationForRequest } from './repositoryGenerationRequest';
 import { pullPageOutcome } from './pullCursor';
@@ -139,6 +156,7 @@ type DeferredAttachmentDownload = {
 };
 
 function throwIfSyncCancelled(isCancelled?: () => boolean): void {
+  profileActivity.assertAvailable();
   if (isCancelled?.()) {
     logger.info('sync', 'cancel observed, aborting');
     throw new Error('Sync cancelled');
@@ -155,19 +173,33 @@ function reportSyncProgress(
 class SynkronusApi {
   private api: DefaultApi | null = null;
   private config: Configuration | null = null;
+  private apiProfileId: string | null = null;
+
+  /** Drop cached clients and native-download tokens after a committed profile switch. */
+  public invalidateForProfileSwitch(): void {
+    this.clearTokenCache();
+    this.apiProfileId = null;
+  }
 
   async getApi(): Promise<DefaultApi> {
-    // Always check current serverUrl from storage to handle changes
-    const rawSettings = await AsyncStorage.getItem('@settings');
-    if (!rawSettings) throw new Error('Missing app settings');
+    return profileActivity.run('Configure API', () => this.getApiImpl());
+  }
 
-    const { serverUrl } = JSON.parse(rawSettings);
+  private async getApiImpl(): Promise<DefaultApi> {
+    profileActivity.assertAvailable();
+    const profileId = getActiveProfile().id;
+    const serverUrl = await serverConfigService.getServerUrl();
+    if (getActiveProfile().id !== profileId) {
+      throw new Error('Profile changed while configuring API');
+    }
+    if (!serverUrl) throw new Error('Missing profile server URL');
 
-    // If config exists but serverUrl changed, clear cache
-    if (this.config && this.config.basePath !== serverUrl) {
-      this.api = null;
-      this.config = null;
-      this.fastGetToken_cachedToken = null;
+    if (
+      this.apiProfileId !== profileId ||
+      (this.config && this.config.basePath !== serverUrl)
+    ) {
+      this.clearTokenCache();
+      this.apiProfileId = profileId;
     }
 
     // If API exists, return it (serverUrl hasn't changed)
@@ -175,16 +207,34 @@ class SynkronusApi {
 
     // Load config if not already loaded
     if (!this.config) {
-      this.config = new Configuration({
-        basePath: serverUrl,
-        accessToken: async () => {
-          const token = await AsyncStorage.getItem('@token');
-          return token || '';
-        },
-        baseOptions: {
-          timeout: SYNC_HTTP_TIMEOUT_MS,
-        },
-      });
+      this.config = Object.assign(
+        new Configuration({
+          basePath: serverUrl,
+          accessToken: async () =>
+            profileActivity.run('Read API token', async () => {
+              if (
+                getActiveProfile().id !== profileId ||
+                getActiveProfile().serverUrl !== serverUrl
+              ) {
+                throw new Error(
+                  'API client belongs to another profile or server',
+                );
+              }
+              const token = await AsyncStorage.getItem('@token');
+              if (
+                getActiveProfile().id !== profileId ||
+                getActiveProfile().serverUrl !== serverUrl
+              ) {
+                throw new Error('Profile changed while reading API token');
+              }
+              return token || '';
+            }),
+          baseOptions: {
+            timeout: SYNC_HTTP_TIMEOUT_MS,
+          },
+        }),
+        { odeProfileId: profileId },
+      );
     }
 
     this.api = new DefaultApi(this.config);
@@ -192,6 +242,12 @@ class SynkronusApi {
   }
 
   async getConfig(): Promise<Configuration> {
+    return profileActivity.run('Read API configuration', () =>
+      this.getConfigImpl(),
+    );
+  }
+
+  private async getConfigImpl(): Promise<Configuration> {
     // Ensure config is loaded by calling getApi first
     await this.getApi();
     if (!this.config) {
@@ -282,6 +338,12 @@ class SynkronusApi {
    * Remove previously downloaded app bundle files from from /forms and /app folders
    */
   async removeAppBundleFiles() {
+    return profileActivity.run('Remove app bundle', () =>
+      this.removeAppBundleFilesImpl(),
+    );
+  }
+
+  private async removeAppBundleFilesImpl() {
     const removeIfExists = async (path: string) => {
       try {
         if (await RNFS.exists(path)) {
@@ -292,8 +354,8 @@ class SynkronusApi {
         console.error(`Failed to remove files from ${path}: ${error}`);
       }
     };
-    await removeIfExists(RNFS.DocumentDirectoryPath + '/app/');
-    await removeIfExists(RNFS.DocumentDirectoryPath + '/forms/');
+    await removeIfExists(profilePaths.app());
+    await removeIfExists(profilePaths.forms());
   }
 
   /**
@@ -335,6 +397,25 @@ class SynkronusApi {
     prefix: string,
     progressCallback?: (progressPercent: number) => void,
   ): Promise<DownloadResult[]> {
+    return profileActivity.run('Download app files', () =>
+      this.downloadFilesByPrefixImpl(
+        manifest,
+        outputRootDirectory,
+        prefix,
+        progressCallback,
+      ),
+    );
+  }
+
+  private async downloadFilesByPrefixImpl(
+    manifest: AppBundleManifest,
+    outputRootDirectory: string,
+    prefix: string,
+    progressCallback?: (progressPercent: number) => void,
+  ): Promise<DownloadResult[]> {
+    if (outputRootDirectory.replace(/\/+$/, '') !== profilePaths.root()) {
+      throw new Error('App files must be downloaded into the active profile');
+    }
     const config = await this.getConfig();
     const filesToDownload = manifest.files.filter(file =>
       file.path.startsWith(prefix),
@@ -343,9 +424,7 @@ class SynkronusApi {
       file =>
         `${config.basePath}/api/app-bundle/download/${encodeURIComponent(file.path)}`,
     );
-    const localFiles = filesToDownload.map(
-      file => `${outputRootDirectory}/${file.path}`,
-    );
+    const localFiles = filesToDownload.map(file => profilePath(file.path));
 
     return this.downloadRawFiles(urls, localFiles, progressCallback);
   }
@@ -354,6 +433,12 @@ class SynkronusApi {
    * Fetches the app bundle manifest from the server.
    */
   async getManifest(): Promise<AppBundleManifest> {
+    return profileActivity.run('Fetch app manifest', () =>
+      this.getManifestImpl(),
+    );
+  }
+
+  private async getManifestImpl(): Promise<AppBundleManifest> {
     const api = await this.getApi();
     const response = await api.getAppBundleManifest({
       xOdeVersion: ODE_VERSION,
@@ -362,11 +447,20 @@ class SynkronusApi {
   }
 
   /**
-   * Downloads the app bundle as a single zip, extracts to a temp directory,
-   * then atomically swaps into place so the old bundle stays intact until
-   * the new one is fully ready.
+   * Downloads the app bundle as a single zip, extracts to a staging directory
+   * on the same volume as the live bundle, then commits via rename so the old
+   * bundle stays intact until the new one is fully ready. Insufficient free
+   * space is checked before download/extract and mapped to a clear error.
    */
   async downloadAndInstallBundleZip(
+    progressCallback?: (progressPercent: number) => void,
+  ): Promise<void> {
+    return profileActivity.run('Install app bundle', () =>
+      this.downloadAndInstallBundleZipImpl(progressCallback),
+    );
+  }
+
+  private async downloadAndInstallBundleZipImpl(
     progressCallback?: (progressPercent: number) => void,
   ): Promise<void> {
     const config = await this.getConfig();
@@ -374,79 +468,105 @@ class SynkronusApi {
       this.fastGetToken_cachedToken ?? (await this.fastGetToken());
 
     const zipUrl = `${config.basePath}/api/app-bundle/download-zip`;
-    const tempZipPath = `${RNFS.CachesDirectoryPath}/bundle_temp.zip`;
-    const tempExtractPath = `${RNFS.CachesDirectoryPath}/bundle_staging`;
-    const appDir = `${RNFS.DocumentDirectoryPath}/app`;
-    const formsDir = `${RNFS.DocumentDirectoryPath}/forms`;
+    const profileRoot = profilePaths.root();
+    const profileCacheRoot = profilePaths.cache();
+    const tempZipPath = bundleTempZipPath(profileCacheRoot);
+    const stagingRoot = bundleStagingPath(profileRoot);
+    const previousRoot = bundlePreviousPath(profileRoot);
+    const appDir = profilePaths.app();
+    const formsDir = profilePaths.forms();
+    const cleanupOptions = {
+      documentDir: profileRoot,
+      cachesDir: profileCacheRoot,
+    };
+    await RNFS.mkdir(profileCacheRoot);
 
-    // Clean up any leftover temp artifacts
-    if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
-    if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
+    try {
+      // Restore live dirs if a prior commit was interrupted mid-rename.
+      await recoverInterruptedBundleCommit({ documentDir: profileRoot });
+      await cleanupBundleInstallTemps(cleanupOptions);
 
-    // Download the zip
-    await withTransientRetry(
-      async () => {
-        const result = await synkronusDownload({
-          fromUrl: zipUrl,
-          toFile: tempZipPath,
-          authToken,
-          background: true,
-          progressInterval: 500,
-          progress: res => {
-            if (res.contentLength > 0) {
-              const percent = Math.round(
-                (res.bytesWritten / res.contentLength) * 50,
-              );
-              progressCallback?.(percent);
-            }
-          },
-        }).promise;
-        if (result.statusCode !== 200) {
-          if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
-          throw new Error(
-            `Bundle zip download failed (HTTP ${result.statusCode})`,
-          );
-        }
-        return result;
-      },
-      {
-        onRetry: (attempt, error, delayMs) => {
-          logger.info(
-            'sync',
-            `bundle zip retry attempt=${attempt} delay=${delayMs}ms ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
+      await assertFreeSpace(MIN_FREE_BYTES_TO_START_BUNDLE, 'before download');
+
+      // Download the zip
+      await withTransientRetry(
+        async () => {
+          const result = await synkronusDownload({
+            fromUrl: zipUrl,
+            toFile: tempZipPath,
+            authToken,
+            background: true,
+            progressInterval: 500,
+            progress: res => {
+              if (res.contentLength > 0) {
+                const percent = Math.round(
+                  (res.bytesWritten / res.contentLength) * 50,
+                );
+                progressCallback?.(percent);
+              }
+            },
+          }).promise;
+          if (result.statusCode !== 200) {
+            if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
+            throw new Error(
+              `Bundle zip download failed (HTTP ${result.statusCode})`,
+            );
+          }
+          return result;
         },
-      },
-    );
+        {
+          onRetry: (attempt, error, delayMs) => {
+            logger.info(
+              'sync',
+              `bundle zip retry attempt=${attempt} delay=${delayMs}ms ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          },
+        },
+      );
 
-    progressCallback?.(50);
+      progressCallback?.(50);
 
-    // Extract to staging directory
-    await RNFS.mkdir(tempExtractPath);
-    await unzip(tempZipPath, tempExtractPath);
-    progressCallback?.(80);
+      const zipStat = await RNFS.stat(tempZipPath);
+      await assertFreeSpace(
+        requiredBytesForExtract(zipStat.size),
+        'before extract',
+      );
 
-    // Atomic swap: remove old dirs, move staging content into place
-    if (await RNFS.exists(appDir)) await RNFS.unlink(appDir);
-    if (await RNFS.exists(formsDir)) await RNFS.unlink(formsDir);
+      // Extract onto DocumentDirectory so commit renames stay same-FS.
+      await RNFS.mkdir(stagingRoot);
+      await unzip(tempZipPath, stagingRoot);
+      progressCallback?.(80);
 
-    const stagingAppDir = `${tempExtractPath}/app`;
-    const stagingFormsDir = `${tempExtractPath}/forms`;
+      // Free zip space before commit; live bundle is still intact.
+      if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
 
-    if (await RNFS.exists(stagingAppDir))
-      await RNFS.moveFile(stagingAppDir, appDir);
-    if (await RNFS.exists(stagingFormsDir))
-      await RNFS.moveFile(stagingFormsDir, formsDir);
+      await commitBundleStagingAtomic({
+        stagingRoot,
+        appDir,
+        formsDir,
+        previousRoot,
+      });
 
-    progressCallback?.(95);
-
-    // Clean up temp files
-    if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
-    if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
-
-    progressCallback?.(100);
+      progressCallback?.(100);
+    } catch (error) {
+      // Never leave partial staging/zip behind; live dirs are only touched
+      // inside commitBundleStagingAtomic (which restores on failure).
+      try {
+        await cleanupBundleInstallTemps(cleanupOptions);
+      } catch (cleanupError) {
+        logger.warn(
+          'sync',
+          `bundle install cleanup failed: ${
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : String(cleanupError)
+          }`,
+        );
+      }
+      throw asInsufficientStorageError(error);
+    }
   }
 
   private getAttachmentsDownloadManifest(
@@ -698,6 +818,8 @@ class SynkronusApi {
       try {
         const syncedPath = `${syncedDirectory}/${op.attachment_id}`;
         const pendingPath = `${pendingDirectory}/${op.attachment_id}`;
+        assertProfileFilePath(syncedPath);
+        assertProfileFilePath(pendingPath);
         if (await RNFS.exists(syncedPath)) {
           await RNFS.unlink(syncedPath);
         }
@@ -906,14 +1028,20 @@ class SynkronusApi {
   }
 
   private fastGetToken_cachedToken: string | null = null;
+  private tokenProfileId: string | null = null;
   private async fastGetToken(): Promise<string> {
+    const profileId = getActiveProfile().id;
+    if (this.tokenProfileId !== profileId) this.fastGetToken_cachedToken = null;
     // Hint: Use like this to avoid unnecessary promise creation:
     // const authToken = this.fastGetToken_cachedToken ?? await this.fastGetToken();
     if (this.fastGetToken_cachedToken) {
       return this.fastGetToken_cachedToken;
     }
     const authToken = await getApiAuthToken();
+    if (getActiveProfile().id !== profileId)
+      throw new Error('Profile changed while reading API token');
     if (authToken) {
+      this.tokenProfileId = profileId;
       this.fastGetToken_cachedToken = authToken;
       return authToken;
     }
@@ -922,6 +1050,7 @@ class SynkronusApi {
 
   public clearTokenCache(): void {
     this.fastGetToken_cachedToken = null;
+    this.tokenProfileId = null;
     // Clear API instance to force recreation with new token after auto-login
     this.api = null;
     this.config = null;
@@ -1049,6 +1178,7 @@ class SynkronusApi {
       onJobEnd?: (jobId: number) => void;
     },
   ): Promise<DownloadResult> {
+    assertProfileFilePath(localFilePath);
     throwIfSyncCancelled(options?.isCancelled);
 
     if (await RNFS.exists(localFilePath)) {
@@ -1331,8 +1461,10 @@ class SynkronusApi {
    * Get the count of unsynced attachments pending upload
    */
   async getUnsyncedAttachmentCount(): Promise<number> {
-    const attachments = await this.getAttachmentsUploadManifest();
-    return attachments.length;
+    return profileActivity.run('Count pending attachments', async () => {
+      const attachments = await this.getAttachmentsUploadManifest();
+      return attachments.length;
+    });
   }
 
   /**
@@ -1342,15 +1474,13 @@ class SynkronusApi {
   async attachmentExists(
     attachmentId: string,
   ): Promise<{ available: boolean; pendingUpload: boolean }> {
-    const syncedPath = `${syncedRoot()}/${attachmentId}`;
-    const pendingPath = `${pendingRoot()}/${attachmentId}`;
-
-    const [available, pendingUpload] = await Promise.all([
-      RNFS.exists(syncedPath),
-      RNFS.exists(pendingPath),
-    ]);
-
-    return { available, pendingUpload };
+    return profileActivity.run('Check attachment', async () => {
+      const syncedPath = profilePath(`attachments/synced/${attachmentId}`);
+      const pendingPath = profilePath(`attachments/pending/${attachmentId}`);
+      const available = await RNFS.exists(syncedPath);
+      const pendingUpload = await RNFS.exists(pendingPath);
+      return { available, pendingUpload };
+    });
   }
 
   /**
@@ -1474,92 +1604,101 @@ class SynkronusApi {
       details: i18n.t('sync.progress.connecting'),
     });
 
-    do {
-      throwIfSyncCancelled(isCancelled);
-      pullPage += 1;
-      const waitStarted = Date.now();
-      const fetched = await (pendingPage ?? fetchPullPage(currentSince));
-      const waitMs = Date.now() - waitStarted;
-      pendingPage = null;
-      const clientGen = fetched.clientGen;
-      res = fetched.response;
+    try {
+      do {
+        throwIfSyncCancelled(isCancelled);
+        pullPage += 1;
+        const waitStarted = Date.now();
+        const fetched = await (pendingPage ?? fetchPullPage(currentSince));
+        const waitMs = Date.now() - waitStarted;
+        pendingPage = null;
+        const clientGen = fetched.clientGen;
+        res = fetched.response;
 
-      this.ensureRepoGenResponseMatchesSent(
-        'syncPull',
-        clientGen,
-        res.data.repository_generation,
-      );
-      await this.persistRepositoryGenerationFromResponse(
-        res.data.repository_generation,
-      );
-
-      const mapStarted = Date.now();
-      const domainObservations = res.data.records
-        ? res.data.records.map(ObservationMapper.fromApi)
-        : [];
-      const mapMs = Date.now() - mapStarted;
-
-      totalServerRecordsThisPull += domainObservations.length;
-
-      // One line for the whole page: count when HTTP arrives, then leave it
-      // up through apply/index. Toggling "Saving…" made the count unreadable.
-      reportSyncProgress(report, {
-        phase: 'pull_observations',
-        current: pullPage,
-        total: 0,
-        indeterminate: true,
-        details:
-          totalServerRecordsThisPull > 0
-            ? i18n.t('sync.progress.recordsDownloaded', {
-                count: totalServerRecordsThisPull,
-              })
-            : res.data.has_more
-              ? i18n.t('sync.progress.downloadingPage', { page: pullPage })
-              : i18n.t('sync.progress.downloading'),
-      });
-
-      // Cursor math depends only on the response. Start the next fetch before
-      // apply so the RTT is hidden behind SQLite work. Persist the cursor
-      // only after apply succeeds (see pullCursor.ts).
-      const pageOutcome = pullPageOutcome(res.data, currentSince);
-      if (pageOutcome.kind === 'unusable') {
-        throw new Error(
-          `Sync pull stopped after page ${pullPage}: ${pageOutcome.reason}`,
+        this.ensureRepoGenResponseMatchesSent(
+          'syncPull',
+          clientGen,
+          res.data.repository_generation,
         );
-      }
-      if (
-        pageOutcome.kind === 'continue' &&
-        pullPageSize >= PREFETCH_AFTER_PULL_PAGE_SIZE
-      ) {
-        pendingPage = fetchPullPage(pageOutcome.nextSince);
-      }
+        await this.persistRepositoryGenerationFromResponse(
+          res.data.repository_generation,
+        );
 
-      // Apply + incremental index. Stay on pull_observations — flipping to
-      // index_rebuild made the card blink "Preparing data for search" on
-      // every page. That title is for the full rebuild after a bundle change.
-      const applyStarted = Date.now();
-      await repo.applyServerChanges(domainObservations, {
-        isCancelled,
-      });
-      logger.info(
-        'sync',
-        `pull page=${pullPage} records=${domainObservations.length} wait=${waitMs}ms map=${mapMs}ms apply=${Date.now() - applyStarted}ms`,
-        { phase: 'page', counts: domainObservations.length },
-      );
+        const mapStarted = Date.now();
+        const domainObservations = res.data.records
+          ? res.data.records.map(ObservationMapper.fromApi)
+          : [];
+        const mapMs = Date.now() - mapStarted;
 
-      hasMorePages = pageOutcome.kind === 'continue';
-      const cursor =
-        pageOutcome.kind === 'continue'
-          ? pageOutcome.nextSince
-          : pageOutcome.version;
-      if (pageOutcome.kind === 'continue') {
-        currentSince = cursor;
-      } else {
-        finalVersion = cursor;
-      }
+        totalServerRecordsThisPull += domainObservations.length;
 
-      await AsyncStorage.setItem('@last_seen_version', String(cursor));
-    } while (hasMorePages);
+        // One line for the whole page: count when HTTP arrives, then leave it
+        // up through apply/index. Toggling "Saving…" made the count unreadable.
+        reportSyncProgress(report, {
+          phase: 'pull_observations',
+          current: pullPage,
+          total: 0,
+          indeterminate: true,
+          details:
+            totalServerRecordsThisPull > 0
+              ? i18n.t('sync.progress.recordsDownloaded', {
+                  count: totalServerRecordsThisPull,
+                })
+              : res.data.has_more
+                ? i18n.t('sync.progress.downloadingPage', { page: pullPage })
+                : i18n.t('sync.progress.downloading'),
+        });
+
+        // Cursor math depends only on the response. Start the next fetch before
+        // apply so the RTT is hidden behind SQLite work. Persist the cursor
+        // only after apply succeeds (see pullCursor.ts).
+        const pageOutcome = pullPageOutcome(res.data, currentSince);
+        if (pageOutcome.kind === 'unusable') {
+          throw new Error(
+            `Sync pull stopped after page ${pullPage}: ${pageOutcome.reason}`,
+          );
+        }
+        if (
+          pageOutcome.kind === 'continue' &&
+          pullPageSize >= PREFETCH_AFTER_PULL_PAGE_SIZE
+        ) {
+          pendingPage = fetchPullPage(pageOutcome.nextSince);
+          // Observe early rejection while SQLite is still applying this page.
+          // The original promise is retained and joined below, not cancelled.
+          void pendingPage.catch(() => undefined);
+        }
+
+        // Apply + incremental index. Stay on pull_observations — flipping to
+        // index_rebuild made the card blink "Preparing data for search" on
+        // every page. That title is for the full rebuild after a bundle change.
+        const applyStarted = Date.now();
+        await repo.applyServerChanges(domainObservations, {
+          isCancelled,
+        });
+        logger.info(
+          'sync',
+          `pull page=${pullPage} records=${domainObservations.length} wait=${waitMs}ms map=${mapMs}ms apply=${Date.now() - applyStarted}ms`,
+          { phase: 'page', counts: domainObservations.length },
+        );
+
+        hasMorePages = pageOutcome.kind === 'continue';
+        const cursor =
+          pageOutcome.kind === 'continue'
+            ? pageOutcome.nextSince
+            : pageOutcome.version;
+        if (pageOutcome.kind === 'continue') {
+          currentSince = cursor;
+        } else {
+          finalVersion = cursor;
+        }
+
+        await AsyncStorage.setItem('@last_seen_version', String(cursor));
+      } while (hasMorePages);
+    } finally {
+      // A failed apply/cancel must not release the profile while prefetch or
+      // its retry/backoff and adaptive-state persistence are still running.
+      await pendingPage?.catch(() => undefined);
+    }
 
     logRepositoryGenerationSync('syncPull all pages done', {
       totalServerRecordsReceived: totalServerRecordsThisPull,
@@ -1613,6 +1752,15 @@ class SynkronusApi {
    */
   async pushObservations(
     includeAttachments: boolean = false,
+    options?: SynkronusSyncOptions,
+  ): Promise<{ version: number; pendingAttachmentUploads: number }> {
+    return profileActivity.run('Push observations', () =>
+      this.pushObservationsImpl(includeAttachments, options),
+    );
+  }
+
+  private async pushObservationsImpl(
+    includeAttachments: boolean,
     options?: SynkronusSyncOptions,
   ): Promise<{ version: number; pendingAttachmentUploads: number }> {
     const report = options?.onProgress;
@@ -1842,6 +1990,15 @@ class SynkronusApi {
    */
   async syncObservations(
     includeAttachments: boolean = false,
+    options?: SynkronusSyncOptions,
+  ): Promise<ObservationSyncResult> {
+    return profileActivity.run('Sync API', () =>
+      this.syncObservationsImpl(includeAttachments, options),
+    );
+  }
+
+  private async syncObservationsImpl(
+    includeAttachments: boolean,
     options?: SynkronusSyncOptions,
   ): Promise<ObservationSyncResult> {
     const rawStored = await AsyncStorage.getItem(

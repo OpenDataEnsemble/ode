@@ -18,6 +18,8 @@ import (
 type Config struct {
 	// JWTSecret is the secret key used to sign JWT tokens
 	JWTSecret string
+	// AcceptLegacyUntypedTokens keeps tokens issued before token_use was added valid during migration.
+	AcceptLegacyUntypedTokens bool
 	// TokenExpiration is the duration for which a token is valid
 	TokenExpiration time.Duration
 	// RefreshTokenExpiration is the duration for which a refresh token is valid
@@ -35,20 +37,31 @@ type Config struct {
 // DefaultConfig returns a default configuration
 func DefaultConfig() Config {
 	return Config{
-		JWTSecret:                "change-me-in-production",
-		TokenExpiration:          time.Hour * 24,
-		RefreshTokenExpiration:   time.Hour * 24 * 7,
-		AdminUsername:            "admin",
-		AdminPassword:            "admin",
-		ForceCreateAdminUser:     "",
-		ForceCreateAdminPassword: "",
+		JWTSecret:                 "change-me-in-production",
+		AcceptLegacyUntypedTokens: true,
+		TokenExpiration:           time.Hour * 24,
+		RefreshTokenExpiration:    time.Hour * 24 * 7,
+		AdminUsername:             "admin",
+		AdminPassword:             "admin",
+		ForceCreateAdminUser:      "",
+		ForceCreateAdminPassword:  "",
 	}
 }
 
 // AuthClaims represents the JWT claims
+type TokenUse string
+
+const (
+	TokenUseAccess  TokenUse = "access"
+	TokenUseRefresh TokenUse = "refresh"
+	tokenIssuer              = "synkronus"
+)
+
+// AuthClaims represents the JWT claims.
 type AuthClaims struct {
 	Username string      `json:"username"`
 	Role     models.Role `json:"role"`
+	TokenUse TokenUse    `json:"token_use,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -146,7 +159,9 @@ func (s *Service) CheckPasswordHash(password, hash string) bool {
 	return s.VerifyPassword(password, hash)
 }
 
-// Authenticate verifies user credentials and returns a user if valid
+const dummyPasswordHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+
+// Authenticate verifies user credentials and returns a user if valid.
 func (s *Service) Authenticate(ctx context.Context, username, password string) (*models.User, error) {
 	user, err := s.userRepository.GetByUsername(ctx, username)
 	if err != nil {
@@ -154,6 +169,8 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 	}
 
 	if user == nil {
+		// Keep nonexistent-user and wrong-password paths comparable to reduce timing enumeration.
+		_ = bcrypt.CompareHashAndPassword([]byte(dummyPasswordHash), []byte(password))
 		return nil, errors.New("invalid credentials")
 	}
 
@@ -171,9 +188,11 @@ func (s *Service) GenerateToken(user *models.User) (string, error) {
 	claims := &AuthClaims{
 		Username: user.Username,
 		Role:     user.Role,
+		TokenUse: TokenUseAccess,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    tokenIssuer,
 			Subject:   user.ID.String(),
 		},
 	}
@@ -194,10 +213,12 @@ func (s *Service) GenerateRefreshToken(user *models.User) (string, error) {
 
 	claims := &AuthClaims{
 		Username: user.Username,
-		Role:     user.Role, // Include role in refresh token as well
+		Role:     user.Role,
+		TokenUse: TokenUseRefresh,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    tokenIssuer,
 			Subject:   user.ID.String(),
 		},
 	}
@@ -212,32 +233,46 @@ func (s *Service) GenerateRefreshToken(user *models.User) (string, error) {
 	return tokenString, nil
 }
 
-// ValidateToken validates a JWT token and returns the claims
+// ValidateToken validates an access token and returns the claims.
 func (s *Service) ValidateToken(tokenString string) (*AuthClaims, error) {
+	return s.validateTokenForUse(tokenString, TokenUseAccess)
+}
+
+func (s *Service) validateTokenForUse(tokenString string, expectedUse TokenUse) (*AuthClaims, error) {
 	claims := &AuthClaims{}
-
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(s.config.JWTSecret), nil
-	})
-
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		claims,
+		func(token *jwt.Token) (any, error) { return []byte(s.config.JWTSecret), nil },
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithExpirationRequired(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse token: %w", err)
 	}
-
 	if !token.Valid {
 		return nil, errors.New("invalid token")
 	}
 
+	if claims.TokenUse == "" {
+		if !s.config.AcceptLegacyUntypedTokens {
+			return nil, errors.New("legacy untyped token is no longer accepted")
+		}
+		return claims, nil
+	}
+	if claims.Issuer != tokenIssuer {
+		return nil, errors.New("invalid token issuer")
+	}
+	if claims.TokenUse != expectedUse {
+		return nil, fmt.Errorf("invalid token use: expected %s", expectedUse)
+	}
 	return claims, nil
 }
 
 // RefreshToken validates a refresh token and generates a new access token
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (string, string, error) {
-	// Validate the refresh token
-	claims, err := s.ValidateToken(refreshToken)
+	// Validate the refresh token in the refresh-token context.
+	claims, err := s.validateTokenForUse(refreshToken, TokenUseRefresh)
 	if err != nil {
 		return "", "", fmt.Errorf("invalid refresh token: %w", err)
 	}

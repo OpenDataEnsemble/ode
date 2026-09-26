@@ -12,10 +12,8 @@ import {
 import { I18nextProvider } from 'react-i18next';
 import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
-import {
-  runAttachmentLayoutMigrationV2,
-  sweepStaleDraftAttachments,
-} from './src/services/attachmentStorage';
+import { runAttachmentLayoutMigrationV2 } from './src/services/attachmentStorage';
+import { profileActivity } from './src/profiles/ProfileActivity';
 import { SyncProvider } from './src/contexts/SyncContext';
 import { AppThemeProvider, useAppTheme } from './src/contexts/AppThemeContext';
 import { ConfirmModalProvider } from './src/contexts/ConfirmModalContext';
@@ -89,6 +87,14 @@ function AppInner(): React.JSX.Element {
     new Map<string, FormplayerModalHandle | null>(),
   );
 
+  useEffect(() => {
+    profileActivity.setBlocker(
+      'open-native-form',
+      formplayerStack.length > 0 || qrScannerVisible || signatureCaptureVisible,
+    );
+    return () => profileActivity.setBlocker('open-native-form', false);
+  }, [formplayerStack.length, qrScannerVisible, signatureCaptureVisible]);
+
   const initializeStackEntry = React.useCallback(
     (entry: FormplayerStackEntry) => {
       let attempt = 0;
@@ -132,18 +138,18 @@ function AppInner(): React.JSX.Element {
   useEffect(() => {
     FormService.getInstance();
 
-    // Run the v2 attachment folder-layout migration first (idempotent; guarded by
-    // AsyncStorage flag), then the best-effort stale-draft sweep. Both failure
-    // paths are logged inside the helpers; neither is allowed to throw on boot.
-    void (async () => {
-      await runAttachmentLayoutMigrationV2();
-      await sweepStaleDraftAttachments();
-    })().catch(() => undefined);
+    // Do not age-sweep draft media: browser drafts can still reference old files,
+    // including in inactive profiles. Submission promotes them; profile deletion
+    // removes the remainder. Reference-aware garbage collection is a future step.
+    void runAttachmentLayoutMigrationV2().catch(() => undefined);
 
     const handleOpenQRScanner = (data: {
       fieldId: string;
       onResult: (result: unknown) => void;
     }) => {
+      formplayerModalRefs.current.forEach(handle => {
+        handle?.flushDraft();
+      });
       setQrScannerData(data);
       setQrScannerVisible(true);
     };

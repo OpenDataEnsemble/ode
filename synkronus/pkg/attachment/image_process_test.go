@@ -7,6 +7,8 @@ import (
 	"image/jpeg"
 	"image/png"
 	"testing"
+
+	"errors"
 )
 
 func TestJpegQualityForLevel(t *testing.T) {
@@ -67,6 +69,18 @@ func TestProcessImageForStorage_MaxBoxDownscale(t *testing.T) {
 	}
 	if img.Bounds().Dx() != 100 || img.Bounds().Dy() != 50 {
 		t.Fatalf("unexpected downscaled dimensions: %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
+	}
+}
+
+func TestProcessImageForStorageRejectsExcessiveDecodedDimensions(t *testing.T) {
+	raw := mustEncodePNG(t, makeNoisyImage(10, 10))
+	_, err := processImageForStorage(raw, imageProcessOptions{
+		CompressionLevel: 1,
+		MaxDimensionPx:   5,
+		MaxPixels:        25,
+	})
+	if !errors.Is(err, ErrAttachmentTooLarge) {
+		t.Fatalf("expected decoded image limit error, got %v", err)
 	}
 }
 

@@ -1,3 +1,12 @@
+jest.mock(
+  '../../../profiles/ProfileActivity',
+  () => ({
+    profileActivity:
+      require('../../../services/testUtils/profileMocks').createProfileActivityMock(),
+  }),
+  { virtual: true },
+);
+
 jest.mock('../../../services/GeolocationService', () => ({
   geolocationService: {
     getCachedLocation: jest.fn(() => null),

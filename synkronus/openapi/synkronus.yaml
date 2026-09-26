@@ -391,6 +391,24 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+        '413':
+          description: Authentication request exceeds the configured size limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many authentication attempts
+          headers:
+            Retry-After:
+              description: Seconds until the client should retry
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/refresh:
     post:
@@ -429,6 +447,24 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+        '413':
+          description: Authentication request exceeds the configured size limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many authentication attempts
+          headers:
+            Retry-After:
+              description: Seconds until the client should retry
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/users/create:
     post:
@@ -1021,6 +1057,14 @@ paths:
           description: Bad request (missing or invalid file)
         '401':
           description: Unauthorized
+        '403':
+          description: Authenticated account does not have write access
+        '413':
+          description: Attachment or multipart request exceeds the configured upload limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Conflict — attachment already exists, or repository_generation mismatch (epoch; align before upload)
           content:
