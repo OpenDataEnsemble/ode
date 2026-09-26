@@ -1,82 +1,54 @@
-# ODE Website
+# ODE Documentation Site
 
-This is the website for ODE. It is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+The ODE documentation site, built with [Docusaurus](https://docusaurus.io/) and published at [opendataensemble.org](https://opendataensemble.org/).
 
-## Documentation versioning
+This site lives in the [`OpenDataEnsemble/ode`](https://github.com/OpenDataEnsemble/ode) monorepo under `docs/`. It is an independent **npm** project — the rest of the monorepo uses **pnpm**, so run npm commands from this directory.
 
-The version selector in the navbar (e.g. **ODE 1.1.2**, **Next (unreleased)**) refers to **ODE product versions**, not the version of the docs site itself.
+## Layout
 
-- **ODE 1.1.2, 1.1.0, 1.0** — Frozen snapshots of the docs as they were when that version of ODE was released. Content lives in `versioned_docs/version-1.1.2/` etc.
-- **Next (unreleased)** — The current docs you edit in the `docs/` folder. This is what you see when working locally; it becomes the next ODE release docs when you run the versioning command.
+| Path | Purpose |
+|------|---------|
+| `docs/docs/` | Documentation content (Markdown/MDX). One folder per section: `getting-started/`, `guides/`, `using/`, `reference/`, `community/`, … |
+| `docs/static/` | Assets copied verbatim to the site root (`img/`, `fonts/`, `diagrams/`), plus `CNAME` and `.nojekyll` |
+| `docusaurus.config.ts` | Site config: navbar, footer, routing, plugins |
+| `sidebars.ts` | Sidebar structure (persona-based: For Data Collectors / For Implementers / For Developers) |
+| `plugins/` | Remark/rehype link fixups |
+| `scripts/validate-docs.ts` | Fast validation run by `npm run test` |
+| `src/` | Custom React components, theme overrides, and the `/downloads` page |
 
-When you change files in `docs/`, switch the dropdown to **Next (unreleased)** to see your updates. The default “latest” on the site can be set to the current ODE release (e.g. ODE 1.1.2) so most visitors see stable docs.
-
-To freeze the current `docs/` for a new release (e.g. ODE 1.1.3), run:
-
-```bash
-npm run docusaurus docs:version 1.1.3
-```
-
-Then update `versions.json` and the config if you want that version to become the default.
-
-## Local Development
+## Local development
 
 ```bash
 npm install
 npm start
 ```
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+Starts a dev server with hot reload. The site is served at `/`, documentation under `/docs`.
 
-## Testing
+## Validation
 
-**Always test your changes before pushing to avoid broken links and deployment failures.**
-
-### Quick Validation (Recommended)
-
-Run fast validation tests that catch most issues in seconds:
+Run these before opening a PR — the CI workflow runs the same commands.
 
 ```bash
-npm run test
+npm run test      # fast: docId references, internal links, config paths
+npm run build     # full: compiles every page, fails on broken links
+npm run validate  # both of the above
 ```
 
-This validates:
-- All `docId` references in `docusaurus.config.ts` point to existing files
-- Internal markdown links are valid
-- Configuration paths are correct
-
-### Full Validation
-
-For complete validation, run the full build:
-
-```bash
-npm run build
-```
-
-Or run both tests and build:
-
-```bash
-npm run validate
-```
-
-### Pre-Push Hook
-
-A pre-push hook automatically runs validation tests before you push. If tests fail, the push will be blocked. This helps catch issues early.
-
-To skip the hook (not recommended):
-
-```bash
-git push --no-verify
-```
-
-⚠️ **Note:** Even if you skip the hook, CI will still validate your changes and block deployment if validation fails.
+`npm run build` is the real gate: the site is configured with `onBrokenLinks: 'throw'`, so a broken internal link fails the build rather than shipping.
 
 ## Deployment
 
-The website is deployed automatically using GitHub Actions when changes are pushed to the `main` branch. The deployment process:
+[`docs.yml`](../.github/workflows/docs.yml) publishes the site to GitHub Pages:
 
-1. Runs fast validation tests
-2. Runs full Docusaurus build
-3. Deploys to GitHub Pages (only if all checks pass)
+| Trigger | Result |
+|---------|--------|
+| Pull request to `main` or `dev` touching `docs/**` | Validate and build only |
+| Push to `dev` touching `docs/**` | Validate, build, and deploy |
+| Manual (`workflow_dispatch`) | Validate and build |
 
-Broken links or validation errors will prevent deployment.
+The deployed branch is **`dev`**, so the site reflects the latest merged work rather than the last release. Deploys run with `actions/deploy-pages` and require no secrets.
+
+:::note Versioning
+Docusaurus versioning is currently **disabled** (`disableVersioning: true` in `docusaurus.config.ts`, and `versions.json` is empty). There is no version dropdown: every visitor sees the current docs.
+:::

@@ -10,8 +10,8 @@ const config: Config = {
   url: 'https://opendataensemble.org',
   baseUrl: '/',
 
-  organizationName: 'opendataensemble',
-  projectName: 'ode-docs',
+  organizationName: 'OpenDataEnsemble',
+  projectName: 'ode',
 
   onBrokenLinks: 'throw',
   // TOC same-page links (#overview, etc.) are validated at build time but markdown
@@ -40,7 +40,7 @@ const config: Config = {
         docs: {
           sidebarPath: './sidebars.ts',
           routeBasePath: '/docs',
-          editUrl: 'https://github.com/OpenDataEnsemble/ode/tree/main/ode-docs/',
+          editUrl: 'https://github.com/OpenDataEnsemble/ode/tree/dev/docs/',
           remarkPlugins: [require('./plugins/fix-docs-links')],
           rehypePlugins: [require('./plugins/fix-docs-links-rehype')],
           disableVersioning: true,
@@ -119,7 +119,7 @@ const config: Config = {
             },
             {
               label: 'GitHub',
-          href: 'https://github.com/OpenDataEnsemble/ode',
+              href: 'https://github.com/OpenDataEnsemble/ode',
             },
             {
               type: 'doc',

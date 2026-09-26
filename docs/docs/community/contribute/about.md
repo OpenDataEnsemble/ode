@@ -22,8 +22,8 @@ You don't need to be an expert to contribute. Many of our most valuable contribu
 
 **Found an issue?** Help us improve ODE by reporting it:
 
-- Check [existing issues](https://github.com/OpenDataEnsemble/OpenDataEnsemble/issues) first to avoid duplicates
-- Create a [new issue](https://github.com/OpenDataEnsemble/OpenDataEnsemble/issues/new) with:
+- Check [existing issues](https://github.com/OpenDataEnsemble/ode/issues) first to avoid duplicates
+- Create a [new issue](https://github.com/OpenDataEnsemble/ode/issues/new) with:
   - Clear title describing the bug
   - Steps to reproduce the issue
   - Expected behavior vs. actual behavior
@@ -35,7 +35,7 @@ You don't need to be an expert to contribute. Many of our most valuable contribu
 
 **Have an idea?** We'd love to hear it:
 
-- Check [existing issues](https://github.com/OpenDataEnsemble/OpenDataEnsemble/issues) and [GitHub Discussions](https://github.com/OpenDataEnsemble/OpenDataEnsemble/discussions) to prevent duplicates
+- Check [existing issues](https://github.com/OpenDataEnsemble/ode/issues) and [GitHub Discussions](https://github.com/OpenDataEnsemble/ode/discussions) to prevent duplicates
 - Start a discussion about your idea
 - Describe the feature and why it would be useful
 - Include examples of how you'd use it
@@ -52,7 +52,7 @@ You don't need to be an expert to contribute. Many of our most valuable contribu
 - Translate documentation to other languages
 - Add FAQs based on common questions
 
-Documentation lives in the `/docs` folder and uses Markdown + Docusaurus.
+Documentation lives in this monorepo under `docs/` (Markdown + Docusaurus). Content pages are in `docs/docs/`.
 
 ### 4. Write Code
 
@@ -84,7 +84,7 @@ ODE is built with:
 
 **Like helping others?** Build our community:
 
-- Answer questions in [GitHub Discussions](https://github.com/OpenDataEnsemble/OpenDataEnsemble/discussions)
+- Answer questions in [GitHub Discussions](https://github.com/OpenDataEnsemble/ode/discussions)
 - Help troubleshoot issues
 - Share your ODE projects and use cases
 - Contribute to design discussions
@@ -106,7 +106,7 @@ ODE is built with:
 
 ### Phase 1: Planning
 
-1. **Check existing work** - Browse [issues](https://github.com/OpenDataEnsemble/OpenDataEnsemble/issues) and [discussions](https://github.com/OpenDataEnsemble/OpenDataEnsemble/discussions) to understand scope
+1. **Check existing work** - Browse [issues](https://github.com/OpenDataEnsemble/ode/issues) and [discussions](https://github.com/OpenDataEnsemble/ode/discussions) to understand scope
 2. **Discuss first** - For major features, start a discussion to get feedback
 3. **Claim the work** - Comment on the issue: "I'd like to work on this"
 4. **Understand requirements** - Talk to maintainers about expectations
@@ -151,8 +151,8 @@ For detailed instructions, see the [First Time Contributors](/docs/community/con
 - [Synkronus Development](/docs/development/synkronus-development) - Backend server
 
 ### Community
-- [GitHub Issues](https://github.com/OpenDataEnsemble/OpenDataEnsemble/issues) - Bug reports and feature requests
-- [GitHub Discussions](https://github.com/OpenDataEnsemble/OpenDataEnsemble/discussions) - Community discussions
+- [GitHub Issues](https://github.com/OpenDataEnsemble/ode/issues) - Bug reports and feature requests
+- [GitHub Discussions](https://github.com/OpenDataEnsemble/ode/discussions) - Community discussions
 - [Code of Conduct](/docs/community/contribute/code-of-conduct) - Our community standards
 
 ## Recognition
@@ -169,7 +169,7 @@ Contributors are the backbone of ODE. We recognize contributions by:
 Not sure where to start? Here are some options:
 
 1. **Read this page** - You might find your answer here
-2. **Check existing discussions** - Search [GitHub Discussions](https://github.com/OpenDataEnsemble/OpenDataEnsemble/discussions)
+2. **Check existing discussions** - Search [GitHub Discussions](https://github.com/OpenDataEnsemble/ode/discussions)
 3. **Start a new discussion** - Ask your question in GitHub Discussions
 4. **Comment on an issue** - Ask questions on related issues
 5. **Email maintainers** - Contact the project maintainers directly

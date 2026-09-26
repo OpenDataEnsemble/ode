@@ -695,6 +695,7 @@ Test with actual forms and the Formulus environment.
 ## Related Content
 
 - [Form Design](/docs/guides/form-design) - Learn about form structure and types
+- [Custom Question Types](/docs/guides/custom-question-types) - Current renderer contract and packaging
 - [Formplayer Reference](/docs/reference/formplayer) - Built-in question types
 - [App Bundle Format](/docs/reference/app-bundle-format) - Full bundle specification
 - [Deployment](/docs/guides/deployment) - Deploy to production

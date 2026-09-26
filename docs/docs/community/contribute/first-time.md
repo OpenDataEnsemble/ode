@@ -20,11 +20,11 @@ Start by creating your own fork of the ODE repository on GitHub:
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/OpenDataEnsemble.git
-cd OpenDataEnsemble
+git clone https://github.com/YOUR_USERNAME/ode.git
+cd ode
 
 # Add upstream remote
-git remote add upstream https://github.com/OpenDataEnsemble/OpenDataEnsemble.git
+git remote add upstream https://github.com/OpenDataEnsemble/ode.git
 ```
 
 ### 2. Set Up Your Development Environment
@@ -70,7 +70,7 @@ For detailed setup instructions, see the relevant component's development guide:
 
 ### 3. Pick an Issue to Work On
 
-Start by browsing our [GitHub Issues](https://github.com/OpenDataEnsemble/OpenDataEnsemble/issues). Look for issues labeled:
+Start by browsing our [GitHub Issues](https://github.com/OpenDataEnsemble/ode/issues). Look for issues labeled:
 - `good-first-issue` - Perfect for newcomers
 - `help-wanted` - We're explicitly looking for community help
 - `documentation` - Great for improving docs
@@ -80,14 +80,9 @@ Comment on the issue to let maintainers know you'd like to work on it. This help
 ### 4. Create a Feature Branch
 
 ```bash
-# Update your local main branch
-git checkout main
-git pull upstream main
-
-# Create a feature branch
-git checkout -b fix/bug-description
-# or
-git checkout -b feature/my-feature-name
+# Update from the latest default branch
+git fetch upstream
+git switch -c fix/bug-description upstream/dev
 ```
 
 Use descriptive branch names that clearly indicate what you're working on.
@@ -204,7 +199,7 @@ Once your PR is approved and merged, you're officially a contributor! Your code 
 
 **Now that you've contributed:**
 
-1. **Join our community** - Post in our [GitHub Discussions](https://github.com/OpenDataEnsemble/OpenDataEnsemble/discussions) to connect with other contributors
+1. **Join our community** - Post on the [forum](https://forum.opendataensemble.org) to connect with other contributors
 2. **Take on more issues** - Look for the next `good-first-issue` or a `help-wanted` item
 3. **Consider becoming a reviewer** - Help review other contributors' PRs
 4. **Contribute to discussions** - Help shape the future of ODE by participating in design discussions
@@ -222,9 +217,9 @@ Once your PR is approved and merged, you're officially a contributor! Your code 
 - [Mobile Development](/docs/development/formulus-development)
 
 **Contributing to Documentation:**
-- Documentation lives in the separate [docs](https://github.com/OpenDataEnsemble/docs) repository (Markdown + Docusaurus)
-- That site still uses **npm** for its own tooling (`npm install`, `npm start` in the docs repo)
-- ODE application code in this monorepo uses **pnpm** (see above)
+- Documentation lives in this monorepo under [`docs/`](https://github.com/OpenDataEnsemble/ode/tree/dev/docs) (Markdown + Docusaurus). Doc pages are in `docs/docs/`
+- That site uses **npm** for its own tooling (`npm install`, `npm start` in the `docs` directory); ODE application code uses **pnpm** (see above)
+- The site publishes automatically when a change to `docs/` is merged to `dev`
 - Follow the same PR process for doc changes
 
 ### Common Tasks for First-Time Contributors
@@ -253,7 +248,7 @@ Once your PR is approved and merged, you're officially a contributor! Your code 
 
 1. **Check existing documentation** - Many answers are in our docs
 2. **Search GitHub Issues** - Your question might already be answered
-3. **Ask in Discussions** - Post in [GitHub Discussions](https://github.com/OpenDataEnsemble/OpenDataEnsemble/discussions#category_choices)
+3. **Ask on the forum** - Post on the [community forum](https://forum.opendataensemble.org)
 4. **Ask in your PR** - Comment on your PR with questions
 5. **Reach out to maintainers** - We're here to help!
 

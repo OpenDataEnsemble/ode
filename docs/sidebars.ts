@@ -104,6 +104,7 @@ const sidebars: SidebarsConfig = {
             'guides/observation-queries',
             'guides/ode-desktop-developer-mode',
             'guides/custom-extensions',
+            'guides/custom-question-types',
             'guides/server-architecture-for-it',
             'guides/deployment',
             'guides/configuration',
