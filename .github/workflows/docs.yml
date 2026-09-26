@@ -58,7 +58,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     permissions:
