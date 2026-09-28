@@ -40,10 +40,19 @@ pub fn compile_observation_query(
     filter: Option<&Value>,
     index_keys: &HashSet<String>,
 ) -> Result<CompiledSql, QueryCompileError> {
-    let _ = include_deleted;
     let mut warnings = Vec::new();
     let mut params: Vec<SqlParam> = Vec::new();
+
     let mut where_parts = Vec::new();
+
+    if !include_deleted {
+        where_parts.push(
+            "(json_valid(o.observation_extras) = 0
+          OR json_extract(o.observation_extras, '$.deleted') IS NOT 1)"
+                .to_string(),
+        );
+    }
+
     let normalized_form_type = form_type.trim();
     if !normalized_form_type.is_empty() && normalized_form_type != "*" {
         where_parts.push("o.form_type = ?".to_string());
@@ -366,7 +375,7 @@ mod tests {
             let filter = fixture.get("filter");
             let result = compile_observation_query(
                 fixture["formType"].as_str().unwrap(),
-                !fixture["includeDeleted"].as_bool().unwrap_or(false),
+                fixture["includeDeleted"].as_bool().unwrap_or(false),
                 filter,
                 &index_keys,
             );
@@ -385,5 +394,26 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn include_deleted_controls_deleted_observation_filter() {
+        let index_keys = HashSet::new();
+
+        let live_only = compile_observation_query("person", false, None, &index_keys).unwrap();
+
+        assert!(
+            live_only
+                .sql
+                .contains("json_extract(o.observation_extras, '$.deleted') IS NOT 1")
+        );
+
+        let include_deleted = compile_observation_query("person", true, None, &index_keys).unwrap();
+
+        assert!(
+            !include_deleted
+                .sql
+                .contains("json_extract(o.observation_extras, '$.deleted') IS NOT 1")
+        );
     }
 }
