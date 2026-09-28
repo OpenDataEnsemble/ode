@@ -7,6 +7,7 @@ import React, {
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { bootstrapProfileApp } from './ProfileBootstrap';
 import { i18n } from '../i18n';
+import { autoSyncService } from '../services/AutoSyncService';
 import {
   getProfileTransitionState,
   registerProfileTransitionHost,
@@ -48,6 +49,19 @@ export default function ProfileRoot(): React.JSX.Element {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!AppComponent || unmounted || transition !== 'idle' || error) {
+      autoSyncService.stop();
+      return;
+    }
+
+    const stopAutoSync = autoSyncService.start();
+
+    return () => {
+      stopAutoSync();
+    };
+  }, [AppComponent, unmounted, transition, error]);
 
   useEffect(
     () =>
