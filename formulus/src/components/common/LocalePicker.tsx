@@ -30,6 +30,7 @@ const LocalePicker: React.FC<LocalePickerProps> = ({ value, onChange }) => {
     en: t('settings.language.en'),
     pt: t('settings.language.pt'),
     fr: t('settings.language.fr'),
+    sw: t('settings.language.sw')
   };
 
   return (

@@ -1,7 +1,7 @@
 /** Desktop UI locale — mirrors Formulus Settings key and resolution rules. */
 
 const STORAGE_KEY = '@ode/uiLocale';
-const ODE_UI_LOCALES = ['en', 'pt', 'fr'] as const;
+const ODE_UI_LOCALES = ['en', 'pt', 'fr', 'sw'] as const;
 export type DesktopUiLocale = (typeof ODE_UI_LOCALES)[number];
 export type UiLocalePreference = 'auto' | DesktopUiLocale;
 
@@ -32,11 +32,10 @@ export function getDesktopLocalePreference(): UiLocalePreference {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (
       stored === 'auto' ||
-      stored === 'en' ||
-      stored === 'pt' ||
-      stored === 'fr'
+      (stored != null &&
+        (ODE_UI_LOCALES as readonly string[]).includes(stored))
     ) {
-      return stored;
+      return stored as UiLocalePreference;
     }
   } catch {
     // ignore

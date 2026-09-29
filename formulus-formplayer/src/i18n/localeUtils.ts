@@ -2,7 +2,7 @@
  * Locale utilities (mirrored from formulus/src/lib/locale.ts for Formplayer).
  */
 
-export const ODE_UI_LOCALES = ['en', 'pt', 'fr'] as const;
+export const ODE_UI_LOCALES = ['en', 'pt', 'fr', 'sw'] as const;
 export type OdeUiLocale = (typeof ODE_UI_LOCALES)[number];
 
 export function normalizeLocaleTag(tag: string): string {

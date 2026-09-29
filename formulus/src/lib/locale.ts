@@ -1,9 +1,9 @@
 /**
  * UI locale resolution for Formulus and Formplayer bridge.
- * ODE ships en, pt, fr catalogs; other tags fall back through normalization.
+ * ODE ships en, pt, fr, sw catalogs; other tags fall back through normalization.
  */
 
-export const ODE_UI_LOCALES = ['en', 'pt', 'fr'] as const;
+export const ODE_UI_LOCALES = ['en', 'pt', 'fr', 'sw'] as const;
 export type OdeUiLocale = (typeof ODE_UI_LOCALES)[number];
 
 /** User preference stored in Settings (auto = follow device). */
@@ -17,6 +17,7 @@ export const UI_LOCALE_PREFERENCE_OPTIONS: {
   { value: 'en', labelKey: 'settings.language.en' },
   { value: 'pt', labelKey: 'settings.language.pt' },
   { value: 'fr', labelKey: 'settings.language.fr' },
+  { value: 'sw', labelKey: 'settings.language.sw' },
 ];
 
 /** Normalize BCP-47 tag for catalog lookup (lowercase, hyphen). */
