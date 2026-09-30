@@ -94,7 +94,11 @@ pub(crate) struct ExportRow {
     device_id: Option<String>,
     tags: Option<String>,
     pending: bool,
+    /// Flattened data for Parquet columns (nested objects stringified).
     data: BTreeMap<String, Value>,
+    /// Original observation payload preserved for attachment basename extraction
+    /// (nested objects like `{"filename": "photo.jpg", …}` must stay structured).
+    raw_payload: Value,
 }
 
 /// Sanitize a form type for use as a filename stem.
@@ -258,6 +262,7 @@ fn row_from_db(c: DbExportCandidate) -> Option<ExportRow> {
         tags,
         pending,
         data,
+        raw_payload: c.payload,
     })
 }
 
@@ -717,12 +722,12 @@ fn copy_referenced_attachments_with_progress(
 ) -> Result<(usize, usize, PathBuf), CustodianError> {
     let mut names: BTreeSet<String> = BTreeSet::new();
     for row in rows {
-        let obj: serde_json::Map<String, Value> = row
-            .data
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        for n in collect_attachment_basenames(&Value::Object(obj)) {
+        // Use the original (unflattened) payload so that nested attachment
+        // objects like `{"filename": "photo.jpg", …}` are walked properly.
+        // The Parquet-flattened `row.data` stringifies nested structures,
+        // which prevents `walk_attachment_refs` from finding `filename` /
+        // `attachmentId` keys inside them.
+        for n in collect_attachment_basenames(&row.raw_payload) {
             names.insert(n);
         }
     }
@@ -1044,11 +1049,90 @@ mod tests {
             tags: None,
             pending: false,
             data: BTreeMap::from([("age".into(), json!(3))]),
+            raw_payload: json!({"age": 3}),
         }];
         let (schema, cols) = schema_for_rows(&rows);
         let names: Vec<_> = schema.fields().iter().map(|f| f.name().clone()).collect();
         assert!(names.contains(&"pending".to_string()));
         assert!(names.contains(&"data_age".to_string()));
         assert_eq!(cols[0].1, ColKind::Float64);
+    }
+
+    #[test]
+    fn export_copies_attachments_from_nested_photo_objects() {
+        // Formulus photo/audio/video fields store nested objects:
+        // { "photo": { "filename": "img.jpg", "metadata": {..} } }
+        // The Parquet exporter flattens these to strings in `row.data`, but
+        // attachment extraction must use the original `raw_payload` to find
+        // the nested `filename` key.
+        let conn = setup_db();
+        let photo_payload = json!({
+            "photo": {
+                "id": "cam-1",
+                "type": "image",
+                "filename": "photo-abc123.jpg",
+                "timestamp": "2026-06-01T10:00:00Z",
+                "metadata": {
+                    "width": 1920,
+                    "height": 1080,
+                    "size": 123456,
+                    "mimeType": "image/jpeg",
+                    "quality": 80
+                }
+            },
+            "name": "Test observation"
+        });
+        conn.execute(
+            "INSERT INTO observations (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at)
+             VALUES (?1, ?2, 'survey', '2026-06-01T10:00:00Z', 0, 'clean', '2026-06-01T10:00:00Z')",
+            params!["obs-photo", photo_payload.to_string()],
+        )
+        .unwrap();
+
+        let base = std::env::temp_dir().join(format!(
+            "ode_export_att_test_{}_{}_{}",
+            std::process::id(),
+            Utc::now().timestamp_millis(),
+            line!()
+        ));
+        let _ = fs::remove_dir_all(&base);
+        let ws = base.join("workspace");
+        // Place a fake attachment file in the synced sub-directory.
+        let synced_dir = ws.join("attachments").join("synced");
+        fs::create_dir_all(&synced_dir).unwrap();
+        fs::write(synced_dir.join("photo-abc123.jpg"), b"fake-jpeg").unwrap();
+
+        let parent = base.join("out");
+        fs::create_dir_all(&parent).unwrap();
+
+        let rows = load_export_rows(&conn, false).unwrap();
+        assert_eq!(rows.len(), 1);
+
+        let result = write_parquet_export(
+            &ws,
+            &ExportParquetRequest {
+                parent_dir: parent.to_string_lossy().to_string(),
+                include_pending: false,
+                include_attachments: true,
+                overwrite: true,
+                profile_label: None,
+            },
+            rows,
+            &mut |_done, _total, _msg| {},
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.attachments_copied, 1,
+            "should copy the photo attachment"
+        );
+        assert_eq!(result.attachments_missing, 0);
+        let export_att = PathBuf::from(result.export_attachments_path.as_ref().unwrap());
+        assert!(
+            export_att.join("photo-abc123.jpg").is_file(),
+            "attachment file should exist in export"
+        );
+
+        let _ = fs::remove_dir_all(&base);
     }
 }
