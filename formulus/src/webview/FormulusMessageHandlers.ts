@@ -8,7 +8,11 @@ import { qrcodeRequestCoordinator } from '../services/QrcodeRequestCoordinator';
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import GlobalStorage from '@react-native-async-storage/async-storage';
+import ProfileStorage from '../profiles/ProfileStorage';
+import { profilePaths, profilePath } from '../profiles/ProfilePaths';
+import { profileActivity } from '../profiles/ProfileActivity';
+import { trackProfileHandlers } from './profileBridgeActivity';
 import { Alert, Platform } from 'react-native';
 import { i18n } from '../i18n/instance';
 import { logger } from '../diagnostics/logger';
@@ -91,9 +95,23 @@ class SimpleEventEmitter {
     this.listeners[eventName] = this.listeners[eventName].filter(
       l => l !== listener,
     );
+    if (
+      eventName === 'locationWatchUpdate' &&
+      this.listeners[eventName].length === 0
+    ) {
+      GeolocationService.getInstance().stopAppLocationWatch();
+    }
   }
 
   emit(eventName: string, ...args: unknown[]): void {
+    if (eventName === 'locationWatchUpdate') {
+      try {
+        profileActivity.assertAvailable();
+      } catch {
+        GeolocationService.getInstance().stopAppLocationWatch();
+        return;
+      }
+    }
     if (!this.listeners[eventName]) return;
     this.listeners[eventName].forEach(listener => listener(...args));
   }
@@ -147,26 +165,24 @@ const startFormplayerOperation = (
       startTime: Date.now(),
     });
 
-    appEvents.emit('openFormplayerRequested', {
-      formType,
-      params,
-      savedData,
-      observationId,
-      operationId,
-      subObservationMode,
-      skipFinalize,
-      skipDraftSelection,
-    });
+    try {
+      appEvents.emit('openFormplayerRequested', {
+        formType,
+        params,
+        savedData,
+        observationId,
+        operationId,
+        subObservationMode,
+        skipFinalize,
+        skipDraftSelection,
+      });
+    } catch (error) {
+      pendingFormOperations.delete(operationId);
+      reject(error);
+    }
 
-    setTimeout(
-      () => {
-        if (pendingFormOperations.has(operationId)) {
-          pendingFormOperations.delete(operationId);
-          reject(new Error('Form operation timed out'));
-        }
-      },
-      8 * 60 * 60 * 1000,
-    );
+    // Only actual completion/dismissal releases this operation. A timeout would
+    // let profile switching proceed while a form or native capture still exists.
   });
 };
 
@@ -176,7 +192,9 @@ export const openFormplayerFromNative = (
   savedData: Record<string, unknown> = {},
   observationId: string | null = null,
 ): Promise<FormCompletionResult> => {
-  return startFormplayerOperation(formType, params, savedData, observationId);
+  return profileActivity.run('Native form session', () =>
+    startFormplayerOperation(formType, params, savedData, observationId),
+  );
 };
 
 export type ActiveFormplayerModalHandle = {
@@ -252,8 +270,20 @@ export const rejectFormOperation = (operationId: string, error: Error) => {
   }
 };
 
-export function createFormulusMessageHandlers(): FormulusMessageHandlers {
-  return {
+const handlerCleanups = new WeakMap<object, () => void>();
+
+/** Called when this WebView is reset/unmounted; does not fake-cancel IO or forms. */
+export function disposeFormulusMessageHandlers(handlers: object): void {
+  handlerCleanups.get(handlers)?.();
+}
+
+export function createFormulusMessageHandlers() {
+  let locationWatch: { fieldId: string; stop: () => void } | null = null;
+  const stopLocationWatch = () => {
+    locationWatch?.stop();
+    locationWatch = null;
+  };
+  const handlers = {
     onInitForm: (_payload: unknown) => {
       // TODO: implement init form logic
     },
@@ -328,100 +358,106 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           // Common response handler for both camera and gallery
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const handleImagePickerResponse = (response: any) => {
-            if (response.didCancel) {
-              resolve({
-                fieldId,
-                status: 'cancelled',
-                message: 'Camera operation cancelled by user',
-              });
-            } else if (response.errorCode || response.errorMessage) {
-              console.error(
-                'Camera error:',
-                response.errorCode,
-                response.errorMessage,
-              );
-              resolve({
-                fieldId,
-                status: 'error',
-                message:
-                  response.errorMessage ||
-                  `Camera error: ${response.errorCode}`,
-              });
-            } else if (response.assets && response.assets.length > 0) {
-              // Photo captured successfully
-              const asset = response.assets[0];
-
-              // Generate GUID for the image
-              const generateGUID = () => {
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
-                  /[xy]/g,
-                  function (c) {
-                    const r = Math.floor(Math.random() * 16);
-                    const v = c === 'x' ? r : (r % 4) + 8;
-                    return v.toString(16);
-                  },
-                );
-              };
-
-              const imageGuid = generateGUID();
-              const guidFilename = `${imageGuid}.jpg`;
-
-              const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-              const draftDirectory = `${attachmentsDirectory}/draft`;
-              const draftFilePath = `${draftDirectory}/${guidFilename}`;
-
-              Promise.all([
-                RNFS.mkdir(attachmentsDirectory),
-                RNFS.mkdir(draftDirectory),
-              ])
-                .then(() => RNFS.copyFile(asset.uri, draftFilePath))
-                .then(() => {
-                  const webViewUrl = `file://${draftFilePath}`;
-
+            void profileActivity
+              .run('Save camera capture', async () => {
+                if (response.didCancel) {
                   resolve({
                     fieldId,
-                    status: 'success',
-                    data: {
-                      type: 'image',
-                      id: imageGuid,
-                      filename: guidFilename,
-                      uri: draftFilePath,
-                      url: webViewUrl,
-                      timestamp: new Date().toISOString(),
-                      metadata: {
-                        width: asset.width || 1920,
-                        height: asset.height || 1080,
-                        size: asset.fileSize || 0,
-                        mimeType: 'image/jpeg',
-                        source: 'react-native-image-picker',
-                        quality: 0.8,
-                        originalFileName: asset.fileName || guidFilename,
-                        persistentStorage: true,
-                        storageLocation: 'draft_attachments',
-                        syncReady: false,
-                      },
-                    },
+                    status: 'cancelled',
+                    message: 'Camera operation cancelled by user',
                   });
-                })
-                .catch(error => {
+                } else if (response.errorCode || response.errorMessage) {
                   console.error(
-                    'Error copying image to attachment sync system:',
-                    error,
+                    'Camera error:',
+                    response.errorCode,
+                    response.errorMessage,
                   );
                   resolve({
                     fieldId,
                     status: 'error',
-                    message: `Failed to save image: ${error.message}`,
+                    message:
+                      response.errorMessage ||
+                      `Camera error: ${response.errorCode}`,
                   });
-                });
-            } else {
-              console.error('Unexpected camera response format:', response);
-              resolve({
-                fieldId,
-                status: 'error',
-                message: 'Unexpected camera response format',
-              });
-            }
+                } else if (response.assets && response.assets.length > 0) {
+                  // Photo captured successfully
+                  const asset = response.assets[0];
+
+                  // Generate GUID for the image
+                  const generateGUID = () => {
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+                      /[xy]/g,
+                      function (c) {
+                        const r = Math.floor(Math.random() * 16);
+                        const v = c === 'x' ? r : (r % 4) + 8;
+                        return v.toString(16);
+                      },
+                    );
+                  };
+
+                  const imageGuid = generateGUID();
+                  const guidFilename = `${imageGuid}.jpg`;
+
+                  const attachmentsDirectory = profilePaths.attachments();
+                  const draftDirectory = `${attachmentsDirectory}/draft`;
+                  const draftFilePath = profilePath(
+                    `attachments/draft/${guidFilename}`,
+                  );
+
+                  return RNFS.mkdir(attachmentsDirectory)
+                    .then(() => RNFS.mkdir(draftDirectory))
+                    .then(() => RNFS.copyFile(asset.uri, draftFilePath))
+                    .then(() => {
+                      const webViewUrl = `file://${draftFilePath}`;
+
+                      resolve({
+                        fieldId,
+                        status: 'success',
+                        data: {
+                          type: 'image',
+                          id: imageGuid,
+                          filename: guidFilename,
+                          uri: draftFilePath,
+                          url: webViewUrl,
+                          timestamp: new Date().toISOString(),
+                          metadata: {
+                            width: asset.width || 1920,
+                            height: asset.height || 1080,
+                            size: asset.fileSize || 0,
+                            mimeType: 'image/jpeg',
+                            source: 'react-native-image-picker',
+                            quality: 0.8,
+                            originalFileName: asset.fileName || guidFilename,
+                            persistentStorage: true,
+                            storageLocation: 'draft_attachments',
+                            syncReady: false,
+                          },
+                        },
+                      });
+                    })
+                    .catch(error => {
+                      console.error(
+                        'Error copying image to attachment sync system:',
+                        error,
+                      );
+                      resolve({
+                        fieldId,
+                        status: 'error',
+                        message: `Failed to save image: ${error.message}`,
+                      });
+                    });
+                } else {
+                  console.error('Unexpected camera response format:', response);
+                  resolve({
+                    fieldId,
+                    status: 'error',
+                    message: 'Unexpected camera response format',
+                  });
+                }
+              })
+              .catch(error =>
+                resolve({ fieldId, status: 'error', message: String(error) }),
+              );
           };
 
           const selectImageWithSystemPicker = async () => {
@@ -535,51 +571,70 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               {
                 text: i18n.t('media.camera'),
                 onPress: () => {
-                  void (async () => {
-                    if (!ImagePicker.launchCamera) {
+                  void profileActivity
+                    .run('Open camera', async () => {
+                      if (!ImagePicker.launchCamera) {
+                        resolve({
+                          fieldId,
+                          status: 'error',
+                          message: 'Camera functionality is not available.',
+                        });
+                        return;
+                      }
+                      const perm = await ensureCameraPermission();
+                      if (perm !== RESULTS.GRANTED) {
+                        resolve({
+                          fieldId,
+                          status: 'error',
+                          message:
+                            perm === RESULTS.BLOCKED
+                              ? 'Camera access is blocked. Enable camera permission in system settings.'
+                              : 'Camera permission is required to take a photo.',
+                        });
+                        return;
+                      }
+                      await ImagePicker.launchCamera(
+                        options,
+                        handleImagePickerResponse,
+                      );
+                    })
+                    .catch(error =>
                       resolve({
                         fieldId,
                         status: 'error',
-                        message: 'Camera functionality is not available.',
-                      });
-                      return;
-                    }
-                    const perm = await ensureCameraPermission();
-                    if (perm !== RESULTS.GRANTED) {
-                      resolve({
-                        fieldId,
-                        status: 'error',
-                        message:
-                          perm === RESULTS.BLOCKED
-                            ? 'Camera access is blocked. Enable camera permission in system settings.'
-                            : 'Camera permission is required to take a photo.',
-                      });
-                      return;
-                    }
-                    ImagePicker.launchCamera(
-                      options,
-                      handleImagePickerResponse,
+                        message: String(error),
+                      }),
                     );
-                  })();
                 },
               },
               {
                 text: i18n.t('media.gallery'),
                 onPress: () => {
-                  if (Platform.OS === 'android') {
-                    void selectImageWithSystemPicker();
-                  } else if (ImagePicker.launchImageLibrary) {
-                    ImagePicker.launchImageLibrary(
-                      options,
-                      handleImagePickerResponse,
+                  void profileActivity
+                    .run('Select image', async () => {
+                      if (Platform.OS === 'android') {
+                        await selectImageWithSystemPicker();
+                      } else if (ImagePicker.launchImageLibrary) {
+                        await ImagePicker.launchImageLibrary(
+                          options,
+                          handleImagePickerResponse,
+                        );
+                      } else {
+                        resolve({
+                          fieldId,
+                          status: 'error',
+                          message:
+                            'Image picker functionality is not available.',
+                        });
+                      }
+                    })
+                    .catch(error =>
+                      resolve({
+                        fieldId,
+                        status: 'error',
+                        message: String(error),
+                      }),
                     );
-                  } else {
-                    resolve({
-                      fieldId,
-                      status: 'error',
-                      message: 'Image picker functionality is not available.',
-                    });
-                  }
                 },
               },
               {
@@ -640,62 +695,72 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             fieldId,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onResult: async (result: any) => {
-              try {
-                // If the result contains base64 data, save it to file and return URI
-                if (
-                  result.status === 'success' &&
-                  result.data &&
-                  result.data.base64
-                ) {
-                  // Generate a unique filename
-                  const timestamp = Date.now();
-                  const filename = `signature_${timestamp}.png`;
+              return profileActivity
+                .run('Save signature capture', async () => {
+                  try {
+                    // If the result contains base64 data, save it to file and return URI
+                    if (
+                      result.status === 'success' &&
+                      result.data &&
+                      result.data.base64
+                    ) {
+                      // Generate a unique filename
+                      const timestamp = Date.now();
+                      const filename = `signature_${timestamp}.png`;
 
-                  // Create signatures directory path
-                  const signaturesDir = `${RNFS.DocumentDirectoryPath}/signatures`;
-                  const filePath = `${signaturesDir}/${filename}`;
+                      // Create signatures directory path
+                      const signaturesDir = profilePaths.signatures();
+                      const filePath = profilePath(`signatures/${filename}`);
 
-                  // Ensure signatures directory exists
-                  await RNFS.mkdir(signaturesDir);
+                      // Ensure signatures directory exists
+                      await RNFS.mkdir(signaturesDir);
 
-                  // Write base64 data to file
-                  await RNFS.writeFile(filePath, result.data.base64, 'base64');
+                      // Write base64 data to file
+                      await RNFS.writeFile(
+                        filePath,
+                        result.data.base64,
+                        'base64',
+                      );
 
-                  // Get file stats for size
-                  const fileStats = await RNFS.stat(filePath);
+                      // Get file stats for size
+                      const fileStats = await RNFS.stat(filePath);
 
-                  // Create updated result with URI instead of base64
-                  const updatedResult = {
-                    fieldId,
-                    status: 'success' as const,
-                    data: {
-                      type: 'signature' as const,
-                      filename,
-                      uri: `file://${filePath}`,
-                      timestamp:
-                        result.data.timestamp || new Date().toISOString(),
-                      metadata: {
-                        width: result.data.metadata?.width || 400,
-                        height: result.data.metadata?.height || 200,
-                        size: fileStats.size,
-                        strokeCount: result.data.metadata?.strokeCount || 1,
-                      },
-                    },
-                  };
+                      // Create updated result with URI instead of base64
+                      const updatedResult = {
+                        fieldId,
+                        status: 'success' as const,
+                        data: {
+                          type: 'signature' as const,
+                          filename,
+                          uri: `file://${filePath}`,
+                          timestamp:
+                            result.data.timestamp || new Date().toISOString(),
+                          metadata: {
+                            width: result.data.metadata?.width || 400,
+                            height: result.data.metadata?.height || 200,
+                            size: fileStats.size,
+                            strokeCount: result.data.metadata?.strokeCount || 1,
+                          },
+                        },
+                      };
 
-                  resolve(updatedResult);
-                } else {
-                  // Return result as-is if no base64 data or if it's an error/cancellation
-                  resolve(result);
-                }
-              } catch (fileError) {
-                console.error('Error saving signature file:', fileError);
-                resolve({
-                  fieldId,
-                  status: 'error',
-                  message: `Error saving signature: ${fileError}`,
-                });
-              }
+                      resolve(updatedResult);
+                    } else {
+                      // Return result as-is if no base64 data or if it's an error/cancellation
+                      resolve(result);
+                    }
+                  } catch (fileError) {
+                    console.error('Error saving signature file:', fileError);
+                    resolve({
+                      fieldId,
+                      status: 'error',
+                      message: `Error saving signature: ${fileError}`,
+                    });
+                  }
+                })
+                .catch(error =>
+                  resolve({ fieldId, status: 'error', message: String(error) }),
+                );
             },
           });
         } catch (error) {
@@ -829,7 +894,11 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         return { status: 'error', message: 'fieldId is required' };
       }
       try {
-        GeolocationService.getInstance().startAppLocationWatch(fieldId);
+        stopLocationWatch();
+        locationWatch = {
+          fieldId,
+          stop: GeolocationService.getInstance().startAppLocationWatch(fieldId),
+        };
         return { status: 'started' };
       } catch (error) {
         const message =
@@ -847,9 +916,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           : typeof payload?.fieldId === 'string'
             ? payload.fieldId
             : '';
-      GeolocationService.getInstance().stopAppLocationWatch(
-        fieldId || undefined,
-      );
+      if (!fieldId || locationWatch?.fieldId === fieldId) {
+        stopLocationWatch();
+      }
       return { status: 'stopped' };
     },
 
@@ -865,103 +934,116 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               path: 'videos',
             },
           };
-          ImagePicker.launchCamera(options, async response => {
-            if (response.didCancel) {
-              reject({
-                fieldId,
-                status: 'cancelled',
-                message: 'Video recording was cancelled by user',
-              });
-              return;
-            }
+          void profileActivity
+            .run('Record video', () =>
+              ImagePicker.launchCamera(options, response => {
+                void profileActivity
+                  .run('Save video capture', async () => {
+                    if (response.didCancel) {
+                      reject({
+                        fieldId,
+                        status: 'cancelled',
+                        message: 'Video recording was cancelled by user',
+                      });
+                      return;
+                    }
 
-            if (response.errorMessage) {
-              console.error('Video recording error:', response.errorMessage);
-              reject({
-                fieldId,
-                status: 'error',
-                message: `Video recording error: ${response.errorMessage}`,
-              });
-              return;
-            }
+                    if (response.errorMessage) {
+                      console.error(
+                        'Video recording error:',
+                        response.errorMessage,
+                      );
+                      reject({
+                        fieldId,
+                        status: 'error',
+                        message: `Video recording error: ${response.errorMessage}`,
+                      });
+                      return;
+                    }
 
-            if (response.assets && response.assets.length > 0) {
-              const asset = response.assets[0];
+                    if (response.assets && response.assets.length > 0) {
+                      const asset = response.assets[0];
 
-              try {
-                const generateGUID = () => {
-                  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
-                    /[xy]/g,
-                    function (c) {
-                      const r = (Math.random() * 16) | 0;
-                      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-                      return v.toString(16);
-                    },
-                  );
-                };
+                      try {
+                        const generateGUID = () => {
+                          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+                            /[xy]/g,
+                            function (c) {
+                              const r = (Math.random() * 16) | 0;
+                              const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                              return v.toString(16);
+                            },
+                          );
+                        };
 
-                const ext = asset.type?.split('/')[1] || 'mp4';
-                const videoGuid = generateGUID();
-                const filename = `${videoGuid}.${ext}`;
+                        const ext = asset.type?.split('/')[1] || 'mp4';
+                        const videoGuid = generateGUID();
+                        const filename = `${videoGuid}.${ext}`;
 
-                const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-                const draftDirectory = `${attachmentsDirectory}/draft`;
+                        const attachmentsDirectory = profilePaths.attachments();
+                        const draftDirectory = `${attachmentsDirectory}/draft`;
 
-                await RNFS.mkdir(attachmentsDirectory);
-                await RNFS.mkdir(draftDirectory);
+                        await RNFS.mkdir(attachmentsDirectory);
+                        await RNFS.mkdir(draftDirectory);
 
-                const draftFilePath = `${draftDirectory}/${filename}`;
+                        const draftFilePath = profilePath(
+                          `attachments/draft/${filename}`,
+                        );
 
-                if (!asset.uri) {
-                  console.error('Asset uri not available', asset);
-                  reject({
-                    fieldId,
-                    status: 'error',
-                    message: 'Video asset URI not available',
-                  });
-                  return;
-                }
+                        if (!asset.uri) {
+                          console.error('Asset uri not available', asset);
+                          reject({
+                            fieldId,
+                            status: 'error',
+                            message: 'Video asset URI not available',
+                          });
+                          return;
+                        }
 
-                await RNFS.copyFile(asset.uri, draftFilePath);
+                        await RNFS.copyFile(asset.uri, draftFilePath);
 
-                const webViewUrl = `file://${draftFilePath}`;
+                        const webViewUrl = `file://${draftFilePath}`;
 
-                const videoResult = {
-                  fieldId,
-                  status: 'success' as const,
-                  data: {
-                    type: 'video' as const,
-                    filename,
-                    uri: draftFilePath,
-                    url: webViewUrl,
-                    timestamp: new Date().toISOString(),
-                    metadata: {
-                      duration: asset.duration || 0,
-                      format: ext,
-                      size: asset.fileSize || 0,
-                      width: asset.width,
-                      height: asset.height,
-                    },
-                  },
-                };
+                        const videoResult = {
+                          fieldId,
+                          status: 'success' as const,
+                          data: {
+                            type: 'video' as const,
+                            filename,
+                            uri: draftFilePath,
+                            url: webViewUrl,
+                            timestamp: new Date().toISOString(),
+                            metadata: {
+                              duration: asset.duration || 0,
+                              format: ext,
+                              size: asset.fileSize || 0,
+                              width: asset.width,
+                              height: asset.height,
+                            },
+                          },
+                        };
 
-                resolve(videoResult);
-              } catch (fileError) {
-                console.error('Error saving video file:', fileError);
-                reject({
-                  fieldId,
-                  status: 'error',
-                  message: `Error saving video: ${fileError}`,
-                });
-              }
-            } else {
-              reject({
-                fieldId,
-                status: 'error',
-                message: 'No video data received',
-              });
-            }
-          });
+                        resolve(videoResult);
+                      } catch (fileError) {
+                        console.error('Error saving video file:', fileError);
+                        reject({
+                          fieldId,
+                          status: 'error',
+                          message: `Error saving video: ${fileError}`,
+                        });
+                      }
+                    } else {
+                      reject({
+                        fieldId,
+                        status: 'error',
+                        message: 'No video data received',
+                      });
+                    }
+                  })
+                  .catch(reject);
+              }),
+            )
+            .catch(reject);
         } catch (error) {
           console.error('Error in video handler:', error);
           const errorMessage =
@@ -1014,9 +1096,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
 
         const basename = `${generateGUID()}.${ext}`;
 
-        const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+        const attachmentsDirectory = profilePaths.attachments();
         const draftDirectory = `${attachmentsDirectory}/draft`;
-        const draftFilePath = `${draftDirectory}/${basename}`;
+        const draftFilePath = profilePath(`attachments/draft/${basename}`);
 
         const [localCopy] = await keepLocalCopy({
           files: [{ uri: result.uri, fileName: basename }],
@@ -1108,10 +1190,10 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         };
       }
       try {
-        const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+        const attachmentsDirectory = profilePaths.attachments();
         const draftDirectory = `${attachmentsDirectory}/draft`;
         const filename = `audio_${Date.now()}.m4a`;
-        const path = `${draftDirectory}/${filename}`;
+        const path = profilePath(`attachments/draft/${filename}`);
 
         await RNFS.mkdir(attachmentsDirectory);
         await RNFS.mkdir(draftDirectory);
@@ -1269,7 +1351,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
     onGetCurrentDataRevisionCount: async (): Promise<number> => {
       try {
-        const raw = await AsyncStorage.getItem('@last_seen_version');
+        const raw = await ProfileStorage.getItem('@last_seen_version');
         const n = raw != null ? Number(raw) : 0;
         return Number.isFinite(n) && n >= 0 ? n : 0;
       } catch (error) {
@@ -1357,7 +1439,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
     onGetThemeMode: async (): Promise<'light' | 'dark' | 'system'> => {
       try {
-        const stored = (await AsyncStorage.getItem('formulus-theme-mode')) as
+        const stored = (await GlobalStorage.getItem('formulus-theme-mode')) as
           | 'light'
           | 'dark'
           | 'system'
@@ -1520,5 +1602,8 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onError: (error: Error) => {
       console.error('WebView Handler Error:', error);
     },
-  };
+  } satisfies FormulusMessageHandlers;
+  const tracked = trackProfileHandlers(handlers);
+  handlerCleanups.set(tracked, stopLocationWatch);
+  return tracked;
 }

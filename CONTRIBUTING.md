@@ -64,6 +64,7 @@ This is a monorepo, so the setup depends on the project you're touching. The ful
 - **synkronus-cli** - Go command-line client. See `synkronus-cli/README.md`; pre-flight is `cd synkronus-cli && go build ./cmd/synkronus`.
 - **synkronus-portal** - web admin UI (React). See `synkronus-portal/README.md` for both Docker and Dockerless setups.
 - **desktop** - Tauri app. See `desktop/README.md` (Quick start).
+- **docs** - public Docusaurus site under `docs/`. It is an independent **npm** project (`cd docs && npm install && npm start`); do not use pnpm there. See `docs/README.md`.
 - **packages/tokens** and **packages/components** - see `packages/tokens/CONTRIBUTING.md` and `packages/components/CONTRIBUTING.md`.
 
 The quickest cheat sheet for any package is its `AGENTS.md` file - it lists the day-to-day commands and exactly what to run before a pull request.

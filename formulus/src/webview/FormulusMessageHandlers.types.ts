@@ -31,6 +31,25 @@ export interface FormulusMessageHandlers {
   onRequestCamera?: (fieldId: string) => void;
   onRequestQrcode?: (fieldId: string) => void;
   onRequestLocation?: (fieldId: string) => void;
+  onGetCachedLocation?: (
+    payload: string | { fieldId?: string },
+  ) => Promise<unknown>;
+  onWatchLocation?: (
+    payload: string | { fieldId?: string },
+  ) => Promise<unknown>;
+  onStopWatchLocation?: (
+    payload: string | { fieldId?: string },
+  ) => Promise<unknown>;
+  onAllocateSequence?: (
+    payload:
+      | string
+      | {
+          scopeKey?: string;
+          startAt?: number;
+          peek?: boolean;
+          options?: { startAt?: number; peek?: boolean };
+        },
+  ) => Promise<number>;
   onRequestFile?: (fieldId: string) => void;
   onLaunchIntent?: (
     fieldId: string,

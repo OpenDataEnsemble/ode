@@ -20,7 +20,8 @@ import {
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useTranslation } from 'react-i18next';
 import Button from './common/Button';
-import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
+import { useProfiles } from '../navigation/useProfiles';
+import { getActiveProfile } from '../profiles/ProfileRuntime';
 
 interface MenuItem {
   icon: React.ComponentProps<typeof Icon>['name'];
@@ -89,6 +90,68 @@ const MenuDivider = ({ color }: { color: string }) => {
   );
 };
 
+export const MenuDrawerSignedIn = ({ userInfo }: { userInfo: UserInfo }) => {
+  const { t } = useTranslation();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const textColor =
+    resolvedMode === 'dark'
+      ? (themeColors.onSurface as string)
+      : (colors.neutral[900] as string);
+  const getRoleBadgeStyle = (role: UserRole) => {
+    switch (role) {
+      case 'admin':
+        return styles.roleBadgeAdmin;
+      case 'read-write':
+        return styles.roleBadgeReadWrite;
+      default:
+        return styles.roleBadgeReadOnly;
+    }
+  };
+
+  return (
+    <View
+      style={[
+        styles.userSection,
+        { backgroundColor: themeColors.surface as string },
+      ]}>
+      <View
+        style={[styles.userAvatar, { backgroundColor: themeColors.primary }]}>
+        <Icon name="account" size={32} color={themeColors.onPrimary} />
+      </View>
+      <View style={[styles.userInfo, styles.signedInUserInfo]}>
+        <Text
+          style={[
+            styles.userName,
+            styles.loggedInUserName,
+            { color: textColor },
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          accessibilityLabel={userInfo.username}>
+          {userInfo.username}
+        </Text>
+        <View
+          style={[
+            styles.roleBadge,
+            getRoleBadgeStyle(userInfo.role),
+            styles.signedInRoleBadge,
+            userInfo.role === 'admin' && {
+              backgroundColor: themeColors.primary as string,
+            },
+          ]}>
+          <Text style={styles.roleBadgeText}>
+            {userInfo.role === 'admin'
+              ? t('roles.admin')
+              : userInfo.role === 'read-write'
+                ? t('roles.readWrite')
+                : t('roles.readOnly')}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const MenuDrawer: React.FC<MenuDrawerProps> = ({
   visible,
   onClose,
@@ -106,17 +169,34 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   const sectionDividerColor = themeColors.divider as string;
   const menuModalBorderColor = sectionDividerColor;
   const sectionBg = themeColors.surface as string;
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [session, setSession] = useState<{
+    profileId: string;
+    userInfo: UserInfo | null;
+  } | null>(null);
+  const { activeProfile } = useProfiles();
+  const userInfo =
+    session && session.profileId === activeProfile.id ? session.userInfo : null;
   // Backdrop covers the full height; bottom nav is rendered above this layer
   // by the tab navigator, so its buttons remain clickable.
   const bottomPadding = 0;
 
   useEffect(() => {
+    let cancelled = false;
     if (visible) {
-      getUserInfo().then(setUserInfo);
-      void loadSettingsHydrationFromStorage();
+      void getUserInfo()
+        .then(info => {
+          if (!cancelled && getActiveProfile().id === activeProfile.id) {
+            setSession({ profileId: activeProfile.id, userInfo: info });
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setSession(null);
+        });
     }
-  }, [visible]);
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, activeProfile.id]);
 
   const menuItems: MenuItem[] = [
     {
@@ -135,17 +215,6 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
     if (!item.minRole) return true;
     return hasMinRole(userInfo?.role, item.minRole);
   });
-
-  const getRoleBadgeStyle = (role: UserRole) => {
-    switch (role) {
-      case 'admin':
-        return styles.roleBadgeAdmin;
-      case 'read-write':
-        return styles.roleBadgeReadWrite;
-      default:
-        return styles.roleBadgeReadOnly;
-    }
-  };
 
   if (!visible) {
     return null;
@@ -198,41 +267,29 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           </View>
           <MenuDivider color={menuModalBorderColor} />
 
+          <TouchableOpacity
+            style={styles.profileSection}
+            accessibilityRole="button"
+            accessibilityLabel={t('profiles.activeLabel', {
+              label: activeProfile.label,
+            })}
+            onPress={() => {
+              onClose();
+              onNavigate('Profiles');
+            }}>
+            <Text style={[styles.loginHint, { color: textColor }]}>
+              {t('profiles.active')}
+            </Text>
+            <Text style={[styles.userName, { color: textColor }]}>
+              {activeProfile.label}
+            </Text>
+          </TouchableOpacity>
+          <MenuDivider color={menuModalBorderColor} />
+
           {/* User Info Section */}
           {userInfo ? (
             <>
-              <View
-                style={[styles.userSection, { backgroundColor: sectionBg }]}>
-                <View
-                  style={[
-                    styles.userAvatar,
-                    { backgroundColor: themeColors.primary },
-                  ]}>
-                  <Icon
-                    name="account"
-                    size={32}
-                    color={themeColors.onPrimary}
-                  />
-                </View>
-                <View style={styles.userInfo}>
-                  <View
-                    style={[
-                      styles.roleBadge,
-                      getRoleBadgeStyle(userInfo.role),
-                      userInfo.role === 'admin' && {
-                        backgroundColor: themeColors.primary as string,
-                      },
-                    ]}>
-                    <Text style={styles.roleBadgeText}>
-                      {userInfo.role === 'admin'
-                        ? t('roles.admin')
-                        : userInfo.role === 'read-write'
-                          ? t('roles.readWrite')
-                          : t('roles.readOnly')}
-                    </Text>
-                  </View>
-                </View>
-              </View>
+              <MenuDrawerSignedIn userInfo={userInfo} />
               <MenuDivider color={menuModalBorderColor} />
             </>
           ) : (
@@ -269,7 +326,19 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           )}
 
           <ScrollView style={styles.menuList}>
-            {/* Settings: single tap goes straight to Login/Settings screen */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              accessibilityRole="button"
+              onPress={() => {
+                onClose();
+                onNavigate('Profiles');
+              }}>
+              <Icon name="account-multiple" size={24} color={textColor} />
+              <Text style={[styles.menuLabel, { color: textColor }]}>
+                {t('profiles.title')}
+              </Text>
+            </TouchableOpacity>
+            <MenuDivider color={menuModalBorderColor} />
             <TouchableOpacity
               style={styles.menuItem}
               activeOpacity={0.8}
@@ -314,7 +383,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 title={t('common.login')}
                 onPress={() => {
                   onClose();
-                  onNavigate('Settings');
+                  onNavigate('Profiles');
                 }}
                 variant="primary"
                 size="medium"
@@ -373,6 +442,10 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: odeSpacing.xxs,
   },
+  profileSection: {
+    padding: odeSpacing.md,
+    gap: odeSpacing.xxs,
+  },
   userSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -394,8 +467,18 @@ const styles = StyleSheet.create({
   userInfo: {
     marginLeft: odeSpacing.sm,
     flex: 1,
+    minWidth: 0,
     justifyContent: 'center',
     alignItems: 'flex-end',
+  },
+  signedInUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.sm,
+  },
+  loggedInUserName: {
+    flex: 1,
+    marginBottom: 0,
   },
   userName: {
     fontSize: odeTypography.body,
@@ -410,6 +493,7 @@ const styles = StyleSheet.create({
   loginHint: {
     fontSize: odeTypography.caption,
   },
+  signedInRoleBadge: { alignSelf: 'center' },
   roleBadge: {
     alignSelf: 'flex-end',
     paddingHorizontal: odeSpacing.xs,

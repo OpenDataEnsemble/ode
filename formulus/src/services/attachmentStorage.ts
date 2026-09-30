@@ -1,4 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../profiles/ProfileStorage';
+import { profilePaths } from '../profiles/ProfilePaths';
+import { profileActivity } from '../profiles/ProfileActivity';
 import RNFS from 'react-native-fs';
 import { safeAttachmentBasename } from './WebViewFileUrlResolver';
 
@@ -17,8 +19,7 @@ export const DEFAULT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
  * named the upload queue `pending_upload/`. See {@link runAttachmentLayoutMigrationV2}
  * for the one-shot migration invoked on app start.
  */
-export const attachmentsRoot = (): string =>
-  `${RNFS.DocumentDirectoryPath}/attachments`;
+export const attachmentsRoot = (): string => profilePaths.attachments();
 
 export const syncedRoot = (): string => `${attachmentsRoot()}/synced`;
 
@@ -115,11 +116,13 @@ export function rewriteDraftUrisInData(data: unknown): unknown {
 export async function commitDraftAttachmentsAfterSave(
   data: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const basenames = collectAttachmentBasenamesFromData(data);
-  for (const b of basenames) {
-    await promoteOneDraftFile(b);
-  }
-  return rewriteDraftUrisInData(data) as Record<string, unknown>;
+  return profileActivity.run('Commit draft attachments', async () => {
+    const basenames = collectAttachmentBasenamesFromData(data);
+    for (const b of basenames) {
+      await promoteOneDraftFile(b);
+    }
+    return rewriteDraftUrisInData(data) as Record<string, unknown>;
+  });
 }
 
 /**
@@ -132,37 +135,39 @@ export async function sweepStaleDraftAttachments(
   ttlMs: number = DEFAULT_DRAFT_TTL_MS,
   nowMs: number = Date.now(),
 ): Promise<number> {
-  const dir = draftAttachmentsRoot();
-  let removed = 0;
-  try {
-    const exists = await RNFS.exists(dir);
-    if (!exists) {
-      return 0;
-    }
-    const entries = await RNFS.readDir(dir);
-    for (const entry of entries) {
-      if (!entry.isFile()) continue;
-      const mtime = entry.mtime ? entry.mtime.getTime() : 0;
-      const ctime = entry.ctime ? entry.ctime.getTime() : 0;
-      const ref = Math.max(mtime, ctime);
-      if (ref && nowMs - ref < ttlMs) {
-        continue;
+  return profileActivity.run('Clean stale draft attachments', async () => {
+    const dir = draftAttachmentsRoot();
+    let removed = 0;
+    try {
+      const exists = await RNFS.exists(dir);
+      if (!exists) {
+        return 0;
       }
-      try {
-        await RNFS.unlink(entry.path);
-        removed += 1;
-      } catch (err) {
-        console.warn(
-          'sweepStaleDraftAttachments: failed to unlink',
-          entry.path,
-          err,
-        );
+      const entries = await RNFS.readDir(dir);
+      for (const entry of entries) {
+        if (!entry.isFile()) continue;
+        const mtime = entry.mtime ? entry.mtime.getTime() : 0;
+        const ctime = entry.ctime ? entry.ctime.getTime() : 0;
+        const ref = Math.max(mtime, ctime);
+        if (ref && nowMs - ref < ttlMs) {
+          continue;
+        }
+        try {
+          await RNFS.unlink(entry.path);
+          removed += 1;
+        } catch (err) {
+          console.warn(
+            'sweepStaleDraftAttachments: failed to unlink',
+            entry.path,
+            err,
+          );
+        }
       }
+    } catch (err) {
+      console.warn('sweepStaleDraftAttachments: swept failed', err);
     }
-  } catch (err) {
-    console.warn('sweepStaleDraftAttachments: swept failed', err);
-  }
-  return removed;
+    return removed;
+  });
 }
 
 export interface ObservationPersistDeps {
@@ -202,31 +207,34 @@ export async function persistObservationWithAttachments(
   input: PersistObservationInput,
   deps: ObservationPersistDeps,
 ): Promise<PersistObservationResult> {
-  const { formType, finalData, observationId, subObservationMode } = input;
+  return profileActivity.run('Save observation with attachments', async () => {
+    const { formType, finalData, observationId, subObservationMode } = input;
 
-  if (subObservationMode) {
-    return { observationId: '', formData: finalData };
-  }
-
-  const commit = deps.commitDraftAttachments ?? commitDraftAttachmentsAfterSave;
-  const committedData = await commit(finalData);
-
-  if (observationId) {
-    const ok = await deps.updateObservation({
-      observationId,
-      data: committedData,
-    });
-    if (!ok) {
-      throw new Error('Failed to update observation');
+    if (subObservationMode) {
+      return { observationId: '', formData: finalData };
     }
-    return { observationId, formData: committedData };
-  }
 
-  const newId = await deps.saveObservation({ formType, data: committedData });
-  if (!newId) {
-    throw new Error('Failed to save new observation');
-  }
-  return { observationId: newId, formData: committedData };
+    const commit =
+      deps.commitDraftAttachments ?? commitDraftAttachmentsAfterSave;
+    const committedData = await commit(finalData);
+
+    if (observationId) {
+      const ok = await deps.updateObservation({
+        observationId,
+        data: committedData,
+      });
+      if (!ok) {
+        throw new Error('Failed to update observation');
+      }
+      return { observationId, formData: committedData };
+    }
+
+    const newId = await deps.saveObservation({ formType, data: committedData });
+    if (!newId) {
+      throw new Error('Failed to save new observation');
+    }
+    return { observationId: newId, formData: committedData };
+  });
 }
 
 /**
@@ -250,58 +258,29 @@ export async function persistObservationWithAttachments(
  * keeps working without touching WatermelonDB.
  */
 export async function runAttachmentLayoutMigrationV2(): Promise<boolean> {
-  try {
-    const existingFlag = await AsyncStorage.getItem(ATTACHMENTS_LAYOUT_V2_KEY);
-    if (existingFlag) {
-      return false;
-    }
-
-    const root = attachmentsRoot();
-    if (!(await RNFS.exists(root))) {
-      await RNFS.mkdir(root);
-    }
-
-    await RNFS.mkdir(syncedRoot());
-    await RNFS.mkdir(pendingRoot());
-    await RNFS.mkdir(draftAttachmentsRoot());
-
-    // 1) Move any file directly under attachments/ into synced/.
-    const topEntries = await RNFS.readDir(root);
-    for (const entry of topEntries) {
-      if (!entry.isFile()) continue;
-      const dest = `${syncedRoot()}/${entry.name}`;
-      try {
-        if (await RNFS.exists(dest)) {
-          await RNFS.unlink(entry.path);
-        } else {
-          await RNFS.moveFile(entry.path, dest);
-        }
-      } catch (err) {
-        console.warn(
-          'runAttachmentLayoutMigrationV2: failed to relocate committed file',
-          entry.path,
-          err,
-        );
+  return profileActivity.run('Migrate attachment layout', async () => {
+    try {
+      const existingFlag = await AsyncStorage.getItem(
+        ATTACHMENTS_LAYOUT_V2_KEY,
+      );
+      if (existingFlag) {
+        return false;
       }
-    }
 
-    // 2) Move contents of attachments/pending_upload/ into attachments/pending/,
-    //    then remove the old directory. Do NOT rename the directory itself —
-    //    RNFS.moveFile of a directory is not reliably cross-FS.
-    const legacyPending = legacyPendingUploadRoot();
-    if (await RNFS.exists(legacyPending)) {
-      let legacyFiles: RNFS.ReadDirItem[] = [];
-      try {
-        legacyFiles = await RNFS.readDir(legacyPending);
-      } catch (err) {
-        console.warn(
-          'runAttachmentLayoutMigrationV2: readDir(pending_upload) failed',
-          err,
-        );
+      const root = attachmentsRoot();
+      if (!(await RNFS.exists(root))) {
+        await RNFS.mkdir(root);
       }
-      for (const entry of legacyFiles) {
+
+      await RNFS.mkdir(syncedRoot());
+      await RNFS.mkdir(pendingRoot());
+      await RNFS.mkdir(draftAttachmentsRoot());
+
+      // 1) Move any file directly under attachments/ into synced/.
+      const topEntries = await RNFS.readDir(root);
+      for (const entry of topEntries) {
         if (!entry.isFile()) continue;
-        const dest = `${pendingRoot()}/${entry.name}`;
+        const dest = `${syncedRoot()}/${entry.name}`;
         try {
           if (await RNFS.exists(dest)) {
             await RNFS.unlink(entry.path);
@@ -310,26 +289,59 @@ export async function runAttachmentLayoutMigrationV2(): Promise<boolean> {
           }
         } catch (err) {
           console.warn(
-            'runAttachmentLayoutMigrationV2: failed to relocate pending file',
+            'runAttachmentLayoutMigrationV2: failed to relocate committed file',
             entry.path,
             err,
           );
         }
       }
-      try {
-        await RNFS.unlink(legacyPending);
-      } catch (err) {
-        console.warn(
-          'runAttachmentLayoutMigrationV2: failed to remove pending_upload dir',
-          err,
-        );
-      }
-    }
 
-    await AsyncStorage.setItem(ATTACHMENTS_LAYOUT_V2_KEY, '1');
-    return true;
-  } catch (err) {
-    console.warn('runAttachmentLayoutMigrationV2: aborted', err);
-    return false;
-  }
+      // 2) Move contents of attachments/pending_upload/ into attachments/pending/,
+      //    then remove the old directory. Do NOT rename the directory itself —
+      //    RNFS.moveFile of a directory is not reliably cross-FS.
+      const legacyPending = legacyPendingUploadRoot();
+      if (await RNFS.exists(legacyPending)) {
+        let legacyFiles: RNFS.ReadDirItem[] = [];
+        try {
+          legacyFiles = await RNFS.readDir(legacyPending);
+        } catch (err) {
+          console.warn(
+            'runAttachmentLayoutMigrationV2: readDir(pending_upload) failed',
+            err,
+          );
+        }
+        for (const entry of legacyFiles) {
+          if (!entry.isFile()) continue;
+          const dest = `${pendingRoot()}/${entry.name}`;
+          try {
+            if (await RNFS.exists(dest)) {
+              await RNFS.unlink(entry.path);
+            } else {
+              await RNFS.moveFile(entry.path, dest);
+            }
+          } catch (err) {
+            console.warn(
+              'runAttachmentLayoutMigrationV2: failed to relocate pending file',
+              entry.path,
+              err,
+            );
+          }
+        }
+        try {
+          await RNFS.unlink(legacyPending);
+        } catch (err) {
+          console.warn(
+            'runAttachmentLayoutMigrationV2: failed to remove pending_upload dir',
+            err,
+          );
+        }
+      }
+
+      await AsyncStorage.setItem(ATTACHMENTS_LAYOUT_V2_KEY, '1');
+      return true;
+    } catch (err) {
+      console.warn('runAttachmentLayoutMigrationV2: aborted', err);
+      return false;
+    }
+  });
 }

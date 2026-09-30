@@ -1,0 +1,110 @@
+.codeBlockWrapper {
+  margin: var(--ode-spacing-6) 0;
+  border-radius: var(--ode-border-radius-md);
+  overflow: hidden;
+  border: var(--ode-border-width-thin) solid var(--ode-color-neutral-300);
+  background-color: var(--ode-color-neutral-50);
+}
+
+[data-theme='dark'] .codeBlockWrapper {
+  border-color: var(--ode-color-neutral-700);
+  background-color: var(--ode-color-neutral-900);
+}
+
+.codeBlockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ode-spacing-3) var(--ode-spacing-4);
+  background-color: var(--ode-color-neutral-100);
+  border-bottom: var(--ode-border-width-thin) solid var(--ode-color-neutral-300);
+  font-family: var(--ode-font-family-sans);
+  font-size: var(--ode-font-size-sm);
+}
+
+[data-theme='dark'] .codeBlockHeader {
+  background-color: var(--ode-color-neutral-800);
+  border-bottom-color: var(--ode-color-neutral-700);
+}
+
+.codeBlockLanguage {
+  font-weight: var(--ode-font-weight-medium);
+  color: var(--ode-color-neutral-600);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--ode-font-size-xs);
+}
+
+[data-theme='dark'] .codeBlockLanguage {
+  color: var(--ode-color-neutral-400);
+}
+
+.codeBlockTitle {
+  font-weight: var(--ode-font-weight-regular);
+  color: var(--ode-color-neutral-700);
+  flex: 1;
+  text-align: right;
+}
+
+[data-theme='dark'] .codeBlockTitle {
+  color: var(--ode-color-neutral-300);
+}
+
+.codeBlockContainer {
+  overflow-x: auto;
+  background-color: var(--ode-color-neutral-50);
+}
+
+[data-theme='dark'] .codeBlockContainer {
+  background-color: var(--ode-color-neutral-900);
+}
+
+.codeBlock {
+  margin: 0;
+  padding: var(--ode-spacing-4);
+  font-family: var(--ode-font-family-mono);
+  font-size: var(--ode-font-size-sm);
+  line-height: var(--ode-line-height-relaxed);
+  color: var(--ode-color-neutral-900);
+  background: transparent;
+  overflow-x: auto;
+}
+
+[data-theme='dark'] .codeBlock {
+  color: var(--ode-color-neutral-100);
+}
+
+.codeBlock code {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.codeBlock--lineNumbers {
+  counter-reset: line;
+}
+
+.codeBlock--lineNumbers code {
+  display: block;
+  padding-left: var(--ode-spacing-12);
+  position: relative;
+}
+
+.codeBlock--lineNumbers code::before {
+  counter-increment: line;
+  content: counter(line);
+  position: absolute;
+  left: 0;
+  width: var(--ode-spacing-8);
+  text-align: right;
+  padding-right: var(--ode-spacing-4);
+  color: var(--ode-color-neutral-500);
+  user-select: none;
+}
+
+[data-theme='dark'] .codeBlock--lineNumbers code::before {
+  color: var(--ode-color-neutral-600);
+}

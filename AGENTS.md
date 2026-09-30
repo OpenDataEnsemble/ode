@@ -57,6 +57,7 @@ Do not assume custom app authors have local checkouts of **ODE** or internal exa
 | [packages/tokens](packages/tokens/) | Design tokens (`@ode/tokens`) | Style Dictionary | [packages/tokens/AGENTS.md](packages/tokens/AGENTS.md) |
 | [packages/components](packages/components/) | Shared UI (`@ode/components`) | React | [packages/components/AGENTS.md](packages/components/AGENTS.md) |
 | [desktop](desktop/) | Data management + Forms / app workbench (Tauri) | React, Rust | [desktop/AGENTS.md](desktop/AGENTS.md) |
+| [docs](docs/) | Documentation site (published at [opendataensemble.org](https://opendataensemble.org/)) | Docusaurus, MDX | [docs/README.md](docs/README.md) |
 
 ---
 

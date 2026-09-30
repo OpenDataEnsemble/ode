@@ -11,6 +11,8 @@ package-lock.json
 **/package-lock.json
 # F-Droid builds use npm ci / install --build-from-source in formulus/
 !formulus/package-lock.json
+# Documentation site deploys with npm ci, so its lockfile must be committed
+!docs/package-lock.json
 
 # Generated credentials
 **/credentials.txt

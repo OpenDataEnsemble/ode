@@ -3023,6 +3023,39 @@ input:not([type]) {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
+.observations-overview-map-cluster {
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(13, 20, 36, 0.55);
+}
+
+.observations-overview-map-cluster span {
+  display: grid;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
+  place-items: center;
+  border-radius: inherit;
+  background: #243a73;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+}
+
+.observations-overview-map-cluster--medium span {
+  font-size: 0.8rem;
+}
+
+.observations-overview-map-cluster--large span {
+  font-size: 0.85rem;
+}
+
 .observations-overview-totals-row th,
 .observations-overview-totals-row td {
   font-weight: 600;

@@ -30,8 +30,7 @@
   "draft.formLabel": "Form: {{formType}}",
   "draft.newFormSection": "New Form",
   "draft.deleteConfirm": "Are you sure you want to delete this draft? This action cannot be undone.",
-  "draft.cleanupOldOne": "1 draft older than 7 days will be automatically removed.",
-  "draft.cleanupOldMany": "{{count}} drafts older than 7 days will be automatically removed.",
+
   "finalize.title": "Finalize",
   "finalize.summary": "FORM SUMMARY",
   "finalize.notProvided": "Not provided",

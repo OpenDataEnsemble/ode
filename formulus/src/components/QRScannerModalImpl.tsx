@@ -81,6 +81,7 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
 }) => {
   const [isScanning, setIsScanning] = useState(true);
   const [scannedData, setScannedData] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [perm, setPerm] = useState<'checking' | 'granted' | 'denied'>(
     'checking',
   );
@@ -93,6 +94,7 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
       if (cancelled) return;
       setIsScanning(true);
       setScannedData(null);
+      setCameraError(null);
       resultSentRef.current = false;
     });
     return () => {
@@ -126,7 +128,11 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
   }, [visible]);
 
   const previewActive =
-    visible && perm === 'granted' && isScanning && scannedData == null;
+    visible &&
+    perm === 'granted' &&
+    isScanning &&
+    scannedData == null &&
+    cameraError == null;
 
   useEffect(() => {
     if (!previewActive) {
@@ -155,11 +161,20 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
     setPerm(status === RESULTS.GRANTED ? 'granted' : 'denied');
   }, []);
 
+  const handleCameraError = useCallback(
+    (event: { nativeEvent: { errorMessage: string } }) => {
+      setCameraError(
+        event.nativeEvent.errorMessage || 'Camera could not start.',
+      );
+    },
+    [],
+  );
+
   const onReadCode = useCallback(
     (event: {
       nativeEvent: { codeStringValue: string; codeFormat: CodeFormat };
     }) => {
-      if (!isScanning || resultSentRef.current) return;
+      if (!isScanning || cameraError || resultSentRef.current) return;
       const value = event.nativeEvent.codeStringValue;
       const format = event.nativeEvent.codeFormat;
       setScannedData(value || '');
@@ -176,7 +191,7 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
         },
       });
     },
-    [isScanning, fieldId, onResult],
+    [isScanning, cameraError, fieldId, onResult],
   );
 
   const handleCancel = () => {
@@ -191,6 +206,7 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
   const handleRetry = () => {
     setIsScanning(true);
     setScannedData(null);
+    setCameraError(null);
     resultSentRef.current = false;
   };
 
@@ -256,20 +272,25 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
               Platform.OS === 'android' ? ['qr'] : IOS_BARCODE_TYPES
             }
             onReadCode={onReadCode}
+            onError={handleCameraError}
           />
         ) : (
           <View style={[styles.camera, styles.centered]}>
-            <ActivityIndicator size="large" color={colors.neutral.white} />
+            {!cameraError && (
+              <ActivityIndicator size="large" color={colors.neutral.white} />
+            )}
           </View>
         )}
         <View style={styles.overlay}>
           <View style={styles.topOverlay}>
             <Text style={styles.instructionText}>
-              {scannedData
-                ? 'Code Scanned!'
-                : Platform.OS === 'android'
-                  ? 'Point camera at QR code'
-                  : 'Point camera at QR code or barcode'}
+              {cameraError
+                ? 'Camera unavailable'
+                : scannedData
+                  ? 'Code Scanned!'
+                  : Platform.OS === 'android'
+                    ? 'Point camera at QR code'
+                    : 'Point camera at QR code or barcode'}
             </Text>
           </View>
           <View style={styles.scanFrame}>
@@ -280,7 +301,27 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
             <View style={[styles.corner, styles.bottomRight]} />
           </View>
           <View style={styles.bottomOverlay}>
-            {scannedData ? (
+            {cameraError ? (
+              <View style={styles.resultContainer}>
+                <Text style={styles.permissionText}>
+                  Camera error: {cameraError}
+                </Text>
+                <View style={styles.buttonRow}>
+                  <Button
+                    title="Retry"
+                    onPress={handleRetry}
+                    variant="primary"
+                    style={styles.optionButton}
+                  />
+                  <Button
+                    title="Cancel"
+                    onPress={handleCancel}
+                    variant="tertiary"
+                    style={styles.optionButton}
+                  />
+                </View>
+              </View>
+            ) : scannedData ? (
               <View style={styles.resultContainer}>
                 <Text style={styles.resultLabel}>Scanned:</Text>
                 <Text style={styles.resultText} numberOfLines={3}>

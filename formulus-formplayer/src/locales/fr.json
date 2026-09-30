@@ -30,8 +30,7 @@
   "draft.formLabel": "Formulaire : {{formType}}",
   "draft.newFormSection": "Nouveau formulaire",
   "draft.deleteConfirm": "Voulez-vous vraiment supprimer ce brouillon ? Cette action est irréversible.",
-  "draft.cleanupOldOne": "1 brouillon de plus de 7 jours sera supprimé automatiquement.",
-  "draft.cleanupOldMany": "{{count}} brouillons de plus de 7 jours seront supprimés automatiquement.",
+
   "finalize.title": "Finaliser",
   "finalize.summary": "RÉSUMÉ DU FORMULAIRE",
   "finalize.notProvided": "Non renseigné",

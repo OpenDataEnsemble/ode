@@ -3,6 +3,8 @@
  * Keyed by formType + formVersion + field path (JSON pointer segment).
  */
 
+import { formplayerStorage } from './ProfileStorage';
+
 export interface StickyStore {
   [fieldPath: string]: unknown;
 }
@@ -26,7 +28,7 @@ export class StickyService {
 
   private readAll(): Record<string, StickyStore> {
     try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
+      const raw = formplayerStorage.getItem(this.STORAGE_KEY);
       if (!raw) return {};
       const parsed = JSON.parse(raw);
       return typeof parsed === 'object' && parsed !== null ? parsed : {};
@@ -37,7 +39,7 @@ export class StickyService {
 
   private writeAll(data: Record<string, StickyStore>): void {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+      formplayerStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
       console.warn('[StickyService] Failed to persist sticky values', e);
     }

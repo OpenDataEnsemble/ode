@@ -233,7 +233,7 @@ Behavioral config (`maxStars`, filters, …) stays in **`schema.json`** (`config
 | UI locale preference (host) | `formulus/src/lib/locale.ts`, Settings → Language |
 | Linked child specs for sub-obs columns | `FormInitData.linkedFormSpecs` (built in Formulus / ODE Desktop) |
 
-When changing merge rules or label resolution, update **`applyFormUiTranslations.test.ts`**, affected renderers, and the [published form translations guide](https://opendataensemble.org/docs/guides/form-translations) in **ode-docs**.
+When changing merge rules or label resolution, update **`applyFormUiTranslations.test.ts`**, affected renderers, and the [published form translations guide](https://opendataensemble.org/docs/guides/form-translations) in **`docs/docs/guides/form-translations.md`**.
 
 ---
 

@@ -134,21 +134,13 @@ class NotificationService {
     } catch (e) {
       console.warn('Failed to cancel foreground notification:', e);
     }
-    // Delayed cleanup: catch any fire-and-forget showSyncProgress calls
-    // that were already in-flight when we stopped the service
-    const cleanupTimer = setTimeout(async () => {
-      try {
-        await notifee.cancelNotification(this.syncNotificationId);
-      } catch (_) {
-        // ignore
-      }
-    }, 1000);
-    // In Node/Jest, unref avoids keeping the process alive.
-    const maybeNodeTimer = cleanupTimer as ReturnType<typeof setTimeout> & {
-      unref?: () => void;
-    };
-    if (typeof maybeNodeTimer === 'object' && maybeNodeTimer?.unref) {
-      maybeNodeTimer.unref();
+    // Join delayed cleanup so it cannot cancel another profile's notification
+    // after the caller has released its activity lease.
+    await new Promise<void>(resolve => setTimeout(resolve, 1000));
+    try {
+      await notifee.cancelNotification(this.syncNotificationId);
+    } catch (_) {
+      // Best-effort cleanup.
     }
   }
 

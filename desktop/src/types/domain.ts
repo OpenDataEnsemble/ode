@@ -294,6 +294,8 @@ export interface ObservationIndexPromptState {
 
 export interface AppSettings {
   activeProfileId: string;
+  /** Permanent IDs; absent in older host/test snapshots. */
+  deletedProfileIds?: string[];
   profiles: ServerProfile[];
   dataDirectory: string;
 }

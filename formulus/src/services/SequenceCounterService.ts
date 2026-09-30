@@ -3,8 +3,9 @@
  * Keys are fully qualified (including device prefix) before storage.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../profiles/ProfileStorage';
 import { clientIdService } from './ClientIdService';
+import { profileActivity } from '../profiles/ProfileActivity';
 
 const STORAGE_PREFIX = '@ode_sequence:';
 
@@ -38,6 +39,15 @@ export class SequenceCounterService {
   public async allocate(
     appScopeKey: string,
     options: AllocateSequenceOptions = {},
+  ): Promise<number> {
+    return profileActivity.run('Allocate sequence', () =>
+      this.allocateImpl(appScopeKey, options),
+    );
+  }
+
+  private async allocateImpl(
+    appScopeKey: string,
+    options: AllocateSequenceOptions,
   ): Promise<number> {
     const fullKey = await this.buildFullScopeKey(appScopeKey);
     const startAt = options.startAt ?? 1;

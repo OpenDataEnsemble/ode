@@ -13,11 +13,10 @@
  */
 
 import RNFS from 'react-native-fs';
+import { profilePath } from '../profiles/ProfilePaths';
+import { profileActivity } from '../profiles/ProfileActivity';
 import { AppConfig, ThemeColors } from '../types/AppConfig';
 import { colors as odeColors } from '../theme/colors';
-
-/** Path where the custom app bundle is extracted on the device. */
-const APP_CONFIG_PATH = `${RNFS.DocumentDirectoryPath}/app/app.config.json`;
 
 /**
  * Build a fallback ThemeColors object from the ODE design tokens.
@@ -76,19 +75,26 @@ class AppConfigService {
    * `force` is true.
    */
   async loadConfig(force = false): Promise<void> {
+    return profileActivity.run('Load app configuration', () =>
+      this.loadConfigImpl(force),
+    );
+  }
+
+  private async loadConfigImpl(force: boolean): Promise<void> {
     if (this.loaded && !force) {
       return;
     }
 
+    const configPath = profilePath('app/app.config.json');
     try {
-      const exists = await RNFS.exists(APP_CONFIG_PATH);
+      const exists = await RNFS.exists(configPath);
       if (!exists) {
         this.config = null;
         this.loaded = true;
         return;
       }
 
-      const raw = await RNFS.readFile(APP_CONFIG_PATH, 'utf8');
+      const raw = await RNFS.readFile(configPath, 'utf8');
       const parsed: AppConfig = JSON.parse(raw);
 
       // A missing or malformed theme only disables theming. It used to discard

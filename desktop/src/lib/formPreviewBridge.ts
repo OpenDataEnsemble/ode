@@ -51,7 +51,7 @@ function previewAllocateSequence(
 }
 
 /** Matches `FORMULUS_INTERFACE_VERSION` in formplayer (`FormulusInterfaceDefinition.ts`). */
-export const FORM_PREVIEW_FORMULUS_INTERFACE_VERSION = '1.5.0';
+export const FORM_PREVIEW_FORMULUS_INTERFACE_VERSION = '1.6.0';
 
 /** Must match `formplayer-host-stub.js` — delivers `*_response` to pending Formulus promises in iframes. */
 export const FORMPLAYER_BRIDGE_RESPONSE_CHANNEL =

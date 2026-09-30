@@ -1,4 +1,4 @@
-import { Database } from '@nozbe/watermelondb';
+import { Database, Q } from '@nozbe/watermelondb';
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
 import { schemas } from './schema';
 import { ObservationModel } from './models/ObservationModel';
@@ -10,8 +10,12 @@ import { logger } from '../diagnostics/logger';
 import { installWatermelonLogBridge } from './installWatermelonLogBridge';
 import { logSqliteEngine } from './probeSqliteEngine';
 
-// Capture Watermelon's JSI-fallback warn before SQLiteAdapter runs initializeJSI.
-installWatermelonLogBridge();
+import {
+  getActiveProfile,
+  assertProfileReady,
+} from '../profiles/ProfileRuntime';
+import { prepareProfileDatabase } from '../profiles/nativeProfileLifecycle';
+import { profileActivity } from '../profiles/ProfileActivity';
 
 // Define migrations
 const migrations = schemaMigrations({
@@ -108,36 +112,89 @@ const migrations = schemaMigrations({
   ],
 });
 
-// Setup the adapter
-const adapter = new SQLiteAdapter({
-  schema: schemas,
-  // Optional database name
-  dbName: 'formulus',
-  // Configure migrations
-  migrations: migrations,
-  // Requests the bundled JSI SQLite. Confirm with logSqliteEngine — Android
-  // still falls back to system SQLite if WatermelonDBJSIPackage is missing.
-  jsi: true,
-  onSetUpError: error => {
-    logger.error(
-      'db',
-      error instanceof Error ? error.message : 'Database setup error',
+/** Retain each adapter for the lifetime of this JS runtime. Never reopen a visited name. */
+export let database: Database;
+const instances = new Map<string, Database>();
+const initializations = new Map<string, Promise<void>>();
+
+/** True when this profile's retained instance passed its readiness check. */
+export function hasHealthyProfileDatabase(profileId: string): boolean {
+  return instances.has(profileId);
+}
+
+/** True when an open was attempted for this profile in this runtime (healthy or not). */
+export function wasProfileDatabaseAttempted(profileId: string): boolean {
+  return initializations.has(profileId);
+}
+
+export function getDatabase(): Database {
+  if (!database || instances.get(getActiveProfile().id) !== database) {
+    throw new Error(
+      'Profile database is not initialized. Await initializeProfileDatabase() before loading App.',
     );
-  },
-});
+  }
+  profileActivity.assertAvailable();
+  return database;
+}
 
-// Create the database
-export const database = new Database({
-  adapter,
-  modelClasses: [
-    ObservationModel,
-    // Add more models as needed
-  ],
-});
-
-void logSqliteEngine(database).catch(error => {
-  logger.warn(
-    'db',
-    error instanceof Error ? error.message : 'sqlite engine probe failed',
-  );
-});
+/** Opens a profile once; revisiting it selects its retained Database. */
+export function initializeProfileDatabase(
+  duringTransition = false,
+): Promise<void> {
+  assertProfileReady();
+  const { id, dbName } = getActiveProfile();
+  const existing = initializations.get(id);
+  if (existing) {
+    const retained = instances.get(id);
+    if (retained) database = retained;
+    return existing;
+  }
+  const open = async () => {
+    const selected = instances.get(id);
+    if (selected) {
+      database = selected;
+      return;
+    }
+    // Preparation is idempotent per name. A failed open must not be retried
+    // in this runtime: it may have left an adapter with native handles.
+    await prepareProfileDatabase(dbName);
+    installWatermelonLogBridge();
+    const adapter = new SQLiteAdapter({
+      schema: schemas,
+      dbName,
+      migrations,
+      jsi: true,
+      onSetUpError: error => {
+        logger.error(
+          'db',
+          error instanceof Error ? error.message : 'Database setup error',
+        );
+      },
+    });
+    await adapter.initializingPromise;
+    const candidate = new Database({
+      adapter,
+      modelClasses: [ObservationModel],
+    });
+    // Validate that the observation table is usable without scanning its rows.
+    await candidate.read(() =>
+      candidate
+        .get('observations')
+        .query(Q.unsafeSqlQuery('SELECT id FROM observations LIMIT 1'))
+        .unsafeFetchRaw(),
+    );
+    await logSqliteEngine(candidate).catch(error => {
+      logger.warn(
+        'db',
+        error instanceof Error ? error.message : 'sqlite engine probe failed',
+      );
+    });
+    instances.set(id, candidate);
+    database = candidate;
+  };
+  const initialization = duringTransition
+    ? open()
+    : profileActivity.run('Initialize profile database', open);
+  initializations.set(id, initialization);
+  return initialization;
+}

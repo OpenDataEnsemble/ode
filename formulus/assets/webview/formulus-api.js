@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  *
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2026-06-19T16:58:11.756Z
+ * Last generated: 2026-09-18T16:52:28.363Z
  *
  * @example
  * // In your JavaScript file:
@@ -22,12 +22,34 @@
 /** @typedef {Object} FormInfo */
 /** @typedef {Object} FormObservation */
 /** @typedef {Object} AttachmentData */
+/**
+ * @typedef {Object} ProfileLocalStorage
+ * @property {function(string): (string|null)} getItem
+ * @property {function(string, string): void} setItem
+ * @property {function(string): void} removeItem
+ * @property {function(): void} clear Removes only this profile's app namespace.
+ */
 
 /**
  * Formulus API interface
  * @namespace formulus
  */
 const FormulusAPI = {
+  /**
+   * The immutable host profile ID captured before this browser context becomes ready.
+   * @returns {string} Host profile ID (synchronous, never an RPC)
+   */
+  getProfileId: function () {},
+
+  /**
+   * Synchronous browser storage using physical keys `ode:{profileId}:app:{key}`.
+   * Storage errors propagate to the caller. No raw localStorage monkeypatching;
+   * this is namespacing, not a security sandbox. Third-party storage outside this
+   * namespace cannot be guaranteed erased when a profile is deleted.
+   * @returns {ProfileLocalStorage} Profile-scoped browser storage (synchronous)
+   */
+  getLocalStorageRef: function () {},
+
   /**
    * Get the current version of the Formulus bridge API (the interface contract
    * version, e.g. for {@link isCompatibleVersion} checks).
@@ -44,7 +66,8 @@ const FormulusAPI = {
   /**
    * Open Formplayer with the specified form
    * Reserved keys are not treated as observation data:
-   * `defaultData` (prefill), `theme`/`darkMode`/`themeColors` (theming), and
+   * `defaultData` (prefill), `theme`/`darkMode`/`themeColors` (theming),
+   * `profileId` (host-owned, never selected by the custom app), and
    * `context` — a read-only **session context** object (device role, selected cluster,
    * ...) that Formplayer never persists and exposes to extensions as
    * `window.formulusSessionContext`. Draft bypass is not a param key — use

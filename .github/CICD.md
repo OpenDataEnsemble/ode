@@ -187,6 +187,29 @@ This ensures:
 - Each APK is built against the exact assets produced in the same run
 - Formplayer build outputs do not pollute git history
 
+### Documentation Site
+
+**Workflow**: `.github/workflows/docs.yml`
+
+Builds and publishes the Docusaurus site in [`docs/`](../docs/) to [opendataensemble.org](https://opendataensemble.org/) via GitHub Pages.
+
+#### Triggers
+
+| Event | Result |
+|-------|--------|
+| Pull request to `main` or `dev` touching `docs/**` | Validate and build only |
+| Push to `main` touching `docs/**` | Validate, build, and deploy |
+| `workflow_dispatch` | Validate and build |
+
+#### Notes
+
+- The deployed branch is main, so the published docs track the released version of ODE. Changes on dev and pull requests are validated by CI but are not deployed.
+- The site is an independent **npm** project inside the pnpm monorepo: `cache-dependency-path` points at `docs/package-lock.json`, which is force-included in the root `.gitignore` so `npm ci` is reproducible.
+- `docs/docs/` is the Docusaurus content root. URLs are unchanged from the previous standalone `OpenDataEnsemble/docs` repository — `routeBasePath` is still `/docs`.
+- `actions/upload-pages-artifact@v4` is used deliberately: v5 excludes dotfiles by default, which would drop `static/.nojekyll` and `static/CNAME` from the artifact.
+- The upload path is `docs/build` (repo-root relative). `defaults.run.working-directory` does not apply to `uses:` steps.
+- No secrets are required. The deploy job needs `contents: read`, `pages: write`, and `id-token: write`.
+
 ### SBOM (CycloneDX) on releases
 
 **Workflow**: `.github/workflows/sbom-release.yml`

@@ -30,8 +30,7 @@
   "draft.formLabel": "Formulário: {{formType}}",
   "draft.newFormSection": "Novo formulário",
   "draft.deleteConfirm": "Tem a certeza de que pretende eliminar este rascunho? Esta ação não pode ser anulada.",
-  "draft.cleanupOldOne": "1 rascunho com mais de 7 dias será removido automaticamente.",
-  "draft.cleanupOldMany": "{{count}} rascunhos com mais de 7 dias serão removidos automaticamente.",
+
   "finalize.title": "Finalizar",
   "finalize.summary": "RESUMO DO FORMULÁRIO",
   "finalize.notProvided": "Não fornecido",

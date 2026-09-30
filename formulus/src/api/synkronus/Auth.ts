@@ -1,6 +1,14 @@
 import { synkronusApi } from './index';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Keychain from 'react-native-keychain';
+import { profileActivity } from '../../profiles/ProfileActivity';
+import AsyncStorage from '../../profiles/ProfileStorage';
+import {
+  getProfileCredentials,
+  setProfileCredentials,
+  resetProfileCredentials,
+} from '../../profiles/ProfileKeychain';
+import { profileRegistry } from '../../profiles/ProfileRegistry';
+import { getActiveProfile } from '../../profiles/ProfileRuntime';
+
 import { ODE_VERSION } from '../../version';
 import { logger } from '../../diagnostics/logger';
 import { invalidateSettingsHydrationCache } from '../../services/SettingsHydrationCache';
@@ -116,20 +124,153 @@ const getHttpStatus = (error: unknown): number | undefined => {
   );
 };
 
-const clearSession = async (): Promise<void> => {
+// Network requests may overlap, but no two auth persistence chains may interleave.
+// Explicit login/logout invalidate older requests immediately, before any await.
+let authGeneration = 0;
+let sessionRevision = 0;
+let persistenceQueue: Promise<void> = Promise.resolve();
+
+type AuthAttempt = {
+  generation: number;
+  serverUrl: string;
+  profileId: string;
+  revision?: number;
+};
+
+function captureAttempt(background = false): AuthAttempt {
+  return {
+    generation: authGeneration,
+    serverUrl: getActiveProfile().serverUrl,
+    profileId: getActiveProfile().id,
+    ...(background ? { revision: sessionRevision } : {}),
+  };
+}
+
+function isCurrent(attempt: AuthAttempt): boolean {
+  return (
+    attempt.generation === authGeneration &&
+    attempt.serverUrl === getActiveProfile().serverUrl &&
+    attempt.profileId === getActiveProfile().id &&
+    (attempt.revision === undefined || attempt.revision === sessionRevision)
+  );
+}
+
+function assertCurrent(attempt: AuthAttempt): void {
+  if (!isCurrent(attempt)) {
+    throw new Error(
+      'Authentication operation superseded by a session or server change; please retry.',
+    );
+  }
+}
+
+function serializePersistence<T>(work: () => Promise<T>): Promise<T> {
+  const result = persistenceQueue.then(work);
+  persistenceQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+// Call after a committed profile switch, before background auth can start again.
+// In-flight requests for the old profile must not persist even if URLs match.
+export function invalidateAuthForProfileSwitch(): void {
+  authGeneration += 1;
+  sessionRevision += 1;
+  invalidateSessionCaches();
+}
+
+function invalidateSessionCaches(): void {
   synkronusApi.clearTokenCache();
   invalidateSettingsHydrationCache();
-  await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
+}
+
+const clearSession = async (credentials = false): Promise<void> => {
+  invalidateSessionCaches();
+  try {
+    const results = await Promise.allSettled([
+      AsyncStorage.multiRemove(AUTH_STORAGE_KEYS),
+      ...(credentials ? [resetProfileCredentials()] : []),
+    ]);
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed?.status === 'rejected') throw failed.reason;
+  } finally {
+    invalidateSessionCaches();
+  }
 };
+
+async function persistSession(
+  attempt: AuthAttempt,
+  values: { token: string; refreshToken: string; expiresAt: number },
+  credentials?: { username: string; password: string; user: UserInfo },
+): Promise<void> {
+  assertCurrent(attempt);
+  // Other commits cannot run inside this queue. Only an explicit new intent or
+  // a registry URL change can supersede us while native storage is in flight.
+  const owner: AuthAttempt = {
+    generation: attempt.generation,
+    serverUrl: attempt.serverUrl,
+    profileId: attempt.profileId,
+  };
+  if (credentials) {
+    await profileRegistry.updateConnection({
+      serverUrl: owner.serverUrl,
+      username: credentials.username,
+      urlLocked: true,
+    });
+    assertCurrent(owner);
+  }
+  sessionRevision += 1;
+  try {
+    if (credentials) {
+      await setProfileCredentials(credentials.username, credentials.password);
+      assertCurrent(owner);
+    }
+    const entries: [string, string][] = [
+      ['@token', values.token],
+      ['@refreshToken', values.refreshToken],
+      ['@tokenExpiresAt', String(values.expiresAt)],
+    ];
+    if (credentials) entries.push(['@user', JSON.stringify(credentials.user)]);
+    for (const [key, value] of entries) {
+      assertCurrent(owner);
+      await AsyncStorage.setItem(key, value);
+    }
+    assertCurrent(owner);
+  } catch (error) {
+    // We own any partial writes until the queue advances. Remove them before a
+    // later login/logout can persist, but never erase a different server's state.
+    if (
+      getActiveProfile().id === owner.profileId &&
+      getActiveProfile().serverUrl === owner.serverUrl
+    ) {
+      await clearSession(Boolean(credentials)).catch(cleanupError => {
+        console.warn(
+          'Failed to clear partial authentication state:',
+          cleanupError,
+        );
+      });
+    }
+    throw error;
+  } finally {
+    invalidateSessionCaches();
+  }
+}
 
 const removeCredentialsIfMatching = async (
   username: string,
   password: string,
+  attempt: AuthAttempt,
 ): Promise<void> => {
   try {
-    const saved = await Keychain.getGenericPassword();
-    if (saved && saved.username === username && saved.password === password) {
-      await Keychain.resetGenericPassword();
+    const saved = await getProfileCredentials();
+    if (
+      isCurrent(attempt) &&
+      saved &&
+      saved.username === username &&
+      saved.password === password
+    ) {
+      await resetProfileCredentials();
     }
   } catch (error) {
     console.warn('Failed to remove rejected saved credentials:', error);
@@ -138,11 +279,15 @@ const removeCredentialsIfMatching = async (
   }
 };
 
-export const login = async (
+async function authenticate(
+  attempt: AuthAttempt,
   username: string,
   password: string,
-): Promise<UserInfo> => {
+): Promise<UserInfo> {
+  assertCurrent(attempt);
+  if (!attempt.serverUrl) throw new Error('Missing profile server URL');
   const api = await synkronusApi.getApi();
+  assertCurrent(attempt);
 
   let res;
   try {
@@ -154,89 +299,124 @@ export const login = async (
     // A concrete login HTTP 401 confirms that these credentials are invalid.
     // Transient failures and compatibility errors must leave the prior session intact.
     if (getHttpStatus(error) === 401) {
-      await clearSession();
-      await removeCredentialsIfMatching(username, password);
+      await serializePersistence(async () => {
+        if (!isCurrent(attempt)) return;
+        sessionRevision += 1;
+        const owner = {
+          generation: attempt.generation,
+          serverUrl: attempt.serverUrl,
+          profileId: attempt.profileId,
+        };
+        await clearSession();
+        await removeCredentialsIfMatching(username, password, owner);
+      });
     }
     throw error;
   }
 
-  const { token, refreshToken: refreshTokenValue, expiresAt } = res.data;
-
-  // Authentication has succeeded, so it is now safe to replace saved credentials.
-  await Keychain.setGenericPassword(username, password);
-  invalidateSettingsHydrationCache();
-
-  await AsyncStorage.setItem('@token', token);
-  await AsyncStorage.setItem('@refreshToken', refreshTokenValue);
-  await AsyncStorage.setItem('@tokenExpiresAt', expiresAt.toString());
-
-  const claims = decodeJwtPayload(token);
+  const claims = decodeJwtPayload(res.data.token);
   const userInfo: UserInfo = {
     username: claims?.username || username,
     role: claims?.role || 'read-only',
   };
 
-  await AsyncStorage.setItem('@user', JSON.stringify(userInfo));
-  synkronusApi.clearTokenCache();
+  await serializePersistence(() =>
+    persistSession(attempt, res.data, { username, password, user: userInfo }),
+  );
   logger.info('auth', 'login ok');
-
   return userInfo;
-};
+}
 
-export const getUserInfo = async (): Promise<UserInfo | null> => {
-  try {
-    const userJson = await AsyncStorage.getItem('@user');
-    if (userJson) {
-      return JSON.parse(userJson);
+export const login = async (
+  username: string,
+  password: string,
+): Promise<UserInfo> =>
+  profileActivity.run('Sign in', async () => {
+    authGeneration += 1;
+    return authenticate(captureAttempt(), username, password);
+  });
+
+export const getUserInfo = async (): Promise<UserInfo | null> =>
+  profileActivity.run('Read session', async () => {
+    try {
+      const userJson = await AsyncStorage.getItem('@user');
+      if (userJson) {
+        return JSON.parse(userJson);
+      }
+      return null;
+    } catch {
+      return null;
     }
-    return null;
-  } catch {
-    return null;
-  }
-};
+  });
 
-export const logout = async (): Promise<void> => {
-  synkronusApi.clearTokenCache();
-  invalidateSettingsHydrationCache();
-  await Promise.all([
-    AsyncStorage.multiRemove(AUTH_STORAGE_KEYS),
-    Keychain.resetGenericPassword(),
-  ]);
-  invalidateSettingsHydrationCache();
-};
+export const logout = async (): Promise<void> =>
+  profileActivity.run('Sign out', async () => {
+    authGeneration += 1;
+    const { id, serverUrl } = getActiveProfile();
+    invalidateSessionCaches();
+    await serializePersistence(async () => {
+      if (
+        getActiveProfile().id !== id ||
+        getActiveProfile().serverUrl !== serverUrl
+      )
+        return;
+      sessionRevision += 1;
+      await clearSession(true);
+    });
+  });
 
 // Function to retrieve the auth token from AsyncStorage
-export const getApiAuthToken = async (): Promise<string | undefined> => {
-  try {
-    const token = await AsyncStorage.getItem('@token');
-    if (token) {
-      return token;
+export const getApiAuthToken = async (): Promise<string | undefined> =>
+  profileActivity.run('Read auth token', async () => {
+    try {
+      const token = await AsyncStorage.getItem('@token');
+      if (token) {
+        return token;
+      }
+      console.warn('No token found in AsyncStorage.');
+      return undefined;
+    } catch (error) {
+      console.error('Error retrieving token from AsyncStorage:', error);
+      return undefined;
     }
-    console.warn('No token found in AsyncStorage.');
-    return undefined;
-  } catch (error) {
-    console.error('Error retrieving token from AsyncStorage:', error);
-    return undefined;
-  }
-};
+  });
 
 /**
  * Refreshes the authentication token if it has expired.
  */
-export const refreshToken = async () => {
-  const api = await synkronusApi.getApi();
-  const res = await api.refreshToken({
-    xOdeVersion: ODE_VERSION,
-    refreshTokenRequest: {
-      refreshToken: (await AsyncStorage.getItem('@refreshToken')) ?? '',
-    },
+export const refreshToken = async () =>
+  profileActivity.run('Refresh session', async () => {
+    if (!getActiveProfile().urlLocked) return false;
+    const attempt = captureAttempt(true);
+    const refresh = await serializePersistence(async () => {
+      assertCurrent(attempt);
+      const value = await AsyncStorage.getItem('@refreshToken');
+      assertCurrent(attempt);
+      return value;
+    });
+    if (!refresh) return false;
+    const api = await synkronusApi.getApi();
+    assertCurrent(attempt);
+    let res;
+    try {
+      res = await api.refreshToken({
+        xOdeVersion: ODE_VERSION,
+        refreshTokenRequest: { refreshToken: refresh },
+      });
+    } catch (error) {
+      if (getHttpStatus(error) === 401) {
+        await serializePersistence(async () => {
+          if (!isCurrent(attempt)) return;
+          sessionRevision += 1;
+          // Rejected refresh tokens do not invalidate the saved password.
+          await clearSession();
+        });
+      }
+      throw error;
+    }
+    await serializePersistence(() => persistSession(attempt, res.data));
+    return true;
   });
-  const { token, refreshToken: refreshTokenValue, expiresAt } = res.data;
-  await AsyncStorage.setItem('@token', token);
-  await AsyncStorage.setItem('@refreshToken', refreshTokenValue);
-  await AsyncStorage.setItem('@tokenExpiresAt', expiresAt.toString());
-  return true;
-};
 
 /**
  * Attempts to automatically re-login using stored credentials from Keychain.
@@ -244,28 +424,42 @@ export const refreshToken = async () => {
  * @returns Promise<UserInfo> if login succeeds, null if credentials are not available
  * @throws Error if login fails
  */
-export const autoLogin = async (): Promise<UserInfo | null> => {
-  try {
-    // Get stored credentials from Keychain
-    const credentials = await Keychain.getGenericPassword();
-    if (!credentials || !credentials.username || !credentials.password) {
-      console.warn('No stored credentials found for auto-login');
-      return null;
-    }
+export const autoLogin = async (): Promise<UserInfo | null> =>
+  profileActivity.run('Automatic sign in', async () => {
+    // QR setup can stage credentials, but they are not trusted for automatic
+    // requests until an explicit login has durably bound this server URL.
+    if (!getActiveProfile().urlLocked) return null;
+    const attempt = captureAttempt(true);
+    try {
+      const credentials = await serializePersistence(async () => {
+        assertCurrent(attempt);
+        const saved = await getProfileCredentials();
+        assertCurrent(attempt);
+        return saved;
+      });
+      if (!credentials || !credentials.username || !credentials.password) {
+        console.warn('No stored credentials found for auto-login');
+        return null;
+      }
 
-    const userInfo = await login(credentials.username, credentials.password);
-    logger.info('auth', 'auto-login ok');
-    return userInfo;
-  } catch (error: unknown) {
-    const httpError = error as HttpError;
-    console.error('Auto-login failed:', httpError);
-    throw new Error(
-      `Auto-login failed: ${
-        httpError?.message || 'Unknown error'
-      }. Please login manually.`,
-    );
-  }
-};
+      assertCurrent(attempt);
+      const userInfo = await authenticate(
+        attempt,
+        credentials.username,
+        credentials.password,
+      );
+      logger.info('auth', 'auto-login ok');
+      return userInfo;
+    } catch (error: unknown) {
+      const httpError = error as HttpError;
+      console.error('Auto-login failed:', httpError);
+      throw new Error(
+        `Auto-login failed: ${
+          httpError?.message || 'Unknown error'
+        }. Please login manually.`,
+      );
+    }
+  });
 
 /**
  * Checks if an error is a 401 Unauthorized error.

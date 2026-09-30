@@ -2,16 +2,57 @@
  * @format
  */
 
-// Mock all native modules BEFORE any imports
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  __esModule: true,
-  default: {
-    getItem: jest.fn(),
-    setItem: jest.fn(),
-    removeItem: jest.fn(),
-    multiRemove: jest.fn(),
+jest.mock(
+  '../../profiles/ProfileActivity',
+  () => ({
+    profileActivity:
+      require('../testUtils/profileMocks').createProfileActivityMock(),
+  }),
+  { virtual: true },
+);
+jest.mock(
+  '../../profiles/ProfileKeychain',
+  () => ({
+    getProfileCredentials: jest.fn(),
+    setProfileCredentials: jest.fn(),
+    resetProfileCredentials: jest.fn(),
+  }),
+  { virtual: true },
+);
+jest.mock(
+  '../../profiles/ProfileRuntime',
+  () => ({ getActiveProfile: () => ({ serverUrl: 'https://test.server' }) }),
+  { virtual: true },
+);
+jest.mock(
+  '../../profiles/ProfileRegistry',
+  () => ({ profileRegistry: { updateConnection: jest.fn() } }),
+  { virtual: true },
+);
+
+jest.mock('../../diagnostics/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    breadcrumb: jest.fn(async () => {}),
   },
 }));
+
+// Mock all native modules BEFORE any imports
+jest.mock(
+  '../../profiles/ProfileStorage',
+  () => ({
+    __esModule: true,
+    default: {
+      getItem: jest.fn(),
+      setItem: jest.fn(),
+      removeItem: jest.fn(),
+      multiRemove: jest.fn(),
+    },
+  }),
+  { virtual: true },
+);
 jest.mock('react-native-fs', () => ({
   DocumentDirectoryPath: '/test/path',
   exists: jest.fn(),
@@ -140,7 +181,7 @@ import {
 import { SyncService } from '../SyncService';
 import { synkronusApi } from '../../api/synkronus';
 import { autoLogin, isUnauthorizedError } from '../../api/synkronus/Auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../profiles/ProfileStorage';
 import { notificationService } from '../NotificationService';
 
 describe('SyncService - Auto-Login Integration', () => {
@@ -166,6 +207,32 @@ describe('SyncService - Auto-Login Integration', () => {
 
   afterEach(() => {
     syncService.clearAllSubscriptions();
+  });
+
+  test('holds activity until foreground cleanup completes', async () => {
+    const { profileActivity } = require('../../profiles/ProfileActivity');
+    const { deferred } = require('../testUtils/profileMocks');
+    const cleanup = deferred();
+    const stopping = deferred();
+    (isUnauthorizedError as jest.Mock).mockReturnValue(false);
+    (synkronusApi.syncObservations as jest.Mock).mockResolvedValueOnce({
+      version: 7,
+      pendingAttachmentDownloads: 0,
+      pendingAttachmentUploads: 0,
+    });
+    (
+      notificationService.stopForegroundService as jest.Mock
+    ).mockImplementationOnce(() => {
+      stopping.resolve();
+      return cleanup.promise;
+    });
+    const sync = syncService.syncObservations();
+    await stopping.promise;
+    expect(profileActivity.isBusy()).toBe(true);
+    expect(() => profileActivity.block()).toThrow('Wait for profile jobs');
+    cleanup.resolve();
+    await sync;
+    expect(profileActivity.isBusy()).toBe(false);
   });
 
   describe('withAutoLoginRetry - syncObservations', () => {

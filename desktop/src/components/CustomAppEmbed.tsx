@@ -16,6 +16,8 @@ import {
 } from '../lib/rewriteEmbeddedBundleHtml';
 import { tauriClient } from '../lib/tauriClient';
 import { WORKSPACE_BUNDLE_DEV_APP_INDEX } from '../lib/workspacePaths';
+import { buildProfileStorageInjection } from '../lib/profileStorageInjection';
+import { useCustodianStore } from '../store/useCustodianStore';
 
 /** Matches Formulus: custom app entry under the extracted bundle (see `HomeScreen.tsx`). */
 export const CUSTOM_APP_BUNDLE_INDEX_REL = 'bundles/active/app/index.html';
@@ -114,6 +116,8 @@ export const CustomAppEmbed = forwardRef<
   ref,
 ) {
   const innerRef = useRef<HTMLIFrameElement | null>(null);
+  const profileId = useCustodianStore(s => s.activeProfileId);
+  const mountGeneration = useRef(0);
   const onContentWindowReadyRef = useRef(onContentWindowReady);
   onContentWindowReadyRef.current = onContentWindowReady;
   const setRefs = useCallback(
@@ -138,9 +142,16 @@ export const CustomAppEmbed = forwardRef<
     if (!el) {
       return;
     }
+    const generation = ++mountGeneration.current;
+    const isCurrent = () => generation === mountGeneration.current;
     setLoading(true);
     setError(null);
     try {
+      const settings = await tauriClient.getSettings();
+      if (!isCurrent()) return;
+      if (settings.activeProfileId !== profileId)
+        throw new Error('Active profile changed while loading custom app');
+      const profileStub = buildProfileStorageInjection(settings);
       const workspace = await tauriClient.getWorkspace();
       if (!workspace) {
         throw new Error('No workspace configured for the active profile.');
@@ -160,10 +171,12 @@ export const CustomAppEmbed = forwardRef<
       const baseHref = appDirAssetUrl.endsWith('/')
         ? appDirAssetUrl
         : `${appDirAssetUrl}/`;
-      const stub = buildHostStub(devicePixelRatio);
+      if (!isCurrent()) return;
+      const stub = profileStub + buildHostStub(devicePixelRatio);
       const doc = injectIntoHead(html, stub, baseHref);
       const enc = new TextEncoder();
       await tauriClient.writeWorkspaceFile(indexRel, enc.encode(doc));
+      if (!isCurrent()) return;
       // Query busts document cache. Do not use a `#fragment` here: many SPAs use the
       // hash for routing (HashRouter or path), so `#ode-…` would break the initial route.
       const url = `${indexAssetUrl}?ode=${Date.now()}`;
@@ -173,13 +186,17 @@ export const CustomAppEmbed = forwardRef<
       };
       el.src = url;
     } catch (e) {
+      if (!isCurrent()) return;
       setError(e instanceof Error ? e.message : String(e));
       setLoading(false);
     }
-  }, [indexRel, mode, devicePixelRatio]);
+  }, [indexRel, mode, devicePixelRatio, profileId]);
 
   useEffect(() => {
     void mountBlob();
+    return () => {
+      mountGeneration.current++;
+    };
   }, [mountKey, mountBlob]);
 
   const defaultLoadingLabel =
@@ -195,6 +212,7 @@ export const CustomAppEmbed = forwardRef<
         <p className="muted">{loadingLabel ?? defaultLoadingLabel}</p>
       ) : null}
       <iframe
+        key={profileId}
         ref={setRefs}
         title="Custom app"
         className="formplayer-embed-frame custom-app-embed-frame"

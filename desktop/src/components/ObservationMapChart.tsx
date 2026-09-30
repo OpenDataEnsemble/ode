@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import {
@@ -57,6 +56,17 @@ function MapMarkers({ points }: { points: ObservationMapPoint[] }) {
     const group = L.markerClusterGroup({
       maxClusterRadius: 48,
       showCoverageOnHover: false,
+      iconCreateFunction: cluster => {
+        const count = cluster.getChildCount();
+        const size = count < 10 ? 'small' : count < 100 ? 'medium' : 'large';
+        const pixels = size === 'small' ? 36 : size === 'medium' ? 42 : 48;
+
+        return L.divIcon({
+          className: `observations-overview-map-cluster observations-overview-map-cluster--${size}`,
+          html: `<span>${count}</span>`,
+          iconSize: [pixels, pixels],
+        });
+      },
     });
 
     for (const point of points) {

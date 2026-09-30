@@ -1,0 +1,275 @@
+/**
+ * Newsletter Component Styles
+ */
+
+.newsletter {
+  padding: 4rem 0;
+  background: var(--ifm-color-emphasis-100);
+  text-align: center;
+}
+
+.newsletterContent {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.newsletterGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.newsletterLeft {
+  text-align: left;
+}
+
+.newsletterRight {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.giraffeImage {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.newsletterTitle {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: var(--ifm-color-primary);
+}
+
+.newsletterSubtitle {
+  font-size: 1.2rem;
+  color: var(--ifm-color-emphasis-700);
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.newsletterForm {
+  margin-top: 2rem;
+}
+
+.form {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.formContent {
+  padding: 2rem;
+}
+
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.emailInput {
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.emailInput:focus {
+  outline: none;
+  border-color: var(--ifm-color-primary);
+}
+
+.submitButton {
+  background: var(--ifm-color-primary);
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.submitButton:hover {
+  background: var(--ifm-color-primary-dark);
+}
+
+.privacy {
+  font-size: 0.875rem;
+  color: var(--ifm-color-emphasis-600);
+  margin: 0;
+  text-align: center;
+}
+
+[data-theme='dark'] .privacy {
+  color: var(--ode-neutral-800);
+}
+
+.thankYouMessage {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.thankYouContent {
+  padding: 2rem;
+  text-align: center;
+}
+
+.thankYouTitle {
+  color: var(--ifm-color-success);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+}
+
+.thankYouText {
+  color: var(--ifm-color-emphasis-800);
+  font-size: 1rem;
+  margin: 0 0 1rem 0;
+  line-height: 1.6;
+}
+
+.thankYouHint {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+@media screen and (max-width: 996px) {
+  .newsletter {
+    padding: 2.5rem 0;
+  }
+  
+  .newsletterGrid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  
+  .newsletterLeft {
+    text-align: center;
+  }
+  
+  .newsletterTitle {
+    font-size: 2rem;
+  }
+  
+  .newsletterSubtitle {
+    font-size: 1.1rem;
+  }
+  
+  .giraffeImage {
+    max-width: 300px;
+  }
+  
+  .formContent {
+    padding: 1.5rem;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .newsletter {
+    padding: 2rem 0;
+  }
+  
+  .newsletterGrid {
+    gap: 1.5rem;
+  }
+  
+  .newsletterTitle {
+    font-size: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .newsletterSubtitle {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .newsletterForm {
+    margin-top: 1.5rem;
+  }
+  
+  .form {
+    max-width: 100%;
+  }
+  
+  .formContent {
+    padding: 1.25rem;
+  }
+  
+  .giraffeImage {
+    max-width: 250px;
+  }
+  
+  .thankYouContent {
+    padding: 1.5rem;
+  }
+  
+  .thankYouTitle {
+    font-size: 1.25rem;
+  }
+}
+
+@media screen and (max-width: 576px) {
+  .newsletter {
+    padding: 1.5rem 0;
+  }
+  
+  .newsletterTitle {
+    font-size: 1.5rem;
+  }
+  
+  .newsletterSubtitle {
+    font-size: 0.95rem;
+  }
+  
+  .formContent {
+    padding: 1rem;
+  }
+  
+  .emailInput {
+    font-size: 0.9rem;
+    padding: 0.625rem 0.875rem;
+  }
+  
+  .submitButton {
+    font-size: 0.9rem;
+    padding: 0.625rem 1.5rem;
+    width: 100%;
+  }
+  
+  .formFields {
+    gap: 0.75rem;
+  }
+  
+  .giraffeImage {
+    max-width: 200px;
+  }
+  
+  .thankYouContent {
+    padding: 1.25rem;
+  }
+  
+  .thankYouTitle {
+    font-size: 1.125rem;
+  }
+  
+  .thankYouText {
+    font-size: 0.9rem;
+  }
+}
+

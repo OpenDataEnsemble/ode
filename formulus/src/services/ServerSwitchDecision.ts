@@ -1,20 +1,20 @@
 /**
  * Helpers for deciding whether a user-entered server URL represents a real
- * server switch (so the wipe warning should fire) or a first-time setup.
+ * server change or a first-time setup. Bound profiles require a new profile;
+ * changing a URL must never erase local data.
  *
  * Extracted from `SettingsScreen.handleServerSwitchIfNeeded` so the regression
  * "dialog silently skipped when hydration hasn't finished" can be unit-tested
  * without rendering the full screen.
  */
 
-import { normalizeServerUrl } from './ServerConfigService';
+import { normalizeServerUrl } from './normalizeServerUrl';
 
 /**
  * Resolve the authoritative "previous server URL" for the switch decision.
  *
- * Prefers the persisted value from AsyncStorage (via `serverConfigService`)
- * over any stale component state — this is the source-of-truth that matters
- * when deciding whether switching will destroy local data.
+ * Prefers the profile registry (via `serverConfigService`) over stale
+ * component state. The registry enforces the URL binding on every write.
  */
 export async function resolvePreviousServerUrl(
   stateFallback: string,
@@ -47,7 +47,7 @@ export type ServerChangeClassification =
  * - `invalid`     — URL failed normalization; show the message to the user.
  * - `first-time`  — no previous URL persisted; save silently, no wipe.
  * - `same`        — same server as before; nothing to warn about.
- * - `switch`      — different server; caller must show the wipe warning.
+ * - `switch`      — different server; a bound profile requires a new profile.
  */
 export function classifyServerChange(
   enteredUrl: string,

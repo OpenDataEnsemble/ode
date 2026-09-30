@@ -17,16 +17,14 @@ import FormsScreen from '../screens/FormsScreen';
 import ObservationsScreen from '../screens/ObservationsScreen';
 import SyncScreen from '../screens/SyncScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ProfilesScreen from '../screens/ProfilesScreen';
 import AboutScreen from '../screens/AboutScreen';
 import HelpScreen from '../screens/HelpScreen';
 import MoreScreen from '../screens/MoreScreen';
 import { colors } from '../theme/colors';
 import AppConfigService from '../services/AppConfigService';
-import {
-  MainTabParamList,
-  VisibleMainTab,
-  VISIBLE_MAIN_TABS,
-} from '../types/NavigationTypes';
+import { VisibleMainTab, VISIBLE_MAIN_TABS } from '../types/NavigationTypes';
+import { MainTabParamList } from './ProfileNavigationTypes';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useTranslation } from 'react-i18next';
 import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
@@ -465,6 +463,13 @@ const MainTabNavigator: React.FC = () => {
           }
         />
       ))}
+      <Tab.Screen
+        name="Profiles"
+        component={ProfilesScreen}
+        options={{
+          tabBarButton: () => null,
+        }}
+      />
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}

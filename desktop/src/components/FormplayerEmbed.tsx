@@ -9,6 +9,9 @@ import {
 import { postFormplayerBridgeReply } from '../lib/formPreviewBridge';
 import { buildDevicePixelRatioInjectionScript } from '../lib/devicePixelRatioStub';
 import type { FormInitData } from '../lib/formplayerHost';
+import { buildProfileStorageInjection } from '../lib/profileStorageInjection';
+import { tauriClient } from '../lib/tauriClient';
+import { useCustodianStore } from '../store/useCustodianStore';
 
 const FORMSPLAYER_INDEX = `${import.meta.env.BASE_URL}formplayer_dist/index.html`;
 const INJECTION_SCRIPT = `${import.meta.env.BASE_URL}formulus-injection.js`;
@@ -79,6 +82,7 @@ export const FormplayerEmbed = forwardRef<
   ref,
 ) {
   const innerRef = useRef<HTMLIFrameElement | null>(null);
+  const profileId = useCustodianStore(s => s.activeProfileId);
   const timeoutRef = useRef<number | null>(null);
   const mountGenerationRef = useRef(0);
   const onContentWindowReadyRef = useRef(onContentWindowReady);
@@ -127,6 +131,11 @@ export const FormplayerEmbed = forwardRef<
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
       }
+      const settings = await tauriClient.getSettings();
+      if (generation !== mountGenerationRef.current) return;
+      if (settings.activeProfileId !== profileId)
+        throw new Error('Active profile changed while loading Formplayer');
+      const profileStub = buildProfileStorageInjection(settings);
       const res = await fetch(FORMSPLAYER_INDEX);
       if (generation !== mountGenerationRef.current) {
         return;
@@ -146,10 +155,13 @@ export const FormplayerEmbed = forwardRef<
         window.location.href,
       );
       const baseHref = new URL('./', formplayerIndexUrl).toString();
-      const initJson = JSON.stringify(formInitData).replace(/</g, '\\u003c');
+      const initJson = JSON.stringify({
+        ...formInitData,
+        params: { ...formInitData.params, profileId: settings.activeProfileId },
+      }).replace(/</g, '\\u003c');
       const dprStub = buildDevicePixelRatioInjectionScript(devicePixelRatio);
       const stub = `<!--ode-formplayer-host-stub-->
-${dprStub}<script id="ode-formplayer-init-data" type="application/json">${initJson}</script>
+${profileStub}${dprStub}<script id="ode-formplayer-init-data" type="application/json">${initJson}</script>
 <script src="${HOST_STUB_SCRIPT}"></script>
 <script src="${INJECTION_SCRIPT}"></script>`;
       html = html.replace(
@@ -184,11 +196,12 @@ ${dprStub}<script id="ode-formplayer-init-data" type="application/json">${initJs
       setError(e instanceof Error ? e.message : String(e));
       setLoading(false);
     }
-  }, [formInitData, devicePixelRatio]);
+  }, [formInitData, devicePixelRatio, profileId]);
 
   useEffect(() => {
     void mountBlob();
     return () => {
+      mountGenerationRef.current++;
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
@@ -211,6 +224,7 @@ ${dprStub}<script id="ode-formplayer-init-data" type="application/json">${initJs
       {error ? <p className="notice warn">{error}</p> : null}
       {loading && !error ? <p className="muted">Loading formplayer…</p> : null}
       <iframe
+        key={profileId}
         ref={el => {
           innerRef.current = el;
         }}

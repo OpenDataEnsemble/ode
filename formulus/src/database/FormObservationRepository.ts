@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../profiles/ProfileStorage';
+import { profileActivity } from '../profiles/ProfileActivity';
 import { Observation, ObservationData } from './models/Observation';
 import { geolocationService } from '../services/GeolocationService';
 import { ToastService } from '../services/ToastService';
@@ -36,57 +37,59 @@ export class FormObservationRepository implements LocalRepoInterface {
     formType: string,
     data: ObservationData,
   ): Promise<string> {
-    try {
-      // Generate a unique ID for the observation
-      const id = `obs_${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(2, 9)}`;
-
-      // Use pre-cached GPS when available, fall back to fresh capture
-      let geolocation = null;
+    return profileActivity.run('Database: saveObservation', async () => {
       try {
-        geolocation = geolocationService.getCachedLocation();
-        if (!geolocation) {
-          geolocation =
-            await geolocationService.getCurrentLocationForObservation();
-        }
-        if (geolocation) {
-          ToastService.showGeolocationCaptured();
-        } else {
+        // Generate a unique ID for the observation
+        const id = `obs_${Date.now()}_${Math.random()
+          .toString(36)
+          .substring(2, 9)}`;
+
+        // Use pre-cached GPS when available, fall back to fresh capture
+        let geolocation = null;
+        try {
+          geolocation = geolocationService.getCachedLocation();
+          if (!geolocation) {
+            geolocation =
+              await geolocationService.getCurrentLocationForObservation();
+          }
+          if (geolocation) {
+            ToastService.showGeolocationCaptured();
+          } else {
+            ToastService.showGeolocationUnavailable();
+          }
+        } catch (geoError) {
+          console.warn('Failed to capture geolocation:', geoError);
           ToastService.showGeolocationUnavailable();
         }
-      } catch (geoError) {
-        console.warn('Failed to capture geolocation:', geoError);
-        ToastService.showGeolocationUnavailable();
+
+        // Create the observation object
+        const observation: Observation = {
+          observationId: id,
+          formType,
+          formVersion: '',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          syncedAt: null,
+          deleted: false,
+          data,
+          geolocation,
+        };
+
+        // Save the observation to AsyncStorage
+        await AsyncStorage.setItem(
+          `${this.STORAGE_KEY_PREFIX}${id}`,
+          JSON.stringify(observation),
+        );
+
+        // Update the index
+        await this.addToIndex(id, formType);
+
+        return id;
+      } catch (error) {
+        console.error('Error saving observation:', error);
+        throw error;
       }
-
-      // Create the observation object
-      const observation: Observation = {
-        observationId: id,
-        formType,
-        formVersion: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        syncedAt: null,
-        deleted: false,
-        data,
-        geolocation,
-      };
-
-      // Save the observation to AsyncStorage
-      await AsyncStorage.setItem(
-        `${this.STORAGE_KEY_PREFIX}${id}`,
-        JSON.stringify(observation),
-      );
-
-      // Update the index
-      await this.addToIndex(id, formType);
-
-      return id;
-    } catch (error) {
-      console.error('Error saving observation:', error);
-      throw error;
-    }
+    });
   }
 
   /**
@@ -95,26 +98,28 @@ export class FormObservationRepository implements LocalRepoInterface {
    * @returns Promise resolving to the observation data or null if not found
    */
   async getObservation(id: string): Promise<Observation | null> {
-    try {
-      const data = await AsyncStorage.getItem(
-        `${this.STORAGE_KEY_PREFIX}${id}`,
-      );
+    return profileActivity.run('Database: getObservation', async () => {
+      try {
+        const data = await AsyncStorage.getItem(
+          `${this.STORAGE_KEY_PREFIX}${id}`,
+        );
 
-      if (!data) {
+        if (!data) {
+          return null;
+        }
+
+        const observation = JSON.parse(data) as Observation;
+
+        // Convert string dates back to Date objects
+        observation.createdAt = new Date(observation.createdAt);
+        observation.updatedAt = new Date(observation.updatedAt);
+
+        return observation;
+      } catch (error) {
+        console.error('Error getting observation:', error);
         return null;
       }
-
-      const observation = JSON.parse(data) as Observation;
-
-      // Convert string dates back to Date objects
-      observation.createdAt = new Date(observation.createdAt);
-      observation.updatedAt = new Date(observation.updatedAt);
-
-      return observation;
-    } catch (error) {
-      console.error('Error getting observation:', error);
-      return null;
-    }
+    });
   }
 
   /**
@@ -123,30 +128,35 @@ export class FormObservationRepository implements LocalRepoInterface {
    * @returns Promise resolving to an array of observations
    */
   async getObservationsByFormType(formType: string): Promise<Observation[]> {
-    try {
-      // Get the index
-      const index = await this.getIndex();
+    return profileActivity.run(
+      'Database: getObservationsByFormType',
+      async () => {
+        try {
+          // Get the index
+          const index = await this.getIndex();
 
-      // Filter observations by formType
-      const observationIds = Object.entries(index)
-        .filter(([, indexFormType]) => indexFormType === formType)
-        .map(([id]) => id);
+          // Filter observations by formType
+          const observationIds = Object.entries(index)
+            .filter(([, indexFormType]) => indexFormType === formType)
+            .map(([id]) => id);
 
-      // Get all observations
-      const observations: Observation[] = [];
+          // Get all observations
+          const observations: Observation[] = [];
 
-      for (const id of observationIds) {
-        const observation = await this.getObservation(id);
-        if (observation) {
-          observations.push(observation);
+          for (const id of observationIds) {
+            const observation = await this.getObservation(id);
+            if (observation) {
+              observations.push(observation);
+            }
+          }
+
+          return observations;
+        } catch (error) {
+          console.error('Error getting observations by form ID:', error);
+          return [];
         }
-      }
-
-      return observations;
-    } catch (error) {
-      console.error('Error getting observations by form ID:', error);
-      return [];
-    }
+      },
+    );
   }
 
   /**
@@ -156,30 +166,32 @@ export class FormObservationRepository implements LocalRepoInterface {
    * @returns Promise resolving to a boolean indicating success
    */
   async updateObservation(id: string, data: ObservationData): Promise<boolean> {
-    try {
-      // Get the existing observation
-      const observation = await this.getObservation(id);
+    return profileActivity.run('Database: updateObservation', async () => {
+      try {
+        // Get the existing observation
+        const observation = await this.getObservation(id);
 
-      if (!observation) {
+        if (!observation) {
+          return false;
+        }
+
+        // Update the observation
+        observation.data = data;
+        observation.updatedAt = new Date();
+        observation.syncedAt = null;
+
+        // Save the updated observation
+        await AsyncStorage.setItem(
+          `${this.STORAGE_KEY_PREFIX}${id}`,
+          JSON.stringify(observation),
+        );
+
+        return true;
+      } catch (error) {
+        console.error('Error updating observation:', error);
         return false;
       }
-
-      // Update the observation
-      observation.data = data;
-      observation.updatedAt = new Date();
-      observation.syncedAt = null;
-
-      // Save the updated observation
-      await AsyncStorage.setItem(
-        `${this.STORAGE_KEY_PREFIX}${id}`,
-        JSON.stringify(observation),
-      );
-
-      return true;
-    } catch (error) {
-      console.error('Error updating observation:', error);
-      return false;
-    }
+    });
   }
 
   /**
@@ -188,25 +200,27 @@ export class FormObservationRepository implements LocalRepoInterface {
    * @returns Promise resolving to a boolean indicating success
    */
   async deleteObservation(id: string): Promise<boolean> {
-    try {
-      // Check if the observation exists
-      const observation = await this.getObservation(id);
+    return profileActivity.run('Database: deleteObservation', async () => {
+      try {
+        // Check if the observation exists
+        const observation = await this.getObservation(id);
 
-      if (!observation) {
+        if (!observation) {
+          return false;
+        }
+
+        // Delete the observation
+        await AsyncStorage.removeItem(`${this.STORAGE_KEY_PREFIX}${id}`);
+
+        // Update the index
+        await this.removeFromIndex(id);
+
+        return true;
+      } catch (error) {
+        console.error('Error deleting observation:', error);
         return false;
       }
-
-      // Delete the observation
-      await AsyncStorage.removeItem(`${this.STORAGE_KEY_PREFIX}${id}`);
-
-      // Update the index
-      await this.removeFromIndex(id);
-
-      return true;
-    } catch (error) {
-      console.error('Error deleting observation:', error);
-      return false;
-    }
+    });
   }
 
   /**
@@ -215,28 +229,33 @@ export class FormObservationRepository implements LocalRepoInterface {
    * @returns Promise resolving to a boolean indicating success
    */
   async markObservationAsSynced(id: string): Promise<boolean> {
-    try {
-      // Get the existing observation
-      const observation = await this.getObservation(id);
+    return profileActivity.run(
+      'Database: markObservationAsSynced',
+      async () => {
+        try {
+          // Get the existing observation
+          const observation = await this.getObservation(id);
 
-      if (!observation) {
-        return false;
-      }
+          if (!observation) {
+            return false;
+          }
 
-      // Update the sync status
-      observation.syncedAt = new Date();
+          // Update the sync status
+          observation.syncedAt = new Date();
 
-      // Save the updated observation
-      await AsyncStorage.setItem(
-        `${this.STORAGE_KEY_PREFIX}${id}`,
-        JSON.stringify(observation),
-      );
+          // Save the updated observation
+          await AsyncStorage.setItem(
+            `${this.STORAGE_KEY_PREFIX}${id}`,
+            JSON.stringify(observation),
+          );
 
-      return true;
-    } catch (error) {
-      console.error('Error marking observation as synced:', error);
-      return false;
-    }
+          return true;
+        } catch (error) {
+          console.error('Error marking observation as synced:', error);
+          return false;
+        }
+      },
+    );
   }
 
   /**

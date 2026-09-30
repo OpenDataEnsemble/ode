@@ -3,7 +3,8 @@ import { View, Text, Image, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MainAppStackParamList } from '../types/NavigationTypes';
+import { MainAppStackParamList } from '../navigation/ProfileNavigationTypes';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { Button } from '../components/common';
 import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
@@ -49,6 +50,7 @@ const ode = {
 };
 
 const WelcomeScreen = () => {
+  const { t: translate } = useTranslation();
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
   const { resolvedMode } = useAppTheme();
   const shellStyle = useScreenShellStyle();
@@ -60,7 +62,7 @@ const WelcomeScreen = () => {
       routes: [
         {
           name: 'MainApp',
-          params: { screen: 'Settings' },
+          params: { screen: 'Profiles' },
         },
       ],
     });
@@ -106,7 +108,7 @@ const WelcomeScreen = () => {
                 marginBottom: ode.spacing._1,
               },
             ]}>
-            Welcome to:
+            {translate('welcome.title')}
           </Text>
           <Text
             style={[
@@ -129,11 +131,11 @@ const WelcomeScreen = () => {
                 marginBottom: ode.spacing._8,
               },
             ]}>
-            Configure your server in under 2 minutes!
+            {translate('welcome.profilesSubtitle')}
           </Text>
           <View style={[styles.buttonContainer, { marginTop: ode.spacing._2 }]}>
             <Button
-              title="Get Started"
+              title={translate('welcome.getStarted')}
               onPress={handleGetStarted}
               variant="primary"
               size="large"

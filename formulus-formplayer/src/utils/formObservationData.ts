@@ -6,6 +6,7 @@
 /** Bridge / UI keys on `FormInitData.params` — not JSON Forms observation fields. */
 export const FORMPARAMS_NON_DATA_KEYS = new Set([
   'defaultData',
+  'profileId',
   'theme',
   'darkMode',
   'themeColors',

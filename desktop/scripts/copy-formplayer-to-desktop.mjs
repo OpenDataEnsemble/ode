@@ -49,5 +49,16 @@ if (!fs.existsSync(buildDir)) {
 fs.mkdirSync(targetDir, { recursive: true });
 cleanDirectory(targetDir);
 copyRecursive(buildDir, targetDir);
+fs.copyFileSync(
+  path.join(
+    formplayerRoot,
+    '..',
+    'formulus',
+    'assets',
+    'webview',
+    'FormulusInjectionScript.js',
+  ),
+  path.join(__dirname, '..', 'public', 'formulus-injection.js'),
+);
 console.log(`✓ Copied formplayer build → ${targetDir}`);
 console.log('  Served by Vite as /formplayer_dist/ (base URL in dev).');

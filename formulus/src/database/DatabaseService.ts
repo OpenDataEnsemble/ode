@@ -1,4 +1,5 @@
-import { database } from './database';
+import { getDatabase } from './database';
+import { profileActivity } from '../profiles/ProfileActivity';
 import { LocalRepoInterface } from './repositories/LocalRepoInterface';
 import { WatermelonDBRepo } from './repositories/WatermelonDBRepo';
 
@@ -7,11 +8,12 @@ import { WatermelonDBRepo } from './repositories/WatermelonDBRepo';
  */
 class DatabaseService {
   private static instance: DatabaseService;
-  private localRepo: LocalRepoInterface;
+  private readonly repositories = new WeakMap<
+    ReturnType<typeof getDatabase>,
+    LocalRepoInterface
+  >();
 
-  private constructor() {
-    this.localRepo = new WatermelonDBRepo(database);
-  }
+  private constructor() {}
 
   /**
    * Get the singleton instance of the DatabaseService
@@ -27,7 +29,14 @@ class DatabaseService {
    * Get the local repository implementation
    */
   public getLocalRepo(): LocalRepoInterface {
-    return this.localRepo;
+    profileActivity.assertAvailable();
+    const db = getDatabase();
+    let repo = this.repositories.get(db);
+    if (!repo) {
+      repo = new WatermelonDBRepo(db);
+      this.repositories.set(db, repo);
+    }
+    return repo;
   }
 }
 

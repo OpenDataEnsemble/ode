@@ -1,6 +1,44 @@
 /// <reference types="jest" />
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
+jest.mock('../../../diagnostics/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    breadcrumb: jest.fn(async () => {}),
+  },
+}));
+jest.mock(
+  '../../../profiles/ProfileRuntime',
+  () => ({ getActiveProfile: () => ({ serverUrl: 'https://example.test' }) }),
+  { virtual: true },
+);
+
+jest.mock(
+  '../../../profiles/ProfileActivity',
+  () => ({
+    profileActivity:
+      require('../../../services/testUtils/profileMocks').createProfileActivityMock(),
+  }),
+  { virtual: true },
+);
+jest.mock(
+  '../../../profiles/ProfilePaths',
+  () =>
+    require('../../../services/testUtils/profileMocks').createProfilePathsMock(
+      '/profiles/test',
+    ),
+  { virtual: true },
+);
+jest.mock('../../../services/ServerConfigService', () => ({
+  serverConfigService: { getServerUrl: async () => 'https://example.test' },
+}));
+jest.mock('../Auth', () => ({
+  getApiAuthToken: jest.fn(),
+  isForbiddenError: jest.fn(),
+}));
+
+jest.mock('../../../profiles/ProfileStorage', () => ({
   __esModule: true,
   default: {
     getItem: jest.fn(),
@@ -23,7 +61,7 @@ jest.mock('react-native-zip-archive', () => ({
 import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 
 jest.mock('../../../database/DatabaseService', () => ({
-  databaseService: {},
+  databaseService: { getLocalRepo: jest.fn() },
 }));
 
 jest.mock('../../../database/database', () => ({
@@ -43,9 +81,12 @@ jest.mock('../generated', () => ({
   DefaultApi: jest.fn(),
 }));
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../../profiles/ProfileStorage';
 import { synkronusApi } from '..';
 import { clientIdService } from '../../../services/ClientIdService';
+import { databaseService } from '../../../database/DatabaseService';
+import { networkProfileService } from '../../../services/NetworkProfileService';
+import { deferred } from '../../../services/testUtils/profileMocks';
 
 describe('attachment manifest resume behavior', () => {
   const storage = new Map<string, string>();
@@ -73,6 +114,59 @@ describe('attachment manifest resume behavior', () => {
     });
     jest.spyOn(clientIdService, 'getClientId').mockResolvedValue('client-1');
     jest.spyOn(synkronusApi, 'clearTokenCache').mockImplementation(() => {});
+  });
+
+  test('keeps sync active while prefetch drains after a failed database apply', async () => {
+    const { profileActivity } = require('../../../profiles/ProfileActivity');
+    const nextPage = deferred<never>();
+    const prefetchStarted = deferred<void>();
+    const applyFailed = deferred<void>();
+    jest.spyOn(networkProfileService, 'getSyncKnobs').mockResolvedValueOnce({
+      pullPageSize: 250,
+      pushBatchSize: 4,
+      attachmentConcurrency: 1,
+    });
+    jest
+      .spyOn(networkProfileService, 'recordPullPageDuration')
+      .mockResolvedValue(250);
+    const api = {
+      syncPull: jest
+        .fn()
+        .mockResolvedValueOnce({
+          data: {
+            records: [],
+            repository_generation: 7,
+            current_version: 2,
+            change_cutoff: 1,
+            has_more: true,
+          },
+        })
+        .mockImplementationOnce(() => {
+          prefetchStarted.resolve();
+          return nextPage.promise;
+        }),
+    };
+    jest.spyOn(synkronusApi, 'getApi').mockResolvedValue(api as never);
+    (databaseService.getLocalRepo as jest.Mock).mockReturnValue({
+      applyServerChanges: jest.fn(async () => {
+        await prefetchStarted.promise;
+        applyFailed.resolve();
+        throw new Error('apply failed');
+      }),
+    });
+    let settled = false;
+    const sync = synkronusApi.syncObservations().catch(error => {
+      settled = true;
+      return error;
+    });
+    await applyFailed.promise;
+    expect(settled).toBe(false);
+    expect(profileActivity.isBusy()).toBe(true);
+    expect(() => profileActivity.block()).toThrow('Wait for profile jobs');
+    nextPage.reject(new Error('prefetch failed'));
+    expect(await sync).toEqual(new Error('apply failed'));
+    expect(profileActivity.isBusy()).toBe(false);
+    expect(storage.get('@last_seen_version')).toBeUndefined();
   });
 
   test('advances attachment cursor and defers failed downloads for future syncs', async () => {

@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
+import { profileActivity } from '../profiles/ProfileActivity';
+import { assertProfileFilePath } from './profileFileAccess';
 import {
   saveDocuments,
   isErrorWithCode,
@@ -19,27 +21,30 @@ export async function saveZipToDevice(
   zipPath: string,
   zipFileName: string,
 ): Promise<void> {
-  const sourceUri = pathToFileUri(zipPath);
+  return profileActivity.run('Save export to device', async () => {
+    assertProfileFilePath(zipPath);
+    const sourceUri = pathToFileUri(zipPath);
 
-  try {
-    const results = await saveDocuments({
-      sourceUris: [sourceUri],
-      mimeType: 'application/zip',
-      fileName: zipFileName,
-      ...(Platform.OS === 'ios' ? { copy: true as const } : {}),
-    });
-    const first = results[0];
-    if (first?.error) {
-      throw new Error(first.error);
+    try {
+      const results = await saveDocuments({
+        sourceUris: [sourceUri],
+        mimeType: 'application/zip',
+        fileName: zipFileName,
+        ...(Platform.OS === 'ios' ? { copy: true as const } : {}),
+      });
+      const first = results[0];
+      if (first?.error) {
+        throw new Error(first.error);
+      }
+    } catch (e) {
+      if (isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED) {
+        return;
+      }
+      throw e;
+    } finally {
+      await RNFS.unlink(zipPath).catch(() => {
+        /* temp zip cleanup */
+      });
     }
-  } catch (e) {
-    if (isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED) {
-      return;
-    }
-    throw e;
-  } finally {
-    await RNFS.unlink(zipPath).catch(() => {
-      /* temp zip cleanup */
-    });
-  }
+  });
 }

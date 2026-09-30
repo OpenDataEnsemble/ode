@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
+import { profilePath } from '../profiles/ProfilePaths';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
@@ -73,7 +74,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
 
   const checkAndSetAppUri = useCallback(async () => {
     try {
-      const filePath = `${RNFS.DocumentDirectoryPath}/app/index.html`;
+      const filePath = profilePath('app/index.html');
       const fileExists = await RNFS.exists(filePath);
 
       if (!fileExists) {
@@ -189,7 +190,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           appUrl={localUri}
           appName="custom_app"
           onNavigateToSync={() => navigation.navigate('Sync')}
-          onNavigateToSettings={() => navigation.navigate('Settings')}
+          onNavigateToSettings={() => navigation.navigate('Profiles')}
           transparentBackground={isPlaceholder}
         />
       )}

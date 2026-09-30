@@ -1,4 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../profiles/ProfileStorage';
+import { profilePaths } from '../profiles/ProfilePaths';
+import { profileActivity } from '../profiles/ProfileActivity';
 import RNFS from 'react-native-fs';
 import { database } from '../database/database';
 import { synkronusApi } from '../api/synkronus';
@@ -18,7 +20,15 @@ class RepositoryRecoveryService {
    *   still conflict after a reset).
    */
   async wipeLocalSyncState(serverRepositoryGeneration?: number): Promise<void> {
-    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+    return profileActivity.run('Reset local repository', () =>
+      this.wipeLocalSyncStateImpl(serverRepositoryGeneration),
+    );
+  }
+
+  private async wipeLocalSyncStateImpl(
+    serverRepositoryGeneration?: number,
+  ): Promise<void> {
+    const attachmentsDirectory = profilePaths.attachments();
     try {
       if (await RNFS.exists(attachmentsDirectory)) {
         await RNFS.unlink(attachmentsDirectory);
@@ -42,6 +52,7 @@ class RepositoryRecoveryService {
     await AsyncStorage.multiRemove([
       '@last_seen_version',
       '@last_attachment_version',
+      '@deferred_attachment_downloads',
       REPOSITORY_GENERATION_KEY,
       '@lastSync',
     ]);

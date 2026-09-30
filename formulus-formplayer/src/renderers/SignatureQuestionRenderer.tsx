@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { Button, Typography, Box, Paper, IconButton } from '@mui/material';
 import {
   Draw as SignatureIcon,
@@ -6,24 +6,29 @@ import {
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import { withJsonFormsControlProps } from '@jsonforms/react';
-import { ControlProps, rankWith, formatIs } from '@jsonforms/core';
+import { ControlProps, rankWith, schemaMatches } from '@jsonforms/core';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from '../theme/tokens-adapter';
 import { useClearOnHide } from '../jsonforms/useClearOnHide';
+import FormulusClient from '../services/FormulusInterface';
+import { attachmentBasenameFromObservation } from '../utils/attachmentBasename';
 
 // Helper to parse pixel values from tokens
 const parsePx = (value: string): number => {
   return parseInt(value.replace('px', ''), 10);
 };
 
-// Tester function - determines when this renderer should be used
+// Tester function - determines when this renderer should be used.
+// Match on `format` alone: JSON Forms' `formatIs` also requires a `string` type,
+// which rejects the documented `type: "object"` signature schema.
 export const signatureQuestionTester = rankWith(
   12, // Priority - above default string and object renderers so we always get the scope
-  formatIs('signature'),
+  schemaMatches(schema => schema.format === 'signature'),
 );
 
 /**
- * Signature control: inline canvas for drawing, no Formulus API required.
+ * Signature control: inline canvas for drawing; legacy file previews use the
+ * bridge to resolve the basename inside the active profile, never a stored URI.
  * Uses standard JSON Forms ControlProps: `data` is the current value (loaded when editing
  * a saved form), `handleChange(path, value)` persists changes. Signature data shape:
  * { type: 'signature', filename, uri, timestamp?, metadata? }.
@@ -42,6 +47,41 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const [resolvedSignature, setResolvedSignature] = useState<{
+    filename: string;
+    uri: string | null;
+  } | null>(null);
+  const signature = data?.type === 'signature' ? data : null;
+  const filename = attachmentBasenameFromObservation(signature);
+  // Canvas signatures are self-contained raster images. File-backed signatures
+  // may still contain pre-migration paths; those paths must never be loaded.
+  const inlineUri =
+    typeof signature?.uri === 'string' &&
+    /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=\s]+$/.test(
+      signature.uri,
+    )
+      ? signature.uri
+      : null;
+  const previewUri =
+    inlineUri ??
+    (resolvedSignature?.filename === filename ? resolvedSignature?.uri : null);
+
+  useEffect(() => {
+    if (!filename || inlineUri) return;
+    let cancelled = false;
+    void FormulusClient.getInstance()
+      .getAttachmentUri(filename)
+      .then(uri => {
+        if (!cancelled) setResolvedSignature({ filename, uri });
+      })
+      .catch(error => {
+        console.warn('Unable to resolve signature preview:', error);
+        if (!cancelled) setResolvedSignature({ filename, uri: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filename, inlineUri]);
 
   // Extract field ID from path
   const fieldId = path.split('.').pop() || path;
@@ -345,15 +385,17 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
                       display: 'flex',
                       justifyContent: 'center',
                     }}>
-                    <img
-                      src={sig.uri}
-                      alt="Signature"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '150px',
-                        border: 'none',
-                      }}
-                    />
+                    {previewUri && (
+                      <img
+                        src={previewUri}
+                        alt="Signature"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '150px',
+                          border: 'none',
+                        }}
+                      />
+                    )}
                   </Box>
                   <Typography variant="caption" color="text.secondary">
                     {sig.filename}

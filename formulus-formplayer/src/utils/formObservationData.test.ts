@@ -27,6 +27,7 @@ describe('initialFormDataFromParams', () => {
       themeColors: { primary: '#000' },
       locale: 'pt',
       formLocale: 'fj',
+      profileId: 'host-profile',
       species: 'oak',
     };
     expect(initialFormDataFromParams(params)).toEqual({ species: 'oak' });

@@ -1,4 +1,6 @@
 import RNFS from 'react-native-fs';
+import { profileActivity } from '../profiles/ProfileActivity';
+import { assertProfileFilePath } from './profileFileAccess';
 
 /**
  * Extension definition structure
@@ -87,6 +89,16 @@ export class ExtensionService {
     customAppPath: string,
     formName?: string,
   ): Promise<MergedExtensions> {
+    return profileActivity.run('Load app extensions', () =>
+      this.getCustomAppExtensionsImpl(customAppPath, formName),
+    );
+  }
+
+  private async getCustomAppExtensionsImpl(
+    customAppPath: string,
+    formName?: string,
+  ): Promise<MergedExtensions> {
+    assertProfileFilePath(customAppPath);
     const result: MergedExtensions = {
       definitions: {},
       functions: {},
@@ -122,6 +134,7 @@ export class ExtensionService {
   private async loadExtensionFile(
     filePath: string,
   ): Promise<ExtensionDefinition | null> {
+    assertProfileFilePath(filePath);
     try {
       const exists = await RNFS.exists(filePath);
       if (!exists) {
@@ -288,6 +301,15 @@ export class ExtensionService {
   public async discoverExtensions(
     customAppPath: string,
   ): Promise<Array<{ path: string; type: 'app' | 'form'; formName?: string }>> {
+    return profileActivity.run('Discover app extensions', () =>
+      this.discoverExtensionsImpl(customAppPath),
+    );
+  }
+
+  private async discoverExtensionsImpl(
+    customAppPath: string,
+  ): Promise<Array<{ path: string; type: 'app' | 'form'; formName?: string }>> {
+    assertProfileFilePath(customAppPath);
     const extensions: Array<{
       path: string;
       type: 'app' | 'form';

@@ -1,0 +1,109 @@
+.alert {
+  display: flex;
+  gap: var(--ode-spacing-4);
+  padding: var(--ode-spacing-4);
+  border-radius: var(--ode-border-radius-md);
+  border: var(--ode-border-width-thin) solid;
+  font-family: var(--ode-font-family-sans);
+}
+
+.alert--sm {
+  padding: var(--ode-spacing-3);
+  gap: var(--ode-spacing-3);
+}
+
+.alert--md {
+  padding: var(--ode-spacing-4);
+  gap: var(--ode-spacing-4);
+}
+
+.alertIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  padding-top: var(--ode-spacing-0_5);
+}
+
+.iconEmoji {
+  font-size: var(--ode-font-size-lg);
+  line-height: 1;
+}
+
+.alertContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ode-spacing-2);
+}
+
+.alertTitle {
+  font-size: var(--ode-font-size-base);
+  font-weight: var(--ode-font-weight-semibold);
+  line-height: var(--ode-line-height-tight);
+}
+
+.alertMessage {
+  font-size: var(--ode-font-size-sm);
+  line-height: var(--ode-line-height-relaxed);
+}
+
+.alert--sm .alertTitle {
+  font-size: var(--ode-font-size-sm);
+}
+
+.alert--sm .alertMessage {
+  font-size: var(--ode-font-size-xs);
+}
+
+/* Info Variant */
+.alert--info {
+  background-color: var(--ode-color-semantic-info-50);
+  border-color: var(--ode-color-semantic-info-500);
+  color: var(--ode-color-semantic-info-600);
+}
+
+[data-theme='dark'] .alert--info {
+  background-color: rgba(33, 150, 243, 0.1);
+  border-color: var(--ode-color-semantic-info-500);
+  color: #90caf9;
+}
+
+/* Success Variant */
+.alert--success {
+  background-color: var(--ode-color-semantic-success-50);
+  border-color: var(--ode-color-semantic-success-500);
+  color: var(--ode-color-semantic-success-600);
+}
+
+[data-theme='dark'] .alert--success {
+  background-color: rgba(52, 199, 89, 0.1);
+  border-color: var(--ode-color-semantic-success-500);
+  color: #81c784;
+}
+
+/* Warning Variant */
+.alert--warning {
+  background-color: var(--ode-color-semantic-warning-50);
+  border-color: var(--ode-color-semantic-warning-500);
+  color: var(--ode-color-semantic-warning-600);
+}
+
+[data-theme='dark'] .alert--warning {
+  background-color: rgba(255, 149, 0, 0.1);
+  border-color: var(--ode-color-semantic-warning-500);
+  color: #ffb74d;
+}
+
+/* Error Variant */
+.alert--error {
+  background-color: var(--ode-color-semantic-error-50);
+  border-color: var(--ode-color-semantic-error-500);
+  color: var(--ode-color-semantic-error-600);
+}
+
+[data-theme='dark'] .alert--error {
+  background-color: rgba(244, 67, 54, 0.1);
+  border-color: var(--ode-color-semantic-error-500);
+  color: #e57373;
+}
+
