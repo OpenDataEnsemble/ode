@@ -4,6 +4,7 @@ version = "1.3.3"
 description = "ODE Desktop"
 authors = ["OpenDataEnsemble.org"]
 edition = "2024"
+default-run = "odedesktop"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,6 +14,11 @@ edition = "2024"
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "odedesktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+# Headless local-tools CLI (see desktop/docs/LOCAL_TOOLS.md).
+[[bin]]
+name = "ode"
+path = "src/bin/ode.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -39,4 +45,6 @@ tokio = { version = "1", features = ["sync", "time", "macros"] }
 arrow = { version = "59", default-features = false, features = ["chrono-tz"] }
 parquet = { version = "59", default-features = false, features = ["arrow", "snap"] }
 jsonschema = "0.30"
+clap = { version = "4", features = ["derive"] }
+dirs = "6"
 

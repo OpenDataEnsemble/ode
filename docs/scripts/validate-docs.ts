@@ -155,7 +155,7 @@ function printResults(result: ValidationResult): void {
     console.log('❌ Errors found:');
     result.errors.forEach(e => console.log(`   ${e}`));
     console.log('\n💡 Fix the errors above before pushing.');
-    console.log('💡 Run "npm run build" for full validation.\n');
+    console.log('💡 Run "pnpm run build" for full validation.\n');
     return;
   }
   
@@ -165,7 +165,7 @@ function printResults(result: ValidationResult): void {
     console.log('✅ No critical errors found.');
     console.log('⚠️  Review warnings above.');
   }
-  console.log('💡 Run "npm run build" for full validation.\n');
+  console.log('💡 Run "pnpm run build" for full validation.\n');
 }
 
 function main(): void {
