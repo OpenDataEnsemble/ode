@@ -89,15 +89,31 @@ function quoteStataPath(path: string): string {
   return p;
 }
 
+/** Prefix comment lines (e.g. `localToolsHintLines`) with the language's comment marker. */
+function commentBlock(lang: ExportSnippetLang, lines: string[]): string {
+  if (lines.length === 0) {
+    return '';
+  }
+  const marker = lang === 'stata' ? '*' : '#';
+  return lines.map(l => `${marker} ${l}`.trimEnd()).join('\n') + '\n\n';
+}
+
 export function buildExportLoadSnippet(
   lang: ExportSnippetLang,
   parquetFiles: Record<string, string>,
+  hintLines: string[] = [],
 ): string {
   const named = namedEntries(parquetFiles);
   if (named.length === 0) {
     return '# No Parquet files in this export.\n';
   }
+  return commentBlock(lang, hintLines) + buildLoadBody(lang, named);
+}
 
+function buildLoadBody(
+  lang: ExportSnippetLang,
+  named: { ident: string; path: string; formType: string }[],
+): string {
   switch (lang) {
     case 'r': {
       const lines = [

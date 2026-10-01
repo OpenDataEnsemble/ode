@@ -24,6 +24,7 @@ import {
 import { useProfileAutoSynkAuth } from '../hooks/useProfileAutoSynkAuth';
 import { useProfileDraftGuardStore } from '../store/useProfileDraftGuardStore';
 import { confirmDestructiveAction } from '../lib/destructivePolicy';
+import { LocalToolsPanel } from '../components/LocalToolsPanel';
 
 function PasswordField({
   id,
@@ -644,6 +645,8 @@ export function ProfilesPage() {
           </div>
         </div>
       ) : null}
+
+      {active ? <LocalToolsPanel /> : null}
     </section>
   );
 }
