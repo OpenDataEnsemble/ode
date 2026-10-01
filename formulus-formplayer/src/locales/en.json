@@ -42,6 +42,7 @@
   "finalize.no": "No",
   "finalize.none": "None",
   "finalize.empty": "Empty",
+  "finalize.value.notApplicable": "Not applicable",
   "finalize.value.photoCaptured": "Photo captured",
   "finalize.value.photoWithName": "Photo: {{name}}",
   "finalize.value.captured": "Captured",
