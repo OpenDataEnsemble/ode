@@ -40,10 +40,15 @@ pub fn compile_observation_query(
     filter: Option<&Value>,
     index_keys: &HashSet<String>,
 ) -> Result<CompiledSql, QueryCompileError> {
-    let _ = include_deleted;
     let mut warnings = Vec::new();
     let mut params: Vec<SqlParam> = Vec::new();
+
     let mut where_parts = Vec::new();
+
+    if !include_deleted {
+        where_parts.push("o.deleted = 0".to_string());
+    }
+
     let normalized_form_type = form_type.trim();
     if !normalized_form_type.is_empty() && normalized_form_type != "*" {
         where_parts.push("o.form_type = ?".to_string());
@@ -55,9 +60,13 @@ pub fn compile_observation_query(
         where_parts.push(sql);
     }
 
+    let where_clause = if where_parts.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", where_parts.join(" AND "))
+    };
     let sql = format!(
-        "SELECT o.id, o.payload, o.form_type, o.updated_at, o.remote_updated_at, o.dirty, o.sync_status, o.conflict_payload, o.last_saved_at, o.last_pushed_at, o.observation_extras FROM observations o WHERE {}",
-        where_parts.join(" AND ")
+        "SELECT o.id, o.payload, o.form_type, o.updated_at, o.remote_updated_at, o.dirty, o.sync_status, o.conflict_payload, o.last_saved_at, o.last_pushed_at, o.observation_extras, o.deleted FROM observations o{where_clause}"
     );
 
     Ok(CompiledSql {
@@ -366,7 +375,7 @@ mod tests {
             let filter = fixture.get("filter");
             let result = compile_observation_query(
                 fixture["formType"].as_str().unwrap(),
-                !fixture["includeDeleted"].as_bool().unwrap_or(false),
+                fixture["includeDeleted"].as_bool().unwrap_or(false),
                 filter,
                 &index_keys,
             );
@@ -385,5 +394,24 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn include_deleted_controls_deleted_observation_filter() {
+        let index_keys = HashSet::new();
+
+        let live_only = compile_observation_query("person", false, None, &index_keys).unwrap();
+
+        assert!(live_only.sql.contains("o.deleted = 0"));
+        assert!(!live_only.sql.contains("json_extract(o.observation_extras"));
+
+        let include_deleted = compile_observation_query("person", true, None, &index_keys).unwrap();
+
+        assert!(!include_deleted.sql.contains("o.deleted = 0"));
+        assert!(
+            !include_deleted
+                .sql
+                .contains("json_extract(o.observation_extras")
+        );
     }
 }
