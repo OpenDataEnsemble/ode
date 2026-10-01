@@ -32,8 +32,7 @@ export function getDesktopLocalePreference(): UiLocalePreference {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (
       stored === 'auto' ||
-      (stored != null &&
-        (ODE_UI_LOCALES as readonly string[]).includes(stored))
+      (stored != null && (ODE_UI_LOCALES as readonly string[]).includes(stored))
     ) {
       return stored as UiLocalePreference;
     }
