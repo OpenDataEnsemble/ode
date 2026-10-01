@@ -1,0 +1,11 @@
+onlyBuiltDependencies:
+  - esbuild
+
+ignoredBuiltDependencies:
+  - core-js
+  - core-js-pure
+
+allowBuilds:
+  core-js: false
+  core-js-pure: false
+  esbuild: true
