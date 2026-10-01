@@ -16,6 +16,7 @@ use serde_json::Value;
 
 use crate::{ApiObservation, ParsedImportFileResult, parse_import_json_file};
 
+pub(crate) use attachments::ATTACHMENT_SCHEMA_FORMATS;
 pub use attachments::referenced_attachment_names_for_observation;
 
 #[derive(Debug, Clone, Serialize)]

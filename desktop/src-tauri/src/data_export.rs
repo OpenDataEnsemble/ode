@@ -37,6 +37,9 @@ pub struct ExportParquetRequest {
     pub overwrite: bool,
     #[serde(default)]
     pub profile_label: Option<String>,
+    /// Comment lines prepended to load snippets (see `local_api::hint_lines`); set by the host.
+    #[serde(skip)]
+    pub snippet_hint: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -625,9 +628,21 @@ fn escape_for_stata(path: &str) -> String {
     path.replace('\\', "/")
 }
 
+fn comment_block(prefix: &str, lines: &[String]) -> String {
+    let mut out: String = lines
+        .iter()
+        .map(|l| format!("{prefix} {l}").trim_end().to_string() + "\n")
+        .collect();
+    if !out.is_empty() {
+        out.push('\n');
+    }
+    out
+}
+
 fn write_load_snippets(
     export_dir: &Path,
     parquet_files: &BTreeMap<String, String>,
+    hint: &[String],
 ) -> Result<(), CustodianError> {
     if parquet_files.is_empty() {
         return Ok(());
@@ -651,8 +666,8 @@ fn write_load_snippets(
 
     // R
     {
-        let mut body =
-            String::from("# ODE Desktop export — load Parquet with arrow\nlibrary(arrow)\n\n");
+        let mut body = comment_block("#", hint)
+            + "# ODE Desktop export — load Parquet with arrow\nlibrary(arrow)\n\n";
         for (ident, path) in &named {
             body.push_str(&format!(
                 "{ident} <- read_parquet(\"{}\")\n",
@@ -664,9 +679,8 @@ fn write_load_snippets(
 
     // Python
     {
-        let mut body = String::from(
-            "# ODE Desktop export — load Parquet with pandas\nimport pandas as pd\n\n",
-        );
+        let mut body = comment_block("#", hint)
+            + "# ODE Desktop export — load Parquet with pandas\nimport pandas as pd\n\n";
         for (ident, path) in &named {
             body.push_str(&format!(
                 "{ident} = pd.read_parquet(r\"{}\")\n",
@@ -678,9 +692,8 @@ fn write_load_snippets(
 
     // Stata 19+ native import parquet (one frame per form type)
     {
-        let mut body = String::from(
-            "* ODE Desktop export — Stata 19+ import parquet (one frame per form type)\n\n",
-        );
+        let mut body = comment_block("*", hint)
+            + "* ODE Desktop export — Stata 19+ import parquet (one frame per form type)\n\n";
         for (ident, path) in &named {
             let p = escape_for_stata(path);
             let quoted = if p.contains(char::is_whitespace) {
@@ -699,9 +712,8 @@ fn write_load_snippets(
 
     // Julia
     {
-        let mut body = String::from(
-            "# ODE Desktop export — load Parquet with Parquet2 + DataFrames\nusing Parquet2, DataFrames\n\n",
-        );
+        let mut body = comment_block("#", hint)
+            + "# ODE Desktop export — load Parquet with Parquet2 + DataFrames\nusing Parquet2, DataFrames\n\n";
         for (ident, path) in &named {
             body.push_str(&format!(
                 "{ident} = DataFrame(Parquet2.Dataset(\"{}\"))\n",
@@ -833,7 +845,11 @@ pub fn write_parquet_export(
     }
 
     progress(0, 1, "Writing load snippets…");
-    write_load_snippets(&export_dir, &parquet_files)?;
+    write_load_snippets(
+        &export_dir,
+        &parquet_files,
+        req.snippet_hint.as_deref().unwrap_or_default(),
+    )?;
 
     let manifest = ExportManifest {
         exported_at: Utc::now().to_rfc3339(),
@@ -985,6 +1001,7 @@ mod tests {
                 include_attachments: false,
                 overwrite: true,
                 profile_label: Some("test".into()),
+                snippet_hint: Some(vec!["AI hint".into()]),
             },
             rows,
             &mut |_done, _total, _msg| {},
@@ -997,12 +1014,11 @@ mod tests {
         let parquet_path = PathBuf::from(result.parquet_files.get("person").unwrap());
         assert!(parquet_path.is_file());
         assert!(PathBuf::from(&result.manifest_path).is_file());
-        assert!(
-            PathBuf::from(&result.export_dir)
-                .join("snippets")
-                .join("load_r.R")
-                .is_file()
-        );
+        let snippets = PathBuf::from(&result.export_dir).join("snippets");
+        let r = fs::read_to_string(snippets.join("load_r.R")).unwrap();
+        assert!(r.starts_with("# AI hint\n\n# ODE Desktop export"));
+        let stata = fs::read_to_string(snippets.join("load_stata.do")).unwrap();
+        assert!(stata.starts_with("* AI hint\n"));
 
         let rows = load_export_rows(&conn, true).unwrap();
         assert_eq!(rows.len(), 2); // clean + pending
@@ -1116,6 +1132,7 @@ mod tests {
                 include_attachments: true,
                 overwrite: true,
                 profile_label: None,
+                snippet_hint: None,
             },
             rows,
             &mut |_done, _total, _msg| {},

@@ -55,6 +55,20 @@ describe('exportLoadSnippets', () => {
     expect(code).not.toContain('python:');
   });
 
+  it('prepends agent hint lines with the language comment marker', () => {
+    const files = { censo: '/tmp/censo.parquet' };
+    const hint = ['AI hint', '  ode forms list --profile p1'];
+    expect(buildExportLoadSnippet('r', files, hint)).toMatch(
+      /^# AI hint\n# {3}ode forms list --profile p1\n\n# ODE Desktop export/,
+    );
+    expect(buildExportLoadSnippet('stata', files, hint)).toMatch(
+      /^\* AI hint\n/,
+    );
+    expect(buildExportLoadSnippet('python', files)).toMatch(
+      /^# ODE Desktop export/,
+    );
+  });
+
   it('builds Python and Julia snippets', () => {
     const py = buildExportLoadSnippet('python', {
       censo: 'C:\\data\\censo.parquet',

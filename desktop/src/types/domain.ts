@@ -268,6 +268,10 @@ export interface ServerProfile {
   lastExportAt?: string | null;
   /** Summary of the last successful export (folder, counts, parquet paths). */
   lastExport?: ExportParquetResult | null;
+  /** Visible to local tools (`ode` CLI / MCP): profile + form definitions. Rust default: true. */
+  localToolsEnabled?: boolean;
+  /** Local tools may access observation data and attachments. Rust default: false. */
+  localToolsAllowData?: boolean;
 }
 
 /** Result of mirroring a local custom app folder into the profile workspace. */

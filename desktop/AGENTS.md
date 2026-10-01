@@ -82,6 +82,12 @@ Developer mode on with missing/invalid folder → blocking error in UI; no silen
 
 ---
 
+## Local tools (`ode` CLI)
+
+Headless CLI for AI assistants and scripts: profiles and form definitions as JSON, gated by per-profile **Local tools** settings (`localToolsEnabled`, `localToolsAllowData`). Shared logic lives in `src-tauri/src/local_api/`, and the CLI is `src-tauri/src/bin/ode.rs`. See [docs/LOCAL_TOOLS.md](docs/LOCAL_TOOLS.md).
+
+---
+
 ## Bridge and bundles
 
 - **Contract source of truth:** [`formulus/src/webview/FormulusInterfaceDefinition.ts`](../formulus/src/webview/FormulusInterfaceDefinition.ts).

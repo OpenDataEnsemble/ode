@@ -30,6 +30,7 @@ use zip::{CompressionMethod, ZipWriter};
 
 mod data_export;
 mod import_validate;
+pub mod local_api;
 mod observation_index;
 mod observation_query;
 mod sync_engine;
@@ -138,6 +139,16 @@ struct ServerProfile {
     /// Summary of the last successful export (folder, counts, parquet paths).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     last_export: Option<data_export::ExportParquetResult>,
+    /// Profile is visible to local tools (`ode` CLI / MCP): profile list + form definitions.
+    #[serde(default = "default_true")]
+    local_tools_enabled: bool,
+    /// Local tools may access observation data and attachments (e.g. `ode data export`).
+    #[serde(default)]
+    local_tools_allow_data: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -857,6 +868,8 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
             export_destination_parent: None,
             last_export_at: None,
             last_export: None,
+            local_tools_enabled: true,
+            local_tools_allow_data: false,
         }],
     }
 }
@@ -883,6 +896,8 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
             export_destination_parent: None,
             last_export_at: None,
             last_export: None,
+            local_tools_enabled: true,
+            local_tools_allow_data: false,
         }],
     }
 }
@@ -3670,6 +3685,17 @@ fn backup_workspace(
     .map_err(|e| e.to_string())
 }
 
+fn active_profile_local_tools_hint(ctx: &AppCtxHandle) -> Option<Vec<String>> {
+    let cfg = ctx.config.lock().ok()?;
+    local_api::hint_lines(active_profile_ref(&cfg).ok()?)
+}
+
+/// Path of the bundled `ode` CLI, for agent prompts / snippet hints (`None` if not shipped).
+#[tauri::command]
+fn get_local_tools_cli_path() -> Option<String> {
+    local_api::cli_path().map(|p| p.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 fn preview_export_dir(parent_dir: String) -> Result<String, String> {
     data_export::preview_export_dir(&parent_dir).map_err(|e| e.to_string())
@@ -3677,10 +3703,11 @@ fn preview_export_dir(parent_dir: String) -> Result<String, String> {
 
 #[tauri::command]
 async fn export_observations_parquet(
-    request: data_export::ExportParquetRequest,
+    mut request: data_export::ExportParquetRequest,
     app: tauri::AppHandle,
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<data_export::ExportParquetResult, String> {
+    request.snippet_hint = active_profile_local_tools_hint(&ctx);
     let ctx = ctx.inner().clone();
     let app_for_block = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -5162,31 +5189,7 @@ fn list_active_bundle_forms(
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<Vec<ActiveBundleFormEntry>, String> {
     let roots = bundle_form_roots_for_ctx(&ctx)?;
-    let mut seen = HashSet::new();
-    let mut out = Vec::new();
-    for root in roots {
-        let rd = match fs::read_dir(&root) {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
-        for entry in rd {
-            let entry = entry.map_err(|e| e.to_string())?;
-            let name = entry.file_name().to_string_lossy().to_string();
-            if !entry.file_type().map_err(|e| e.to_string())?.is_dir() {
-                continue;
-            }
-            if reserved_form_dir_name(&name) {
-                continue;
-            }
-            let schema = entry.path().join("schema.json");
-            let ui = entry.path().join("ui.json");
-            if schema.is_file() && ui.is_file() && seen.insert(name.clone()) {
-                out.push(ActiveBundleFormEntry { form_type: name });
-            }
-        }
-    }
-    out.sort_by(|a, b| a.form_type.cmp(&b.form_type));
-    Ok(out)
+    local_api::forms::list_forms_in_roots(&roots)
 }
 
 #[tauri::command]
@@ -5194,32 +5197,9 @@ fn read_bundle_form_spec(
     form_type: String,
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<BundleFormSpec, String> {
-    let ft = sanitize_form_type_id(&form_type)?;
     let dev = profile_developer_mode(&ctx)?;
-    let seg = bundle_segment(dev);
     let roots = bundle_form_roots_for_ctx(&ctx)?;
-    for root in roots {
-        let dir = root.join(&ft);
-        let schema_path = dir.join("schema.json");
-        let ui_path = dir.join("ui.json");
-        if schema_path.is_file() && ui_path.is_file() {
-            let form_schema: Value =
-                serde_json::from_str(&fs::read_to_string(&schema_path).map_err(|e| e.to_string())?)
-                    .map_err(|e| e.to_string())?;
-            let ui_schema: Value =
-                serde_json::from_str(&fs::read_to_string(&ui_path).map_err(|e| e.to_string())?)
-                    .map_err(|e| e.to_string())?;
-            return Ok(BundleFormSpec {
-                form_type: ft,
-                form_schema,
-                ui_schema,
-            });
-        }
-    }
-    Err(format!(
-        "Form \"{}\" not found under bundles/{seg} (expected schema.json + ui.json).",
-        ft
-    ))
+    local_api::forms::read_form_spec_in_roots(&roots, bundle_segment(dev), &form_type)
 }
 
 fn scan_js_modules_first_wins(
@@ -5787,6 +5767,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_settings,
+            get_local_tools_cli_path,
             set_active_profile,
             upsert_profile,
             delete_profile,

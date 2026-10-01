@@ -55,6 +55,8 @@ export { NOT_IN_TAURI_MESSAGE };
 
 export const tauriClient = {
   getSettings: () => invokeSafe<AppSettings>('get_settings'),
+  getLocalToolsCliPath: () =>
+    invokeSafe<string | null>('get_local_tools_cli_path'),
   setActiveProfile: (profileId: string) =>
     invokeSafe<void>('set_active_profile', { profileId }),
   upsertProfile: (profile: ServerProfile) =>
