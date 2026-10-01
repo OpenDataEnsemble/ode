@@ -649,6 +649,7 @@ struct ObservationRecord {
     has_conflict_copy: bool,
     last_saved_at: String,
     last_pushed_at: Option<String>,
+    deleted: bool,
     extras: Option<ObservationExtras>,
 }
 
@@ -795,7 +796,8 @@ fn init_db(conn: &Connection) -> Result<(), CustodianError> {
             conflict_payload TEXT,
             last_saved_at TEXT NOT NULL,
             last_pushed_at TEXT,
-            observation_extras TEXT
+            observation_extras TEXT,
+            deleted INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS observation_history (
             backup_id TEXT PRIMARY KEY,
@@ -815,6 +817,7 @@ fn init_db(conn: &Connection) -> Result<(), CustodianError> {
         INSERT OR IGNORE INTO sync_state(id, last_pull_at, last_push_at, last_error) VALUES (1, NULL, NULL, NULL);
         "#,
     )?;
+    migrate_observation_columns(conn)?;
     migrate_sync_state_columns(conn)?;
     conn.execute(
         "INSERT OR IGNORE INTO sync_state(id, last_pull_at, last_push_at, last_error, repository_generation, observation_sync_version, last_attachment_version) VALUES (1, NULL, NULL, NULL, 0, 0, 0)",
@@ -871,6 +874,37 @@ fn migrate_repository_generation_fresh_install_defaults(
     }
     conn.execute(
         "UPDATE sync_state SET repository_generation = 0 WHERE id = 1",
+        [],
+    )?;
+    Ok(())
+}
+
+fn migrate_observation_columns(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let mut stmt = conn.prepare("PRAGMA table_info(observations)")?;
+    let cols: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<_, _>>()?;
+    drop(stmt);
+
+    if !cols.iter().any(|c| c == "deleted") {
+        conn.execute(
+            "ALTER TABLE observations ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+        conn.execute(
+            "UPDATE observations
+             SET deleted = CASE
+                 WHEN json_valid(observation_extras) = 1
+                 THEN json_extract(observation_extras, '$.deleted') IS 1
+                 ELSE 0
+             END",
+            [],
+        )?;
+    }
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_observations_deleted_form_type
+         ON observations(deleted, form_type)",
         [],
     )?;
     Ok(())
@@ -2239,6 +2273,10 @@ fn upsert_observation_from_api(
     let payload = serde_json::to_string(&incoming.data)?;
     let timestamp = now_iso();
     let extras_json = serialize_observation_extras(&incoming.extras)?;
+    let incoming_deleted = incoming
+        .extras
+        .as_ref()
+        .map(|extras| i64::from(extras.deleted.unwrap_or(false)));
 
     if let Some((local_dirty, local_remote_updated_at, local_payload)) = existing {
         if should_mark_conflict(local_dirty, &local_remote_updated_at, &incoming.updated_at) {
@@ -2287,14 +2325,16 @@ fn upsert_observation_from_api(
                      sync_status = 'clean',
                      conflict_payload = NULL,
                      last_saved_at = ?4,
-                     observation_extras = COALESCE(?5, observation_extras)
-                 WHERE id = ?6",
+                     observation_extras = COALESCE(?5, observation_extras),
+                     deleted = COALESCE(?6, deleted)
+                 WHERE id = ?7",
                 params![
                     payload,
                     incoming.form_type,
                     incoming.updated_at,
                     timestamp,
                     extras_json,
+                    incoming_deleted,
                     incoming.observation_id
                 ],
             )?;
@@ -2305,15 +2345,16 @@ fn upsert_observation_from_api(
     conn.execute(
         "INSERT INTO observations (
             id, payload, form_type, updated_at, remote_updated_at,
-            dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
-         ) VALUES (?1, ?2, ?3, ?4, ?4, 0, 'clean', NULL, ?5, NULL, ?6)",
+            dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras, deleted
+         ) VALUES (?1, ?2, ?3, ?4, ?4, 0, 'clean', NULL, ?5, NULL, ?6, ?7)",
         params![
             incoming.observation_id,
             payload,
             incoming.form_type,
             incoming.updated_at,
             timestamp,
-            extras_json
+            extras_json,
+            incoming_deleted.unwrap_or(0)
         ],
     )?;
     Ok(false)
@@ -2340,6 +2381,10 @@ fn upsert_observation_from_local_import(
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| timestamp.clone());
     let extras_json = serialize_observation_extras(&incoming.extras)?;
+    let incoming_deleted = incoming
+        .extras
+        .as_ref()
+        .map(|extras| i64::from(extras.deleted.unwrap_or(false)));
 
     if existing.is_some() {
         conn.execute(
@@ -2351,14 +2396,16 @@ fn upsert_observation_from_local_import(
                 sync_status = 'dirty',
                 conflict_payload = NULL,
                 last_saved_at = ?4,
-                observation_extras = COALESCE(?5, observation_extras)
-             WHERE id = ?6",
+                observation_extras = COALESCE(?5, observation_extras),
+                deleted = COALESCE(?6, deleted)
+             WHERE id = ?7",
             params![
                 payload,
                 incoming.form_type,
                 updated,
                 timestamp,
                 extras_json,
+                incoming_deleted,
                 incoming.observation_id
             ],
         )?;
@@ -2366,15 +2413,16 @@ fn upsert_observation_from_local_import(
         conn.execute(
             "INSERT INTO observations (
                 id, payload, form_type, updated_at, remote_updated_at,
-                dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
-             ) VALUES (?1, ?2, ?3, ?4, NULL, 1, 'dirty', NULL, ?5, NULL, ?6)",
+                dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras, deleted
+             ) VALUES (?1, ?2, ?3, ?4, NULL, 1, 'dirty', NULL, ?5, NULL, ?6, ?7)",
             params![
                 incoming.observation_id,
                 payload,
                 incoming.form_type,
                 updated,
                 timestamp,
-                extras_json
+                extras_json,
+                incoming_deleted.unwrap_or(0)
             ],
         )?;
     }
@@ -2716,11 +2764,16 @@ fn save_observation(
             .map(serde_json::to_string)
             .transpose()
             .map_err(|err| err.to_string())?;
+        let deleted = req
+            .extras
+            .as_ref()
+            .and_then(|extras| extras.deleted)
+            .unwrap_or(false);
 
         tx.execute(
             "INSERT INTO observations (
-                id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
-             ) VALUES (?1, ?2, ?3, ?4, NULL, 1, 'dirty', NULL, ?5, NULL, ?6)
+                id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras, deleted
+             ) VALUES (?1, ?2, ?3, ?4, NULL, 1, 'dirty', NULL, ?5, NULL, ?6, ?7)
              ON CONFLICT(id) DO UPDATE SET
                 payload = excluded.payload,
                 form_type = COALESCE(excluded.form_type, observations.form_type),
@@ -2729,8 +2782,17 @@ fn save_observation(
                 sync_status = 'dirty',
                 conflict_payload = NULL,
                 last_saved_at = excluded.last_saved_at,
-                observation_extras = excluded.observation_extras",
-            params![req.id, payload_raw, req.form_type, logical_updated, timestamp, extras_json],
+                observation_extras = excluded.observation_extras,
+                deleted = excluded.deleted",
+            params![
+                req.id,
+                payload_raw,
+                req.form_type,
+                logical_updated,
+                timestamp,
+                extras_json,
+                i64::from(deleted)
+            ],
         )
         .map_err(|err| err.to_string())?;
 
@@ -2738,8 +2800,7 @@ fn save_observation(
         let defs = load_active_index_defs(&ctx);
         if !defs.is_empty() {
             let ft = req.form_type.as_deref().unwrap_or("");
-            let is_deleted = req.extras.as_ref().and_then(|e| e.deleted).unwrap_or(false);
-            if is_deleted {
+            if deleted {
                 let _ = observation_index::delete_observation_indexes(&conn, &req.id);
             } else {
                 let _ =
@@ -2758,7 +2819,7 @@ fn get_observation(
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let record = conn
         .query_row(
-            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras, deleted
              FROM observations WHERE id = ?1",
             params![id],
             |row| {
@@ -2778,6 +2839,7 @@ fn get_observation(
                     has_conflict_copy: conflict_payload.is_some(),
                     last_saved_at: row.get(8)?,
                     last_pushed_at: row.get(9)?,
+                    deleted: row.get::<_, i64>(11)? == 1,
                     extras: parse_observation_extras(extras_raw),
                 })
             },
@@ -2801,7 +2863,7 @@ fn list_observations(
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras, deleted
              FROM observations
              WHERE lower(id) LIKE ?1 OR lower(COALESCE(form_type, '')) LIKE ?1
              ORDER BY last_saved_at DESC
@@ -2809,26 +2871,7 @@ fn list_observations(
         )
         .map_err(|err| err.to_string())?;
     let rows = stmt
-        .query_map(params![pattern, max_rows], |row| {
-            let payload_raw: String = row.get(1)?;
-            let payload = serde_json::from_str::<Value>(&payload_raw).unwrap_or(Value::Null);
-            let status: String = row.get(6)?;
-            let conflict_payload: Option<String> = row.get(7)?;
-            let extras_raw: Option<String> = row.get(10)?;
-            Ok(ObservationRecord {
-                id: row.get(0)?,
-                payload,
-                form_type: row.get(2)?,
-                updated_at: row.get(3)?,
-                remote_updated_at: row.get(4)?,
-                dirty: row.get::<_, i64>(5)? == 1,
-                sync_status: SyncStatus::from(status.as_str()),
-                has_conflict_copy: conflict_payload.is_some(),
-                last_saved_at: row.get(8)?,
-                last_pushed_at: row.get(9)?,
-                extras: parse_observation_extras(extras_raw),
-            })
-        })
+        .query_map(params![pattern, max_rows], map_observation_row)
         .map_err(|err| err.to_string())?;
 
     let mut result = Vec::new();
@@ -2849,6 +2892,7 @@ struct ListObservationsPageResult {
 fn list_observations_page(
     query: Option<String>,
     form_type: Option<String>,
+    include_deleted: Option<bool>,
     limit: Option<i64>,
     offset: Option<i64>,
     ctx: tauri::State<'_, AppCtxHandle>,
@@ -2861,47 +2905,48 @@ fn list_observations_page(
     let form_filter = form_type
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
+    let live_filter = if include_deleted.unwrap_or(true) {
+        ""
+    } else {
+        " AND deleted = 0"
+    };
 
     let total: i64 = if let Some(ref ft) = form_filter {
-        conn.query_row(
+        let sql = format!(
             "SELECT COUNT(*) FROM observations
              WHERE (lower(id) LIKE ?1 OR lower(COALESCE(form_type, '')) LIKE ?1)
-             AND COALESCE(form_type, '') = ?2",
-            params![pattern, ft],
-            |row| row.get(0),
-        )
-        .map_err(|err| err.to_string())?
+             AND COALESCE(form_type, '') = ?2{live_filter}"
+        );
+        conn.query_row(&sql, params![pattern, ft], |row| row.get(0))
+            .map_err(|err| err.to_string())?
     } else {
-        conn.query_row(
+        let sql = format!(
             "SELECT COUNT(*) FROM observations
-             WHERE lower(id) LIKE ?1 OR lower(COALESCE(form_type, '')) LIKE ?1",
-            params![pattern],
-            |row| row.get(0),
-        )
-        .map_err(|err| err.to_string())?
+             WHERE (lower(id) LIKE ?1 OR lower(COALESCE(form_type, '')) LIKE ?1){live_filter}"
+        );
+        conn.query_row(&sql, params![pattern], |row| row.get(0))
+            .map_err(|err| err.to_string())?
     };
 
-    let mut stmt = if form_filter.is_some() {
-        conn.prepare(
-            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+    let sql = if form_filter.is_some() {
+        format!(
+            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras, deleted
              FROM observations
              WHERE (lower(id) LIKE ?1 OR lower(COALESCE(form_type, '')) LIKE ?1)
-             AND COALESCE(form_type, '') = ?2
+             AND COALESCE(form_type, '') = ?2{live_filter}
              ORDER BY last_saved_at DESC
-             LIMIT ?3 OFFSET ?4",
+             LIMIT ?3 OFFSET ?4"
         )
-        .map_err(|err| err.to_string())?
     } else {
-        conn.prepare(
-            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+        format!(
+            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras, deleted
              FROM observations
-             WHERE lower(id) LIKE ?1 OR lower(COALESCE(form_type, '')) LIKE ?1
+             WHERE (lower(id) LIKE ?1 OR lower(COALESCE(form_type, '')) LIKE ?1){live_filter}
              ORDER BY last_saved_at DESC
-             LIMIT ?2 OFFSET ?3",
+             LIMIT ?2 OFFSET ?3"
         )
-        .map_err(|err| err.to_string())?
     };
-
+    let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
     let rows = if let Some(ref ft) = form_filter {
         stmt.query_map(params![pattern, ft, max_rows, off], map_observation_row)
             .map_err(|err| err.to_string())?
@@ -2934,6 +2979,7 @@ fn map_observation_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ObservationR
         has_conflict_copy: conflict_payload.is_some(),
         last_saved_at: row.get(8)?,
         last_pushed_at: row.get(9)?,
+        deleted: row.get::<_, i64>(11)? == 1,
         extras: parse_observation_extras(extras_raw),
     })
 }
@@ -3045,6 +3091,11 @@ fn query_observations(
     let defs = load_active_index_defs(&ctx);
     let mut index_keys = observation_index::index_keys_set(&defs);
     let filter_ref = req.filter.as_ref();
+    if req.include_deleted.unwrap_or(false) {
+        // Tombstones are deliberately absent from observation_index. Including them
+        // therefore requires payload JSON filtering to preserve query semantics.
+        index_keys.clear();
+    }
     if filter_ref.is_some() && !index_keys.is_empty() {
         let active_generation = observation_index::active_generation(&conn).unwrap_or(1);
         let has_index_rows = conn
@@ -3226,7 +3277,7 @@ fn list_dirty_observations(
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras, deleted
              FROM observations
              WHERE dirty = 1 AND sync_status = 'dirty'
              ORDER BY last_saved_at ASC
@@ -3258,7 +3309,7 @@ pub(crate) fn load_dirty_observations_by_ids(
     for chunk in ids.chunks(400) {
         let placeholders = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
-            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras, deleted
              FROM observations
              WHERE dirty = 1 AND sync_status = 'dirty' AND id IN ({placeholders})"
         );
@@ -3488,6 +3539,7 @@ fn build_observation_overview(
                 COUNT(*) AS observation_count,
                 SUM(CASE WHEN dirty = 1 AND sync_status = 'dirty' THEN 1 ELSE 0 END) AS pending_sync_count
          FROM observations
+         WHERE deleted = 0
          GROUP BY 1
          ORDER BY 1 COLLATE NOCASE",
     )?;
@@ -3514,7 +3566,8 @@ fn build_observation_overview(
                 observation_extras,
                 updated_at,
                 last_saved_at
-         FROM observations",
+         FROM observations
+         WHERE deleted = 0",
     )?;
 
     let mut dates: Vec<NaiveDate> = Vec::new();
@@ -5515,20 +5568,28 @@ fn import_observations_run(
             }
         }
         if !index_defs.is_empty() {
-            // Sync pull and local file import both update the active generation
-            // incrementally. A full rebuild is reserved for bundle apply / empty
-            // index / explicit rebuild — not for adding a few hundred import rows
-            // on top of an already-indexed sync.
-            let payload = serde_json::to_string(&observation.data).map_err(|e| e.to_string())?;
-            let form_type = observation.form_type.as_deref().unwrap_or("");
-            observation_index::incremental_reindex(
-                &tx,
-                &observation.observation_id,
-                form_type,
-                &payload,
-                &index_defs,
-            )
-            .map_err(|err| err.to_string())?;
+            // Index the canonical local row: local dirty data may win over an incoming
+            // pull, and tombstones must never remain in the payload index.
+            let (payload, form_type, deleted): (String, Option<String>, i64) = tx
+                .query_row(
+                    "SELECT payload, form_type, deleted FROM observations WHERE id = ?1",
+                    params![observation.observation_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .map_err(|err| err.to_string())?;
+            if deleted == 1 {
+                observation_index::delete_observation_indexes(&tx, &observation.observation_id)
+                    .map_err(|err| err.to_string())?;
+            } else {
+                observation_index::incremental_reindex(
+                    &tx,
+                    &observation.observation_id,
+                    form_type.as_deref().unwrap_or(""),
+                    &payload,
+                    &index_defs,
+                )
+                .map_err(|err| err.to_string())?;
+            }
         }
         imported += 1;
     }
@@ -5937,12 +5998,12 @@ mod tests {
         ObservationExtras, SimpleFileOptions, ZipArchive, ZipWriter,
         apply_app_bundle_zip_at_workspace, attachment_copy_progress_step, bind_query_params,
         build_observation_overview, extract_observations_from_json_value,
-        import_observation_apparently_synced, init_db, mirror_custom_app_dev_folder,
-        parse_observation_extras, parse_time, publish_bundle_zip_entry_allowed,
-        resolve_attachment_path, scan_import_json_sync_appearance,
-        should_emit_attachment_copy_progress, should_mark_conflict, strip_ode_desktop_injection,
-        upsert_observation_from_local_import, validate_custom_app_dev_source_folder,
-        zip_dev_mirror_bundle,
+        import_observation_apparently_synced, init_db, migrate_observation_columns,
+        mirror_custom_app_dev_folder, parse_observation_extras, parse_time,
+        publish_bundle_zip_entry_allowed, resolve_attachment_path,
+        scan_import_json_sync_appearance, should_emit_attachment_copy_progress,
+        should_mark_conflict, strip_ode_desktop_injection, upsert_observation_from_local_import,
+        validate_custom_app_dev_source_folder, zip_dev_mirror_bundle,
     };
     use crate::observation_query::SqlParam;
     use rusqlite::{Connection, params};
@@ -6272,6 +6333,57 @@ mod tests {
     }
 
     #[test]
+    fn migrate_observation_columns_backfills_deleted_and_creates_index() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            r#"
+            CREATE TABLE observations (
+                id TEXT PRIMARY KEY,
+                payload TEXT NOT NULL,
+                form_type TEXT,
+                observation_extras TEXT
+            );
+            INSERT INTO observations VALUES ('true', '{}', 'person', '{"deleted":true}');
+            INSERT INTO observations VALUES ('false', '{}', 'person', '{"deleted":false}');
+            INSERT INTO observations VALUES ('missing', '{}', 'person', '{}');
+            INSERT INTO observations VALUES ('null', '{}', 'person', NULL);
+            INSERT INTO observations VALUES ('malformed', '{}', 'person', 'not json');
+            "#,
+        )
+        .unwrap();
+
+        migrate_observation_columns(&conn).unwrap();
+        migrate_observation_columns(&conn).unwrap();
+
+        for (id, expected) in [
+            ("true", 1),
+            ("false", 0),
+            ("missing", 0),
+            ("null", 0),
+            ("malformed", 0),
+        ] {
+            let deleted: i64 = conn
+                .query_row(
+                    "SELECT deleted FROM observations WHERE id = ?1",
+                    params![id],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(deleted, expected, "unexpected deleted value for {id}");
+        }
+
+        let index_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master
+                 WHERE type = 'index' AND name = 'idx_observations_deleted_form_type'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(index_exists, 1);
+    }
+
+    #[test]
     fn upsert_observation_from_local_import_persists_extras() {
         let conn = Connection::open_in_memory().unwrap();
         init_db(&conn).unwrap();
@@ -6283,6 +6395,7 @@ mod tests {
             extras: Some(ObservationExtras {
                 author: Some("username:device02".to_string()),
                 tags: Some(vec!["migrated".to_string()]),
+                deleted: Some(true),
                 geolocation: Some(serde_json::json!({
                     "latitude": 5.33,
                     "longitude": 36.07
@@ -6291,14 +6404,16 @@ mod tests {
             }),
         };
         upsert_observation_from_local_import(&conn, &incoming).unwrap();
-        let extras_raw: Option<String> = conn
+        let (extras_raw, deleted): (Option<String>, i64) = conn
             .query_row(
-                "SELECT observation_extras FROM observations WHERE id = ?1",
+                "SELECT observation_extras, deleted FROM observations WHERE id = ?1",
                 params!["uuid:import-1"],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .unwrap();
         let parsed = parse_observation_extras(extras_raw).unwrap();
+        assert_eq!(deleted, 1);
+        assert_eq!(parsed.deleted, Some(true));
         assert_eq!(parsed.author.as_deref(), Some("username:device02"));
         assert_eq!(parsed.tags.as_deref(), Some(&["migrated".to_string()][..]));
         assert!(parsed.geolocation.is_some());

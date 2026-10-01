@@ -322,7 +322,7 @@ export function mapObservationToFormObservation(
     updatedAt: new Date(updated ?? r.lastSavedAt),
     syncedAt: new Date(synced ?? r.lastSavedAt),
     isDraft: false,
-    deleted: r.extras?.deleted === true,
+    deleted: r.deleted,
     formType: r.formType ?? '',
     formVersion: r.extras?.formVersion ?? '',
     data,
@@ -491,15 +491,12 @@ export async function handleFormPreviewBridgeMessage(
         const includeDeleted = Boolean(data.includeDeleted);
         const page = await tauriClient.listObservationsPage(undefined, {
           formType,
+          includeDeleted,
           limit: 5000,
           offset: 0,
         });
-        let rows = page.rows;
-        if (!includeDeleted) {
-          rows = rows.filter(r => r.extras?.deleted !== true);
-        }
         reply('getObservations', {
-          result: rows.map(mapObservationToFormObservation),
+          result: page.rows.map(mapObservationToFormObservation),
         });
         return;
       }

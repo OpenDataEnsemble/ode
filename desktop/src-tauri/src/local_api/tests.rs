@@ -118,7 +118,7 @@ fn disabled_profile_is_rejected_like_unknown() {
 }
 
 /// Seeds the `data` profile: bundle forms `household` + `person`, observations for
-/// `household` (2 synced, 1 pending) and `person` (1 synced).
+/// `household` (2 synced, 1 pending, 1 deleted) and `person` (1 synced).
 fn seed_data_profile(base: &Path) {
     let ws = base.join("data");
     write_form(&ws.join("bundles/active/forms"), "household");
@@ -126,21 +126,23 @@ fn seed_data_profile(base: &Path) {
     fs::create_dir_all(ws.join("sqlite")).unwrap();
     let conn = rusqlite::Connection::open(crate::sqlite_path_for_workspace(&ws)).unwrap();
     crate::init_db(&conn).unwrap();
-    for (id, form, dirty) in [
-        ("h1", "household", 0),
-        ("h2", "household", 0),
-        ("h3", "household", 1),
-        ("p1", "person", 0),
+    for (id, form, dirty, deleted) in [
+        ("h1", "household", 0, 0),
+        ("h2", "household", 0, 0),
+        ("h3", "household", 1, 0),
+        ("h-deleted", "household", 0, 1),
+        ("p1", "person", 0, 0),
     ] {
         conn.execute(
-            "INSERT INTO observations (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at)
-             VALUES (?1, ?2, ?3, '2026-01-01T00:00:00Z', ?4, ?5, '2026-01-01T00:00:00Z')",
+            "INSERT INTO observations (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at, deleted)
+             VALUES (?1, ?2, ?3, '2026-01-01T00:00:00Z', ?4, ?5, '2026-01-01T00:00:00Z', ?6)",
             rusqlite::params![
                 id,
                 json!({ "name": id }).to_string(),
                 form,
                 dirty,
-                if dirty == 1 { "dirty" } else { "clean" }
+                if dirty == 1 { "dirty" } else { "clean" },
+                deleted
             ],
         )
         .unwrap();

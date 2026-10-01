@@ -89,6 +89,7 @@ export const tauriClient = {
     query?: string,
     options?: {
       formType?: string | null;
+      includeDeleted?: boolean;
       limit?: number;
       offset?: number;
     },
@@ -96,6 +97,7 @@ export const tauriClient = {
     invokeSafe<ListObservationsPageResult>('list_observations_page', {
       query,
       formType: options?.formType ?? null,
+      includeDeleted: options?.includeDeleted,
       limit: options?.limit,
       offset: options?.offset,
     }),
