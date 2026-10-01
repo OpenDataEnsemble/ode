@@ -19,6 +19,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::local_api::forms::FieldInfo;
 use crate::{CustodianError, ObservationExtras, resolve_attachment_path};
 
 const EXPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -37,6 +38,22 @@ pub struct ExportParquetRequest {
     pub overwrite: bool,
     #[serde(default)]
     pub profile_label: Option<String>,
+    /// Only export these form types; empty exports all.
+    #[serde(default)]
+    pub form_types: Vec<String>,
+    /// Filled in by the host (Tauri command or `ode` CLI), never by the frontend.
+    #[serde(skip)]
+    pub context: ExportContext,
+}
+
+/// Host-provided extras for an export (see `local_api::export::export_context`).
+#[derive(Debug, Clone, Default)]
+pub struct ExportContext {
+    pub profile_id: Option<String>,
+    /// Comment lines prepended to load snippets (see `local_api::hint_lines`).
+    pub snippet_hint: Vec<String>,
+    /// Field metadata per form type from the profile's bundle, written to the manifest.
+    pub form_fields: BTreeMap<String, Vec<FieldInfo>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,21 +73,48 @@ pub struct ExportParquetResult {
     pub manifest_path: String,
 }
 
+/// `export_manifest.json`. Portable: paths are relative to the export folder, no internal paths.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ExportManifest {
+    schema_version: u32,
     exported_at: String,
     exporter_version: String,
     include_pending: bool,
     include_attachments: bool,
+    profile_id: Option<String>,
     profile_label: Option<String>,
-    workspace_attachments_path: String,
-    export_attachments_path: Option<String>,
     form_type_counts: BTreeMap<String, usize>,
     total_rows: usize,
     attachments_copied: usize,
     attachments_missing: usize,
+    /// `attachments` when attachments were included.
+    attachments_dir: Option<String>,
+    forms: Vec<ManifestForm>,
+    notice: &'static str,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ManifestForm {
+    form_type: String,
+    rows: usize,
+    parquet: String,
+    /// From the bundle form definition; empty when the form is no longer in the bundle.
+    fields: Vec<ManifestField>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ManifestField {
+    #[serde(flatten)]
+    field: FieldInfo,
+    /// Parquet column holding the value; nested objects are stored as JSON strings.
+    column: String,
+}
+
+const MANIFEST_SCHEMA_VERSION: u32 = 1;
+const MANIFEST_NOTICE: &str = "This export may contain sensitive personal data. Handle it according to your project's data protection rules.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ColKind {
@@ -94,7 +138,17 @@ pub(crate) struct ExportRow {
     device_id: Option<String>,
     tags: Option<String>,
     pending: bool,
+    /// Flattened data for Parquet columns (nested objects stringified).
     data: BTreeMap<String, Value>,
+    /// Original observation payload preserved for attachment basename extraction
+    /// (nested objects like `{"filename": "photo.jpg", …}` must stay structured).
+    raw_payload: Value,
+}
+
+impl ExportRow {
+    pub(crate) fn form_type(&self) -> &str {
+        &self.form_type
+    }
 }
 
 /// Sanitize a form type for use as a filename stem.
@@ -258,12 +312,15 @@ fn row_from_db(c: DbExportCandidate) -> Option<ExportRow> {
         tags,
         pending,
         data,
+        raw_payload: c.payload,
     })
 }
 
+/// Load exportable rows; `form_types` empty means all forms.
 pub(crate) fn load_export_rows(
     conn: &Connection,
     include_pending: bool,
+    form_types: &[String],
 ) -> Result<Vec<ExportRow>, CustodianError> {
     let sql = if include_pending {
         "SELECT id, payload, form_type, updated_at, dirty, sync_status, last_saved_at, observation_extras
@@ -306,6 +363,13 @@ pub(crate) fn load_export_rows(
     let mut out = Vec::new();
     for row in rows {
         let (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at, extras) = row?;
+        if !form_types.is_empty()
+            && !form_type
+                .as_deref()
+                .is_some_and(|ft| form_types.iter().any(|t| t == ft))
+        {
+            continue;
+        }
         if let Some(r) = row_from_db(DbExportCandidate {
             id,
             payload,
@@ -620,9 +684,21 @@ fn escape_for_stata(path: &str) -> String {
     path.replace('\\', "/")
 }
 
+fn comment_block(prefix: &str, lines: &[String]) -> String {
+    let mut out: String = lines
+        .iter()
+        .map(|l| format!("{prefix} {l}").trim_end().to_string() + "\n")
+        .collect();
+    if !out.is_empty() {
+        out.push('\n');
+    }
+    out
+}
+
 fn write_load_snippets(
     export_dir: &Path,
     parquet_files: &BTreeMap<String, String>,
+    hint: &[String],
 ) -> Result<(), CustodianError> {
     if parquet_files.is_empty() {
         return Ok(());
@@ -646,8 +722,8 @@ fn write_load_snippets(
 
     // R
     {
-        let mut body =
-            String::from("# ODE Desktop export — load Parquet with arrow\nlibrary(arrow)\n\n");
+        let mut body = comment_block("#", hint)
+            + "# ODE Desktop export — load Parquet with arrow\nlibrary(arrow)\n\n";
         for (ident, path) in &named {
             body.push_str(&format!(
                 "{ident} <- read_parquet(\"{}\")\n",
@@ -659,9 +735,8 @@ fn write_load_snippets(
 
     // Python
     {
-        let mut body = String::from(
-            "# ODE Desktop export — load Parquet with pandas\nimport pandas as pd\n\n",
-        );
+        let mut body = comment_block("#", hint)
+            + "# ODE Desktop export — load Parquet with pandas\nimport pandas as pd\n\n";
         for (ident, path) in &named {
             body.push_str(&format!(
                 "{ident} = pd.read_parquet(r\"{}\")\n",
@@ -673,9 +748,8 @@ fn write_load_snippets(
 
     // Stata 19+ native import parquet (one frame per form type)
     {
-        let mut body = String::from(
-            "* ODE Desktop export — Stata 19+ import parquet (one frame per form type)\n\n",
-        );
+        let mut body = comment_block("*", hint)
+            + "* ODE Desktop export — Stata 19+ import parquet (one frame per form type)\n\n";
         for (ident, path) in &named {
             let p = escape_for_stata(path);
             let quoted = if p.contains(char::is_whitespace) {
@@ -694,9 +768,8 @@ fn write_load_snippets(
 
     // Julia
     {
-        let mut body = String::from(
-            "# ODE Desktop export — load Parquet with Parquet2 + DataFrames\nusing Parquet2, DataFrames\n\n",
-        );
+        let mut body = comment_block("#", hint)
+            + "# ODE Desktop export — load Parquet with Parquet2 + DataFrames\nusing Parquet2, DataFrames\n\n";
         for (ident, path) in &named {
             body.push_str(&format!(
                 "{ident} = DataFrame(Parquet2.Dataset(\"{}\"))\n",
@@ -717,12 +790,12 @@ fn copy_referenced_attachments_with_progress(
 ) -> Result<(usize, usize, PathBuf), CustodianError> {
     let mut names: BTreeSet<String> = BTreeSet::new();
     for row in rows {
-        let obj: serde_json::Map<String, Value> = row
-            .data
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        for n in collect_attachment_basenames(&Value::Object(obj)) {
+        // Use the original (unflattened) payload so that nested attachment
+        // objects like `{"filename": "photo.jpg", …}` are walked properly.
+        // The Parquet-flattened `row.data` stringifies nested structures,
+        // which prevents `walk_attachment_refs` from finding `filename` /
+        // `attachmentId` keys inside them.
+        for n in collect_attachment_basenames(&row.raw_payload) {
             names.insert(n);
         }
     }
@@ -783,6 +856,7 @@ pub fn write_parquet_export(
     let form_count = by_form.len().max(1);
     let mut form_type_counts: BTreeMap<String, usize> = BTreeMap::new();
     let mut parquet_files: BTreeMap<String, String> = BTreeMap::new();
+    let mut manifest_forms: Vec<ManifestForm> = Vec::new();
     let mut total_rows = 0usize;
     let mut used_names: HashMap<String, usize> = HashMap::new();
 
@@ -805,8 +879,15 @@ pub fn write_parquet_export(
         } else {
             format!("{stem}_{}", *count)
         };
-        let path = export_dir.join(format!("{file_stem}.parquet"));
+        let file_name = format!("{file_stem}.parquet");
+        let path = export_dir.join(&file_name);
         write_parquet_file(&path, &batch)?;
+        manifest_forms.push(ManifestForm {
+            form_type: form_type.clone(),
+            rows: form_rows.len(),
+            parquet: file_name,
+            fields: manifest_fields(req.context.form_fields.get(form_type)),
+        });
         parquet_files.insert(form_type.clone(), path.to_string_lossy().to_string());
         form_type_counts.insert(form_type.clone(), form_rows.len());
         total_rows += form_rows.len();
@@ -828,20 +909,23 @@ pub fn write_parquet_export(
     }
 
     progress(0, 1, "Writing load snippets…");
-    write_load_snippets(&export_dir, &parquet_files)?;
+    write_load_snippets(&export_dir, &parquet_files, &req.context.snippet_hint)?;
 
     let manifest = ExportManifest {
+        schema_version: MANIFEST_SCHEMA_VERSION,
         exported_at: Utc::now().to_rfc3339(),
         exporter_version: EXPORTER_VERSION.to_string(),
         include_pending: req.include_pending,
         include_attachments: req.include_attachments,
+        profile_id: req.context.profile_id.clone(),
         profile_label: req.profile_label.clone(),
-        workspace_attachments_path: workspace_attachments_path.to_string_lossy().to_string(),
-        export_attachments_path: export_attachments_path.clone(),
         form_type_counts: form_type_counts.clone(),
         total_rows,
         attachments_copied,
         attachments_missing,
+        attachments_dir: req.include_attachments.then(|| "attachments".to_string()),
+        forms: manifest_forms,
+        notice: MANIFEST_NOTICE,
     };
     let manifest_path = export_dir.join("export_manifest.json");
     fs::write(&manifest_path, serde_json::to_string_pretty(&manifest)?)?;
@@ -865,6 +949,20 @@ pub fn write_parquet_export(
         export_attachments_path,
         manifest_path: manifest_path.to_string_lossy().to_string(),
     })
+}
+
+fn manifest_fields(fields: Option<&Vec<FieldInfo>>) -> Vec<ManifestField> {
+    fields
+        .into_iter()
+        .flatten()
+        .map(|f| {
+            let top = f.path.split('.').next().unwrap_or(&f.path);
+            ManifestField {
+                column: format!("data_{top}"),
+                field: f.clone(),
+            }
+        })
+        .collect()
 }
 
 /// Preview destination path without writing (`{parent}/{YYYYMMDD}`).
@@ -971,7 +1069,13 @@ mod tests {
         let parent = base.join("out");
         fs::create_dir_all(&parent).unwrap();
 
-        let rows = load_export_rows(&conn, false).unwrap();
+        let rows = load_export_rows(&conn, false, &[]).unwrap();
+        let field = FieldInfo {
+            path: "meta.x".into(),
+            json_type: Some("integer".into()),
+            title: Some("X".into()),
+            ..Default::default()
+        };
         let result = write_parquet_export(
             &ws,
             &ExportParquetRequest {
@@ -980,6 +1084,12 @@ mod tests {
                 include_attachments: false,
                 overwrite: true,
                 profile_label: Some("test".into()),
+                form_types: vec![],
+                context: ExportContext {
+                    profile_id: Some("p1".into()),
+                    snippet_hint: vec!["AI hint".into()],
+                    form_fields: BTreeMap::from([("person".to_string(), vec![field])]),
+                },
             },
             rows,
             &mut |_done, _total, _msg| {},
@@ -992,16 +1102,32 @@ mod tests {
         let parquet_path = PathBuf::from(result.parquet_files.get("person").unwrap());
         assert!(parquet_path.is_file());
         assert!(PathBuf::from(&result.manifest_path).is_file());
-        assert!(
-            PathBuf::from(&result.export_dir)
-                .join("snippets")
-                .join("load_r.R")
-                .is_file()
-        );
+        let snippets = PathBuf::from(&result.export_dir).join("snippets");
+        let r = fs::read_to_string(snippets.join("load_r.R")).unwrap();
+        assert!(r.starts_with("# AI hint\n\n# ODE Desktop export"));
+        let stata = fs::read_to_string(snippets.join("load_stata.do")).unwrap();
+        assert!(stata.starts_with("* AI hint\n"));
 
-        let rows = load_export_rows(&conn, true).unwrap();
+        let manifest: Value =
+            serde_json::from_str(&fs::read_to_string(&result.manifest_path).unwrap()).unwrap();
+        assert_eq!(manifest["schemaVersion"], json!(1));
+        assert_eq!(manifest["profileId"], json!("p1"));
+        assert_eq!(manifest["forms"][0]["parquet"], json!("person.parquet"));
+        assert_eq!(manifest["forms"][0]["rows"], json!(1));
+        assert_eq!(manifest["forms"][0]["fields"][0]["path"], json!("meta.x"));
+        assert_eq!(
+            manifest["forms"][0]["fields"][0]["column"],
+            json!("data_meta")
+        );
+        let raw = manifest.to_string();
+        assert!(!raw.contains(&base.to_string_lossy().replace('\\', "\\\\")));
+        assert!(!raw.contains("workspace"));
+
+        let rows = load_export_rows(&conn, true, &[]).unwrap();
         assert_eq!(rows.len(), 2); // clean + pending
         assert!(rows.iter().any(|r| r.pending));
+        let rows = load_export_rows(&conn, true, &["other".to_string()]).unwrap();
+        assert!(rows.is_empty());
 
         let _ = fs::remove_dir_all(&base);
     }
@@ -1044,11 +1170,92 @@ mod tests {
             tags: None,
             pending: false,
             data: BTreeMap::from([("age".into(), json!(3))]),
+            raw_payload: json!({"age": 3}),
         }];
         let (schema, cols) = schema_for_rows(&rows);
         let names: Vec<_> = schema.fields().iter().map(|f| f.name().clone()).collect();
         assert!(names.contains(&"pending".to_string()));
         assert!(names.contains(&"data_age".to_string()));
         assert_eq!(cols[0].1, ColKind::Float64);
+    }
+
+    #[test]
+    fn export_copies_attachments_from_nested_photo_objects() {
+        // Formulus photo/audio/video fields store nested objects:
+        // { "photo": { "filename": "img.jpg", "metadata": {..} } }
+        // The Parquet exporter flattens these to strings in `row.data`, but
+        // attachment extraction must use the original `raw_payload` to find
+        // the nested `filename` key.
+        let conn = setup_db();
+        let photo_payload = json!({
+            "photo": {
+                "id": "cam-1",
+                "type": "image",
+                "filename": "photo-abc123.jpg",
+                "timestamp": "2026-06-01T10:00:00Z",
+                "metadata": {
+                    "width": 1920,
+                    "height": 1080,
+                    "size": 123456,
+                    "mimeType": "image/jpeg",
+                    "quality": 80
+                }
+            },
+            "name": "Test observation"
+        });
+        conn.execute(
+            "INSERT INTO observations (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at)
+             VALUES (?1, ?2, 'survey', '2026-06-01T10:00:00Z', 0, 'clean', '2026-06-01T10:00:00Z')",
+            params!["obs-photo", photo_payload.to_string()],
+        )
+        .unwrap();
+
+        let base = std::env::temp_dir().join(format!(
+            "ode_export_att_test_{}_{}_{}",
+            std::process::id(),
+            Utc::now().timestamp_millis(),
+            line!()
+        ));
+        let _ = fs::remove_dir_all(&base);
+        let ws = base.join("workspace");
+        // Place a fake attachment file in the synced sub-directory.
+        let synced_dir = ws.join("attachments").join("synced");
+        fs::create_dir_all(&synced_dir).unwrap();
+        fs::write(synced_dir.join("photo-abc123.jpg"), b"fake-jpeg").unwrap();
+
+        let parent = base.join("out");
+        fs::create_dir_all(&parent).unwrap();
+
+        let rows = load_export_rows(&conn, false, &[]).unwrap();
+        assert_eq!(rows.len(), 1);
+
+        let result = write_parquet_export(
+            &ws,
+            &ExportParquetRequest {
+                parent_dir: parent.to_string_lossy().to_string(),
+                include_pending: false,
+                include_attachments: true,
+                overwrite: true,
+                profile_label: None,
+                form_types: vec![],
+                context: ExportContext::default(),
+            },
+            rows,
+            &mut |_done, _total, _msg| {},
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.attachments_copied, 1,
+            "should copy the photo attachment"
+        );
+        assert_eq!(result.attachments_missing, 0);
+        let export_att = PathBuf::from(result.export_attachments_path.as_ref().unwrap());
+        assert!(
+            export_att.join("photo-abc123.jpg").is_file(),
+            "attachment file should exist in export"
+        );
+
+        let _ = fs::remove_dir_all(&base);
     }
 }
