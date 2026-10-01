@@ -5,12 +5,16 @@
 //! touching workspace content. See `desktop/docs/LOCAL_TOOLS.md`.
 
 pub mod config;
+pub mod export;
 pub mod forms;
 pub mod policy;
 pub mod profiles;
+pub mod validate;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod validate_tests;
 
 use std::path::PathBuf;
 

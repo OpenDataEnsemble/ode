@@ -75,7 +75,7 @@ fn compile_validators(
     out
 }
 
-fn build_validator(schema: &Value) -> Result<Validator, String> {
+pub(crate) fn build_validator(schema: &Value) -> Result<Validator, String> {
     jsonschema::options()
         .with_draft(Draft::Draft7)
         .should_validate_formats(false)

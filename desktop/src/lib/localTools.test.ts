@@ -30,11 +30,14 @@ describe('localTools', () => {
     expect(metaOnly).toContain('"Study A"');
     expect(metaOnly).toContain('ode forms show <form_type> --profile p1');
     expect(metaOnly).toContain('does not allow access to collected data');
+    expect(metaOnly).toContain('ode forms validate <form_folder>');
 
     const withData = buildAgentPrompt(
       { ...profile, localToolsAllowData: true },
       null,
     );
     expect(withData).toContain('sensitive personal data');
+    expect(withData).toContain('ode data export --profile p1 --form');
+    expect(metaOnly).not.toContain('data export');
   });
 });

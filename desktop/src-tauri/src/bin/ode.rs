@@ -7,6 +7,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use odedesktop_lib::local_api::{
     self, ApiError, ApiResult, ErrorCode, SCHEMA_VERSION, config::LocalConfig,
+    export::ExportOptions,
 };
 use serde::Serialize;
 
@@ -15,11 +16,15 @@ Quick start:
   ode profiles list                             # profile ids, labels, capabilities
   ode forms list --profile <id|label>           # form types in the profile's bundle
   ode forms show <form-type> --profile <id|label>  # schema, UI schema, field list
+  ode data export --profile <id|label> --form <form-type> --destination <dir>
+                                                # Parquet + manifest (needs data access)
+  ode forms validate <form-folder|forms-folder>  # check edits before previewing/publishing
 
 All output is JSON on stdout (errors too, with a non-zero exit code).
 Access is controlled per profile in ODE Desktop -> Profiles -> Local tools.
 Form definitions are metadata; collected data and attachments are not exposed
-unless the user enables it there.";
+unless the user enables it there. Exported data may contain sensitive personal
+data: only read what the task needs.";
 
 #[derive(Parser)]
 #[command(
@@ -45,6 +50,37 @@ enum Command {
     /// Form definitions in a profile's bundle.
     #[command(subcommand)]
     Forms(FormsCmd),
+    /// Collected data (requires "Allow agent access to data and attachments").
+    #[command(subcommand)]
+    Data(DataCmd),
+}
+
+#[derive(Subcommand)]
+enum DataCmd {
+    /// Export observations of selected forms to Parquet, with export_manifest.json and load snippets.
+    Export {
+        /// Profile id or label (see `ode profiles list`).
+        #[arg(long)]
+        profile: String,
+        /// Form type to export (repeatable; see `ode forms list`).
+        #[arg(long = "form", required = true)]
+        forms: Vec<String>,
+        /// Existing parent folder; the export is written to <destination>/<YYYYMMDD>/.
+        #[arg(long)]
+        destination: PathBuf,
+        /// Include observations not yet synced to the server.
+        #[arg(long)]
+        include_pending: bool,
+        /// Copy referenced attachment files into <export>/attachments/.
+        #[arg(long)]
+        include_attachments: bool,
+        /// Replace an existing export folder for today.
+        #[arg(long)]
+        overwrite: bool,
+        /// Do not print progress on stderr.
+        #[arg(long)]
+        no_progress: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -68,6 +104,12 @@ enum FormsCmd {
         /// Profile id or label (see `ode profiles list`).
         #[arg(long)]
         profile: String,
+    },
+    /// Validate form files on disk: one form folder, or a forms folder (all forms in it).
+    /// Exits with 1 when any form has errors; warnings do not fail.
+    Validate {
+        /// Folder with schema.json + ui.json, or a folder of such form folders.
+        path: PathBuf,
     },
 }
 
@@ -112,9 +154,21 @@ fn load_config(path: Option<PathBuf>) -> ApiResult<LocalConfig> {
     LocalConfig::load(&path)
 }
 
-fn run(cli: Cli) -> ApiResult<()> {
+fn run(cli: Cli) -> ApiResult<ExitCode> {
+    // Validation works on plain files and does not need Desktop's config.
+    if let Command::Forms(FormsCmd::Validate { path }) = &cli.command {
+        let report = local_api::validate::validate_path(path)?;
+        let code = if report.valid {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
+        print_json(report);
+        return Ok(code);
+    }
     let cfg = load_config(cli.config)?;
     match cli.command {
+        Command::Forms(FormsCmd::Validate { .. }) => unreachable!("handled above"),
         Command::Profiles(ProfilesCmd::List) => print_json(ProfilesBody {
             profiles: local_api::profiles::list_profiles(&cfg),
         }),
@@ -124,13 +178,43 @@ fn run(cli: Cli) -> ApiResult<()> {
         Command::Forms(FormsCmd::Show { form_type, profile }) => print_json(
             local_api::forms::get_form_details(&cfg, &profile, &form_type)?,
         ),
+        Command::Data(DataCmd::Export {
+            profile,
+            forms,
+            destination,
+            include_pending,
+            include_attachments,
+            overwrite,
+            no_progress,
+        }) => {
+            let opts = ExportOptions {
+                form_types: forms,
+                destination,
+                include_pending,
+                include_attachments,
+                overwrite,
+            };
+            let mut last = String::new();
+            let mut progress = |_done: usize, _total: usize, message: &str| {
+                if !no_progress && message != last {
+                    eprintln!("{message}");
+                    last = message.to_string();
+                }
+            };
+            print_json(local_api::export::export_parquet(
+                &cfg,
+                &profile,
+                &opts,
+                &mut progress,
+            )?)
+        }
     }
-    Ok(())
+    Ok(ExitCode::SUCCESS)
 }
 
 fn main() -> ExitCode {
     match run(Cli::parse()) {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(code) => code,
         Err(error) => {
             print_json(ErrorBody { error });
             ExitCode::FAILURE

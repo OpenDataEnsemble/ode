@@ -1,8 +1,8 @@
 //! Form discovery and definitions from a profile's bundle (`active` or `dev-local`).
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use serde_json::Value;
@@ -81,6 +81,21 @@ pub(crate) fn read_form_spec_in_roots(
             form_type.trim()
         )
     })
+}
+
+/// Flattened fields for every form in the bundle (unreadable forms are skipped).
+pub(crate) fn bundle_form_fields(workspace: &Path, dev: bool) -> BTreeMap<String, Vec<FieldInfo>> {
+    let roots = bundle_form_roots(workspace, dev);
+    let mut out = BTreeMap::new();
+    for entry in list_forms_in_roots(&roots).unwrap_or_default() {
+        if let Ok(Some(spec)) = find_form_spec_in_roots(&roots, &entry.form_type) {
+            out.insert(
+                entry.form_type,
+                schema_fields(&spec.form_schema, &spec.ui_schema),
+            );
+        }
+    }
+    out
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -273,7 +288,7 @@ fn collect_fields(root: &Value, schema: &Value, prefix: &str, out: &mut Vec<Fiel
 }
 
 /// Coded values of `node`, following local `$ref`s (`#/...`).
-fn choices_of(root: &Value, node: &Value, depth: usize) -> Option<Vec<Choice>> {
+pub(crate) fn choices_of(root: &Value, node: &Value, depth: usize) -> Option<Vec<Choice>> {
     if depth > 8 {
         return None;
     }

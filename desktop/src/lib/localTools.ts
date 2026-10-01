@@ -49,7 +49,7 @@ export function buildAgentPrompt(
 ): string {
   const cli = cliCommand(cliPath);
   const dataLine = profile.localToolsAllowData
-    ? 'This profile allows agent access to collected data and attachments. Treat them as sensitive personal data: only read what the task needs, and do not send raw records or attachments to external services unless I explicitly ask.'
+    ? `This profile allows agent access to collected data and attachments: \`${cli} data export --profile ${profile.id} --form <form_type> --destination <existing_folder>\` writes Parquet files, export_manifest.json (a data dictionary), and load snippets. Treat the data as sensitive personal data: only read what the task needs, and do not send raw records or attachments to external services unless I explicitly ask.`
     : 'This profile does not allow access to collected data or attachments. Work with form metadata only, and do not try to read the ODE workspace, database, or attachment folders directly.';
   return [
     `I use ODE Desktop (Open Data Ensemble) for the data collection project "${profile.label.trim()}". You can read its form definitions with the ODE command-line tool:`,
@@ -59,6 +59,8 @@ export function buildAgentPrompt(
     `  ${cli} forms show <form_type> --profile ${profile.id}`,
     '',
     '`forms show` returns JSON with the form schema, UI schema, and a field list with question labels, types, coded choice values, and linked sub-forms (sub-observations). All output, including errors, is JSON.',
+    '',
+    `If you edit form files (schema.json / ui.json), run \`${cli} forms validate <form_folder>\` afterwards and fix all errors. When you change a form, bump its "version" in schema.json.`,
     '',
     dataLine,
     '',

@@ -5,6 +5,7 @@ use serde_json::json;
 
 use super::ErrorCode;
 use super::config::LocalConfig;
+use super::export::{ExportOptions, export_parquet};
 use super::forms::{FieldInfo, get_form_details, list_forms, schema_fields};
 use super::policy::{self, Capability};
 use super::profiles::list_profiles;
@@ -114,6 +115,119 @@ fn disabled_profile_is_rejected_like_unknown() {
         let err = list_forms(&cfg, id).unwrap_err();
         assert_eq!(err.code, ErrorCode::ProfileNotFound);
     }
+}
+
+/// Seeds the `data` profile: bundle forms `household` + `person`, observations for
+/// `household` (2 synced, 1 pending) and `person` (1 synced).
+fn seed_data_profile(base: &Path) {
+    let ws = base.join("data");
+    write_form(&ws.join("bundles/active/forms"), "household");
+    write_form(&ws.join("bundles/active/forms"), "person");
+    fs::create_dir_all(ws.join("sqlite")).unwrap();
+    let conn = rusqlite::Connection::open(crate::sqlite_path_for_workspace(&ws)).unwrap();
+    crate::init_db(&conn).unwrap();
+    for (id, form, dirty) in [
+        ("h1", "household", 0),
+        ("h2", "household", 0),
+        ("h3", "household", 1),
+        ("p1", "person", 0),
+    ] {
+        conn.execute(
+            "INSERT INTO observations (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at)
+             VALUES (?1, ?2, ?3, '2026-01-01T00:00:00Z', ?4, ?5, '2026-01-01T00:00:00Z')",
+            rusqlite::params![
+                id,
+                json!({ "name": id }).to_string(),
+                form,
+                dirty,
+                if dirty == 1 { "dirty" } else { "clean" }
+            ],
+        )
+        .unwrap();
+    }
+}
+
+fn export_opts(base: &Path, forms: &[&str]) -> ExportOptions {
+    let dest = base.join("out");
+    fs::create_dir_all(&dest).unwrap();
+    ExportOptions {
+        form_types: forms.iter().map(|f| f.to_string()).collect(),
+        destination: dest,
+        include_pending: false,
+        include_attachments: false,
+        overwrite: true,
+    }
+}
+
+#[test]
+fn export_requires_data_permission() {
+    let (base, cfg) = fixture("export_denied");
+    let err = export_parquet(
+        &cfg,
+        "secret",
+        &export_opts(&base, &["household"]),
+        &mut |_, _, _| {},
+    )
+    .unwrap_err();
+    assert_eq!(err.code, ErrorCode::PermissionDenied);
+    assert_eq!(err.capability, Some(Capability::Data));
+    assert!(!base.join("out").read_dir().unwrap().any(|_| true));
+}
+
+#[test]
+fn export_validates_forms() {
+    let (base, cfg) = fixture("export_forms");
+    seed_data_profile(&base);
+    let noop = &mut |_: usize, _: usize, _: &str| {};
+    let err = export_parquet(&cfg, "data", &export_opts(&base, &[]), noop).unwrap_err();
+    assert_eq!(err.code, ErrorCode::InvalidArgument);
+    let err = export_parquet(&cfg, "data", &export_opts(&base, &["nope"]), noop).unwrap_err();
+    assert_eq!(err.code, ErrorCode::FormNotFound);
+}
+
+#[test]
+fn export_writes_only_requested_forms_with_manifest() {
+    let (base, cfg) = fixture("export_ok");
+    seed_data_profile(&base);
+    let summary = export_parquet(
+        &cfg,
+        "Label data",
+        &export_opts(&base, &["household"]),
+        &mut |_, _, _| {},
+    )
+    .unwrap();
+    assert_eq!(summary.profile_id, "data");
+    assert_eq!(summary.total_rows, 2, "pending row excluded by default");
+    assert_eq!(
+        summary.parquet_files.keys().collect::<Vec<_>>(),
+        ["household"]
+    );
+    assert!(summary.forms_without_rows.is_empty());
+
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&summary.manifest).unwrap()).unwrap();
+    assert_eq!(manifest["profileId"], json!("data"));
+    assert_eq!(manifest["forms"].as_array().unwrap().len(), 1);
+    assert_eq!(manifest["forms"][0]["fields"][0]["path"], json!("name"));
+    assert_eq!(
+        manifest["forms"][0]["fields"][0]["column"],
+        json!("data_name")
+    );
+    let raw = manifest.to_string();
+    assert!(!raw.contains("secret-server") && !raw.contains("sqlite"));
+
+    // A bundle form without observations is reported, not an error.
+    let mut opts = export_opts(&base, &["person", "household"]);
+    opts.include_pending = true;
+    seed_extra_bundle_form(&base, "empty_form");
+    opts.form_types.push("empty_form".into());
+    let summary = export_parquet(&cfg, "data", &opts, &mut |_, _, _| {}).unwrap();
+    assert_eq!(summary.total_rows, 4);
+    assert_eq!(summary.forms_without_rows, ["empty_form"]);
+}
+
+fn seed_extra_bundle_form(base: &Path, form: &str) {
+    write_form(&base.join("data/bundles/active/forms"), form);
 }
 
 #[test]

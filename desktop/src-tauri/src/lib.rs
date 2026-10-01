@@ -3685,11 +3685,6 @@ fn backup_workspace(
     .map_err(|e| e.to_string())
 }
 
-fn active_profile_local_tools_hint(ctx: &AppCtxHandle) -> Option<Vec<String>> {
-    let cfg = ctx.config.lock().ok()?;
-    local_api::hint_lines(active_profile_ref(&cfg).ok()?)
-}
-
 /// Path of the bundled `ode` CLI, for agent prompts / snippet hints (`None` if not shipped).
 #[tauri::command]
 fn get_local_tools_cli_path() -> Option<String> {
@@ -3707,7 +3702,6 @@ async fn export_observations_parquet(
     app: tauri::AppHandle,
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<data_export::ExportParquetResult, String> {
-    request.snippet_hint = active_profile_local_tools_hint(&ctx);
     let ctx = ctx.inner().clone();
     let app_for_block = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -3725,12 +3719,20 @@ async fn export_observations_parquet(
 
         emit("starting", "Reading observations…", 0, 1);
         let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+        if let Some(profile) = ctx
+            .config
+            .lock()
+            .ok()
+            .and_then(|cfg| active_profile_ref(&cfg).ok().cloned())
+        {
+            request.context = local_api::export::export_context(&profile, &ws);
+        }
 
         // Hold the SQLite lock only while loading rows — never nest open_db inside
         // with_workspace_fs_exclusive (same non-reentrant mutex → deadlock).
         let rows = {
             let conn = open_db(&ctx).map_err(|e| e.to_string())?;
-            data_export::load_export_rows(&conn, request.include_pending)
+            data_export::load_export_rows(&conn, request.include_pending, &request.form_types)
                 .map_err(|e| e.to_string())?
         };
 

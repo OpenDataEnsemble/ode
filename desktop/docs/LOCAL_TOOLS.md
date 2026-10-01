@@ -112,6 +112,137 @@ How `fields` is built:
 - **`choices`** (when present) lists the coded values from `enum`, or the `const`/`title` entries of `oneOf`/`anyOf`. Local `$ref`s such as `#/$defs/yes_no` are followed. For arrays (multi-select), choices are taken from `items`.
 - **`linkedForm`** (when present) is the form type of a sub-observation field. Use it to join exported child tables to their parent table.
 
+### `ode data export --profile <id> --form <form-type> --destination <dir>`
+
+Requires **Allow agent access to data and attachments**. Exports the observations of the given forms from the profile's local database to `<dir>/<YYYYMMDD>/`. `<dir>` must already exist.
+
+- `--form` is required and can be repeated.
+- `--include-pending` adds observations that are not yet synced.
+- `--include-attachments` copies referenced files into `attachments/`.
+- `--overwrite` replaces an existing folder for today.
+- `--no-progress` silences the progress lines on stderr.
+- The database is opened read-only, so the command is safe to run while Desktop is open.
+
+```json
+{
+  "schemaVersion": 1,
+  "profileId": "…",
+  "exportDir": "C:\\analysis\\20261001",
+  "manifest": "C:\\analysis\\20261001\\export_manifest.json",
+  "parquetFiles": { "household": "C:\\analysis\\20261001\\household.parquet" },
+  "formTypeCounts": { "household": 120 },
+  "totalRows": 120,
+  "includePending": false,
+  "includeAttachments": false,
+  "attachmentsCopied": 0,
+  "attachmentsMissing": 0,
+  "formsWithoutRows": []
+}
+```
+
+- Unknown form types (in neither the bundle nor the data) fail with `form_not_found`.
+- Forms that exist but have no exportable observations are listed in `formsWithoutRows`.
+
+#### Export folder
+
+Exports written by the CLI and by the Desktop Export page have the same layout:
+
+- `<form_type>.parquet`: envelope columns plus a `data_<field>` column for each top-level field.
+- `export_manifest.json`: see below.
+- `snippets/`: load scripts for R, Python, Stata, and Julia, each starting with the agent hint.
+- `attachments/`: only present with `--include-attachments`.
+
+`export_manifest.json` (`schemaVersion: 1`) is portable. Its paths are relative to the export folder, and it contains no workspace, database, or server details:
+
+```json
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-10-01T10:00:00+00:00",
+  "exporterVersion": "1.3.3",
+  "includePending": false,
+  "includeAttachments": false,
+  "profileId": "…",
+  "profileLabel": "Study A",
+  "formTypeCounts": { "household": 120 },
+  "totalRows": 120,
+  "attachmentsCopied": 0,
+  "attachmentsMissing": 0,
+  "attachmentsDir": null,
+  "forms": [
+    {
+      "formType": "household",
+      "rows": 120,
+      "parquet": "household.parquet",
+      "fields": [
+        {
+          "path": "consent",
+          "type": "string",
+          "title": "Consent",
+          "format": null,
+          "attachment": false,
+          "choices": [{ "value": "1", "label": "Yes" }],
+          "column": "data_consent"
+        }
+      ]
+    }
+  ],
+  "notice": "This export may contain sensitive personal data. …"
+}
+```
+
+- `fields` has the same shape as in `forms show`, plus `column`, the Parquet column that holds the value.
+- Nested fields such as `head.age` live inside the JSON string in `data_head`.
+- `fields` is empty for forms that are no longer in the bundle.
+
+### `ode forms validate <path>`
+
+Checks form files on disk before previewing or publishing them. `<path>` is either one form folder (containing `schema.json` and `ui.json`) or a folder of form folders, in which case every form in it is validated.
+
+- This command needs no profile and no permission.
+- Linked forms (`linkedForm`) count as present when a sibling folder of that name exists.
+- The exit code is `1` when any form has an error. Warnings don't fail validation.
+
+```json
+{
+  "schemaVersion": 1,
+  "valid": false,
+  "forms": [
+    {
+      "formType": "household",
+      "dir": "forms/household",
+      "valid": false,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "invalid_scope",
+          "file": "ui.json",
+          "path": "/elements/0/elements/1/scope",
+          "message": "Scope \"#/properties/lbl_agregado_familar\" does not match a property in schema.json."
+        }
+      ]
+    }
+  ]
+}
+```
+
+`path` is a JSON pointer into `file`.
+
+| Code                                                                  | Severity | Meaning                                                                                                                     |
+| --------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `missing_file`, `invalid_json`                                        | error    | `schema.json` / `ui.json` is missing or not JSON                                                                            |
+| `invalid_schema`                                                      | error    | `schema.json` doesn't compile as a JSON Schema (draft 7)                                                                    |
+| `unknown_required`                                                    | error    | `required` lists a property that doesn't exist                                                                              |
+| `missing_linked_form`                                                 | error    | A sub-observation `linkedForm` isn't in the forms folder                                                                    |
+| `missing_type`, `missing_scope`                                       | error    | A UI element has no `type`, or a Control has no `scope`                                                                     |
+| `invalid_scope`                                                       | error    | A Control scope doesn't resolve to a schema property. `$ref`, `allOf`/`anyOf`/`oneOf`, and `if`/`then`/`else` are followed. |
+| `invalid_rule_effect`                                                 | error    | A rule effect isn't `SHOW`, `HIDE`, `ENABLE`, or `DISABLE`                                                                  |
+| `missing_rule_condition`, `missing_rule_schema`, `invalid_rule_scope` | error    | A rule condition is incomplete or points to an unknown field. Composite `conditions` are checked recursively.               |
+| `rule_value_not_a_choice`                                             | warning  | A condition's `const`/`enum` isn't one of the field's coded choices (e.g. `1` vs `"1"`)                                     |
+| `missing_version`, `version_mismatch`, `version_not_string`           | warning  | Add a string `version` and bump it on every change. If both `schemaVersion` and `version` are set, `schemaVersion` wins.    |
+| `root_not_swipe_layout`                                               | warning  | ODE forms should use `SwipeLayout` as the root                                                                              |
+
+Not checked yet: custom question types and renderers, extension functions, and translations. Some of these need the whole app bundle and are planned for `ode app validate`.
+
 ## Errors
 
 ```json
