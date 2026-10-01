@@ -22,3 +22,7 @@ diff --git a/android/src/main/java/com/rncamerakit/CKCamera.kt b/android/src/mai
  
          val previewWidth = viewFinder.getWidth();
          val previewHeight = viewFinder.getHeight();
+@@ -310,2 +315 @@
+-        val cameraProvider = cameraProvider
+-                ?: throw IllegalStateException("Camera initialization failed.")
++        val cameraProvider = cameraProvider ?: return // setupCamera binds once the provider is ready

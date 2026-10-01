@@ -55,6 +55,10 @@ export { NOT_IN_TAURI_MESSAGE };
 
 export const tauriClient = {
   getSettings: () => invokeSafe<AppSettings>('get_settings'),
+  getLocalToolsCliPath: () =>
+    invokeSafe<string | null>('get_local_tools_cli_path'),
+  /** Merge `config.json` edits made by the `ode` CLI; true when anything changed. */
+  syncExternalConfig: () => invokeSafe<boolean>('sync_external_config'),
   setActiveProfile: (profileId: string) =>
     invokeSafe<void>('set_active_profile', { profileId }),
   upsertProfile: (profile: ServerProfile) =>
@@ -85,6 +89,7 @@ export const tauriClient = {
     query?: string,
     options?: {
       formType?: string | null;
+      includeDeleted?: boolean;
       limit?: number;
       offset?: number;
     },
@@ -92,6 +97,7 @@ export const tauriClient = {
     invokeSafe<ListObservationsPageResult>('list_observations_page', {
       query,
       formType: options?.formType ?? null,
+      includeDeleted: options?.includeDeleted,
       limit: options?.limit,
       offset: options?.offset,
     }),

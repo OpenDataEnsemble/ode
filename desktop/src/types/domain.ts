@@ -37,6 +37,8 @@ export interface ObservationRecord {
   hasConflictCopy: boolean;
   lastSavedAt: string;
   lastPushedAt?: string | null;
+  /** Authoritative local tombstone flag; mirrored in `extras.deleted` for envelope compatibility. */
+  deleted: boolean;
   extras?: ObservationExtras | null;
 }
 
@@ -268,6 +270,14 @@ export interface ServerProfile {
   lastExportAt?: string | null;
   /** Summary of the last successful export (folder, counts, parquet paths). */
   lastExport?: ExportParquetResult | null;
+  /** Visible to local tools (`ode` CLI / MCP): profile + form definitions. Rust default: true. */
+  localToolsEnabled?: boolean;
+  /** Local tools may access observation data and attachments. Rust default: false. */
+  localToolsAllowData?: boolean;
+  /** Local tools may manage developer mode / the dev mirror. Rust default: false. */
+  localToolsAllowAuthoring?: boolean;
+  /** Local tools may push the app bundle to Synkronus (requires authoring). Rust default: false. */
+  localToolsAllowPush?: boolean;
 }
 
 /** Result of mirroring a local custom app folder into the profile workspace. */
