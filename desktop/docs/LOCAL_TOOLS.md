@@ -1,20 +1,28 @@
 # Local tools (`ode` CLI)
 
-`ode` is a headless command-line tool that ships with ODE Desktop. It lets AI assistants, editors (VS Code, Positron), and scripts discover ODE Desktop profiles and form definitions.
+`ode` is a headless command-line tool that ships with ODE Desktop. It lets AI assistants, editors (VS Code, Positron), and scripts work with ODE Desktop profiles: discover forms, export data, validate form edits, and author and publish custom apps.
 
-ODE Desktop owns the configuration. `ode` only **reads** Desktop's `config.json` and never writes it, so it is safe to run while Desktop is open.
+ODE Desktop owns the configuration, and `ode` mostly reads it. It writes Desktop's `config.json` in only two narrow ways:
+
+- creating a profile (`ode profiles create`);
+- changing the developer-mode fields (`ode app dev`, `ode app checkout`).
+
+Writes are atomic. Desktop merges them into its own state (on window focus, and before it saves), so it never overwrites them. It is safe to run `ode` while Desktop is open.
 
 ## Permissions
 
 Each profile has a **Local tools** section on the Profiles page:
 
-| Setting                                    | Default | Grants (capability)                                 |
-| ------------------------------------------ | ------: | --------------------------------------------------- |
-| Available to local tools                   |      On | Profile listing, form definitions (`form_metadata`) |
-| Allow agent access to data and attachments |     Off | Observation data and attachments (`data`)           |
+| Setting                                                | Default | Grants (capability)                                                                             |
+| ------------------------------------------------------ | ------: | ----------------------------------------------------------------------------------------------- |
+| Available to local tools                               |      On | Profile listing, form definitions (`form_metadata`)                                             |
+| Allow agent access to data and attachments             |     Off | Observation data and attachments (`data`)                                                       |
+| Allow agents to manage the app bundle (developer mode) |     Off | `app status` paths, `app checkout`, `app dev`, `app validate`, `app push` dry run (`authoring`) |
+| Allow agents to push the app bundle to Synkronus       |     Off | `app push --yes` (`push`). Requires `authoring`.                                                |
 
 - Profiles with local tools turned off are invisible: they are not listed, and requests for them return `profile_not_found`.
-- Credentials, server URLs, usernames, and filesystem paths are never returned.
+- Profiles created by `ode profiles create` start with `authoring` on and `push` off. They have no server, credentials, or data.
+- Passwords and tokens are never returned. Server URLs and source folder paths appear only in `app` command output, and only with `authoring`. Other commands never return server URLs, usernames, or workspace paths.
 - No flag or environment variable overrides these settings.
 
 ## Running
@@ -243,6 +251,56 @@ Checks form files on disk before previewing or publishing them. `<path>` is eith
 
 Not checked yet: custom question types and renderers, extension functions, and translations. Some of these need the whole app bundle and are planned for `ode app validate`.
 
+### `ode profiles create --label <name> [--source <dir>]`
+
+Creates a local profile like Desktop's **Add profile**, with no server. It doesn't make the profile active. With `--source` (a folder containing `index.html`), developer mode is turned on for that folder, and Desktop's copy is refreshed. Labels must be unique.
+
+### `ode app ...` (custom app authoring)
+
+Agents edit the profile's **source folder** (`sourceFolder`). Forms live in `<source>/forms/<form_type>/`. Never edit Desktop's `bundles/active/` or `bundles/dev-local/`.
+
+| Command                                           | Does                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app status --profile <id> [--check-server]`      | Shows capabilities, developer mode, the last downloaded bundle version (`activeBundle`), and whether a server and saved credentials exist. With `authoring` it adds the source folder (flagged when it looks like build output), plus `hints`. `--check-server` logs in and adds `serverVersion`.                                                     |
+| `app checkout --profile <id> --dest <dir>`        | Copies the downloaded bundle into an empty folder, then turns developer mode on for it.                                                                                                                                                                                                                                                               |
+| `app dev on\|off --profile <id> [--source <dir>]` | `on` refreshes Desktop's copy of the source folder. In Desktop, press **Refresh app** to see the changes.                                                                                                                                                                                                                                             |
+| `app validate --profile <id>`                     | Checks that `index.html` exists, then runs `forms validate` on `<source>/forms`. The exit code is `1` on errors.                                                                                                                                                                                                                                      |
+| `app push --profile <id> [--yes]`                 | Refreshes, validates, and diffs the forms against the last downloaded bundle (`changes`, and `warnings` for un-bumped versions and removed forms). Without `--yes` it is a dry run. With `--yes` (`push`) it logs in with the profile's username and saved password, publishes, and activates the bundle. The exit code is `1` when validation fails. |
+
+Publishing needs a server URL, username, and saved password on the profile; otherwise it returns `auth_required`. The `x-ode-version` header is the CLI's version. Agents must get the user's explicit confirmation before `--yes`.
+
+### `ode skills list | show <name> | install --dest <dir> [--force]`
+
+Step-by-step guides as Agent Skills (`SKILL.md`), versioned with the CLI. The sources are in `src-tauri/src/local_api/skills/`.
+
+- `ode-edit-form`: change forms and skip logic, validate, preview, then publish after confirmation.
+- `ode-new-project`: start from the `custom_app` GitHub template and create a profile in developer mode. This needs the runnable template (Phase 5 of `TMP_AI_PROTOTYPE.md`).
+
+`show` prints Markdown. `install` writes `<dest>/<name>/SKILL.md`, for example into `.agents/skills`, and skips files that were edited unless `--force` is passed.
+
+### `ode mcp` (Model Context Protocol server)
+
+Runs the same operations as an MCP server over stdio: newline-delimited JSON-RPC 2.0, MCP protocol revisions 2024-11-05 to 2025-11-25.
+
+- **Tools:**
+  - `ode_list_profiles`, `ode_list_forms`, `ode_show_form`, `ode_validate_forms`;
+  - `ode_export_data`;
+  - `ode_app_status`, `ode_app_checkout`, `ode_app_dev`, `ode_app_validate`, `ode_app_push` (`publish: true` publishes);
+  - `ode_create_profile`, `ode_list_skills`, `ode_get_skill`.
+- **Same rules as the CLI:** permissions, JSON shapes (in `structuredContent`), and errors (`isError: true` plus `error`) are identical to the CLI.
+- **Discovery:** every tool is always listed, and calls that aren't allowed return `permission_denied`. Desktop's config is re-read on every call, so permission changes apply without restarting the client.
+- **Annotations:** tools are marked read-only or destructive (`ode_app_push`). The server `instructions` tell the client to publish only after the user's explicit confirmation.
+
+The server is hand-rolled (`local_api/mcp.rs`) rather than built on the `rmcp` SDK, because it needs only `initialize`, `ping`, `tools/list`, and `tools/call`.
+
+Client configuration. **Copy MCP server config** on the Profiles page copies this with the real path:
+
+```json
+{ "mcpServers": { "ode": { "command": "<path to ode>", "args": ["mcp"] } } }
+```
+
+This format works for Claude Desktop, Cursor, and similar clients. Zed uses the same `command`/`args` under `context_servers` in its settings, and VS Code uses them under `servers` in `.vscode/mcp.json`.
+
 ## Errors
 
 ```json
@@ -266,6 +324,8 @@ Possible error codes:
 - `form_not_found`
 - `permission_denied`
 - `invalid_argument`
+- `auth_required`
+- `network`
 - `io`
 
 ## Discoverability for agents

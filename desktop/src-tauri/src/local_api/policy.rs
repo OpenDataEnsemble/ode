@@ -12,15 +12,28 @@ pub enum Capability {
     FormMetadata,
     /// Observation data and attachments.
     Data,
+    /// Developer mode, the dev mirror, and the source folder (`ode app dev`, `checkout`, push dry run).
+    Authoring,
+    /// Publishing the app bundle to Synkronus (`ode app push --yes`). Implies [`Capability::Authoring`].
+    Push,
 }
 
-const ALL: [Capability; 2] = [Capability::FormMetadata, Capability::Data];
+const ALL: [Capability; 4] = [
+    Capability::FormMetadata,
+    Capability::Data,
+    Capability::Authoring,
+    Capability::Push,
+];
 
 pub(crate) fn allows(profile: &ServerProfile, capability: Capability) -> bool {
     profile.local_tools_enabled
         && match capability {
             Capability::FormMetadata => true,
             Capability::Data => profile.local_tools_allow_data,
+            Capability::Authoring => profile.local_tools_allow_authoring,
+            Capability::Push => {
+                profile.local_tools_allow_authoring && profile.local_tools_allow_push
+            }
         }
 }
 
@@ -37,6 +50,15 @@ pub(crate) fn require(profile: &ServerProfile, capability: Capability) -> ApiRes
         Capability::Data => {
             "Agent access to data and attachments is disabled for this profile. \
              Enable it in ODE Desktop → Profiles → Local tools."
+        }
+        Capability::Authoring => {
+            "Agents may not manage this profile's app bundle. Enable \"Allow agents to manage \
+             the app bundle\" in ODE Desktop → Profiles → Local tools."
+        }
+        Capability::Push => {
+            "Agents may not push this profile's app bundle to Synkronus. Ask the user to enable \
+             \"Allow agents to push the app bundle\" in ODE Desktop → Profiles → Local tools, or \
+             to publish from ODE Desktop → Workbench → Custom app."
         }
     };
     let mut err = ApiError::new(ErrorCode::PermissionDenied, message).with_profile(&profile.id);

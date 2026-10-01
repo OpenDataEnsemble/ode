@@ -57,6 +57,8 @@ export const tauriClient = {
   getSettings: () => invokeSafe<AppSettings>('get_settings'),
   getLocalToolsCliPath: () =>
     invokeSafe<string | null>('get_local_tools_cli_path'),
+  /** Merge `config.json` edits made by the `ode` CLI; true when anything changed. */
+  syncExternalConfig: () => invokeSafe<boolean>('sync_external_config'),
   setActiveProfile: (profileId: string) =>
     invokeSafe<void>('set_active_profile', { profileId }),
   upsertProfile: (profile: ServerProfile) =>

@@ -1,16 +1,24 @@
 //! Headless operations for local tools (the `ode` CLI, later `ode mcp`).
 //!
-//! ODE Desktop owns the configuration; this module only reads it. Every operation
+//! ODE Desktop owns the configuration; local tools only make the narrow writes in
+//! [`config::LocalConfig`] (developer mode, new profiles). Every operation
 //! resolves a profile through [`config::LocalConfig`] and checks [`policy`] before
 //! touching workspace content. See `desktop/docs/LOCAL_TOOLS.md`.
 
+pub mod app;
 pub mod config;
 pub mod export;
 pub mod forms;
+pub mod mcp;
 pub mod policy;
 pub mod profiles;
+pub mod skills;
 pub mod validate;
 
+#[cfg(test)]
+mod app_tests;
+#[cfg(test)]
+mod mcp_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -37,6 +45,10 @@ pub enum ErrorCode {
     FormNotFound,
     PermissionDenied,
     InvalidArgument,
+    /// No server URL, username, or saved password for a Synkronus call.
+    AuthRequired,
+    /// Synkronus request failed.
+    Network,
     Io,
 }
 

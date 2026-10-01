@@ -1,5 +1,6 @@
 import {
   buildAgentPrompt,
+  buildMcpConfig,
   cliCommand,
   localToolsHintLines,
 } from './localTools';
@@ -13,6 +14,15 @@ describe('localTools', () => {
     expect(cliCommand('C:\\Program Files\\ODE\\ode.exe')).toBe(
       '"C:\\Program Files\\ODE\\ode.exe"',
     );
+  });
+
+  it('builds an MCP config with an unquoted command path', () => {
+    const cfg = JSON.parse(buildMcpConfig('C:\\Program Files\\ODE\\ode.exe'));
+    expect(cfg.mcpServers.ode).toEqual({
+      command: 'C:\\Program Files\\ODE\\ode.exe',
+      args: ['mcp'],
+    });
+    expect(JSON.parse(buildMcpConfig(null)).mcpServers.ode.command).toBe('ode');
   });
 
   it('omits hints when local tools are disabled', () => {
@@ -39,5 +49,19 @@ describe('localTools', () => {
     expect(withData).toContain('sensitive personal data');
     expect(withData).toContain('ode data export --profile p1 --form');
     expect(metaOnly).not.toContain('data export');
+    expect(metaOnly).toContain('ode skills list');
+    expect(metaOnly).toContain('may not manage');
+
+    const authoring = buildAgentPrompt(
+      { ...profile, localToolsAllowAuthoring: true },
+      null,
+    );
+    expect(authoring).toContain('ode app status --profile p1');
+    expect(authoring).toContain('Publishing itself is not allowed');
+    const push = buildAgentPrompt(
+      { ...profile, localToolsAllowAuthoring: true, localToolsAllowPush: true },
+      null,
+    );
+    expect(push).toContain('explicit confirmation');
   });
 });

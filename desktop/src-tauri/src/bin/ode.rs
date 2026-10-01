@@ -1,10 +1,10 @@
-//! `ode` — headless local-tools CLI for ODE Desktop. Output is always JSON on stdout.
-//! See `desktop/docs/LOCAL_TOOLS.md`.
+//! `ode` — headless local-tools CLI for ODE Desktop. Output is JSON on stdout (except
+//! `ode skills show`, which prints Markdown). See `desktop/docs/LOCAL_TOOLS.md`.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use odedesktop_lib::local_api::{
     self, ApiError, ApiResult, ErrorCode, SCHEMA_VERSION, config::LocalConfig,
     export::ExportOptions,
@@ -14,23 +14,26 @@ use serde::Serialize;
 const AFTER_HELP: &str = "\
 Quick start:
   ode profiles list                             # profile ids, labels, capabilities
+  ode skills list                               # step-by-step guides for common tasks
   ode forms list --profile <id|label>           # form types in the profile's bundle
   ode forms show <form-type> --profile <id|label>  # schema, UI schema, field list
+  ode forms validate <form-folder|forms-folder>  # check edits before previewing/publishing
   ode data export --profile <id|label> --form <form-type> --destination <dir>
                                                 # Parquet + manifest (needs data access)
-  ode forms validate <form-folder|forms-folder>  # check edits before previewing/publishing
+  ode app status --profile <id|label>           # developer mode, source folder, bundle versions
 
 All output is JSON on stdout (errors too, with a non-zero exit code).
 Access is controlled per profile in ODE Desktop -> Profiles -> Local tools.
 Form definitions are metadata; collected data and attachments are not exposed
 unless the user enables it there. Exported data may contain sensitive personal
-data: only read what the task needs.";
+data: only read what the task needs. Never publish (`app push --yes`) without
+the user's explicit confirmation.";
 
 #[derive(Parser)]
 #[command(
     name = "ode",
     version,
-    about = "Local tools for ODE Desktop: read profiles and form definitions as JSON",
+    about = "Local tools for ODE Desktop: profiles, forms, data export, and custom app authoring",
     after_help = AFTER_HELP
 )]
 struct Cli {
@@ -53,6 +56,53 @@ enum Command {
     /// Collected data (requires "Allow agent access to data and attachments").
     #[command(subcommand)]
     Data(DataCmd),
+    /// Custom app authoring: developer mode, validation, publishing.
+    #[command(subcommand)]
+    App(AppCmd),
+    /// Step-by-step guides (Agent Skills) for common tasks.
+    #[command(subcommand)]
+    Skills(SkillsCmd),
+    /// Run as an MCP server over stdio (for editors and AI clients). Same tools and permissions.
+    Mcp,
+}
+
+#[derive(Subcommand)]
+enum ProfilesCmd {
+    /// List profiles available to local tools.
+    List,
+    /// Create a new local profile (no server). With --source, developer mode points at that folder.
+    Create {
+        /// Display name of the profile (must be unique).
+        #[arg(long)]
+        label: String,
+        /// Folder containing the custom app's index.html (and forms/).
+        #[arg(long)]
+        source: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand)]
+enum FormsCmd {
+    /// List forms in the profile's bundle (dev-local when developer mode is on).
+    List {
+        /// Profile id or label (see `ode profiles list`).
+        #[arg(long)]
+        profile: String,
+    },
+    /// Show a form's schema, UI schema, and flattened field list.
+    Show {
+        /// Form type, as returned by `ode forms list`.
+        form_type: String,
+        /// Profile id or label (see `ode profiles list`).
+        #[arg(long)]
+        profile: String,
+    },
+    /// Validate form files on disk: one form folder, or a forms folder (all forms in it).
+    /// Exits with 1 when any form has errors; warnings do not fail.
+    Validate {
+        /// Folder with schema.json + ui.json, or a folder of such form folders.
+        path: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -83,33 +133,69 @@ enum DataCmd {
     },
 }
 
-#[derive(Subcommand)]
-enum ProfilesCmd {
-    /// List profiles available to local tools.
-    List,
+#[derive(Clone, Copy, ValueEnum)]
+enum OnOff {
+    On,
+    Off,
 }
 
 #[derive(Subcommand)]
-enum FormsCmd {
-    /// List forms in the profile's bundle (dev-local when developer mode is on).
-    List {
-        /// Profile id or label (see `ode profiles list`).
+enum AppCmd {
+    /// Developer mode, source folder, bundle versions, and suggested next steps.
+    Status {
         #[arg(long)]
         profile: String,
+        /// Also log in to Synkronus and report the server's current bundle version.
+        #[arg(long)]
+        check_server: bool,
     },
-    /// Show a form's schema, UI schema, and flattened field list.
-    Show {
-        /// Form type, as returned by `ode forms list`.
-        form_type: String,
-        /// Profile id or label (see `ode profiles list`).
+    /// Copy the downloaded app bundle into a new source folder and switch developer mode to it.
+    Checkout {
         #[arg(long)]
         profile: String,
+        /// Empty or new folder for the editable copy.
+        #[arg(long)]
+        dest: PathBuf,
     },
-    /// Validate form files on disk: one form folder, or a forms folder (all forms in it).
-    /// Exits with 1 when any form has errors; warnings do not fail.
+    /// Turn developer mode on (refreshes Desktop's copy of the source folder) or off.
+    Dev {
+        #[arg(value_enum)]
+        mode: OnOff,
+        #[arg(long)]
+        profile: String,
+        /// Folder containing index.html; replaces the configured source folder.
+        #[arg(long)]
+        source: Option<PathBuf>,
+    },
+    /// Validate the source folder: index.html and every form. Exits with 1 on errors.
     Validate {
-        /// Folder with schema.json + ui.json, or a folder of such form folders.
-        path: PathBuf,
+        #[arg(long)]
+        profile: String,
+    },
+    /// Dry run: refresh, validate, and list form changes. With --yes: publish to Synkronus.
+    Push {
+        #[arg(long)]
+        profile: String,
+        /// Publish and activate the bundle (needs "Allow agents to push the app bundle" and the
+        /// user's explicit confirmation).
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum SkillsCmd {
+    /// List the available skills.
+    List,
+    /// Print a skill (Markdown).
+    Show { name: String },
+    /// Write the skills as <dest>/<name>/SKILL.md (e.g. into .agents/skills).
+    Install {
+        #[arg(long)]
+        dest: PathBuf,
+        /// Overwrite SKILL.md files that were edited.
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -124,6 +210,11 @@ struct Envelope<T: Serialize> {
 #[derive(Serialize)]
 struct ProfilesBody {
     profiles: Vec<local_api::profiles::ProfileSummary>,
+}
+
+#[derive(Serialize)]
+struct SkillsBody {
+    skills: Vec<local_api::skills::SkillSummary>,
 }
 
 #[derive(Serialize)]
@@ -142,6 +233,16 @@ fn print_json<T: Serialize>(body: T) {
     }
 }
 
+/// Print a report and exit with 1 when it is not valid.
+fn print_report<T: Serialize>(body: T, ok: bool) -> ExitCode {
+    print_json(body);
+    if ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
 fn load_config(path: Option<PathBuf>) -> ApiResult<LocalConfig> {
     let path = path
         .or_else(local_api::config::default_config_path)
@@ -154,29 +255,60 @@ fn load_config(path: Option<PathBuf>) -> ApiResult<LocalConfig> {
     LocalConfig::load(&path)
 }
 
-fn run(cli: Cli) -> ApiResult<ExitCode> {
-    // Validation works on plain files and does not need Desktop's config.
-    if let Command::Forms(FormsCmd::Validate { path }) = &cli.command {
-        let report = local_api::validate::validate_path(path)?;
-        let code = if report.valid {
-            ExitCode::SUCCESS
-        } else {
-            ExitCode::FAILURE
-        };
-        print_json(report);
-        return Ok(code);
-    }
-    let cfg = load_config(cli.config)?;
-    match cli.command {
-        Command::Forms(FormsCmd::Validate { .. }) => unreachable!("handled above"),
-        Command::Profiles(ProfilesCmd::List) => print_json(ProfilesBody {
-            profiles: local_api::profiles::list_profiles(&cfg),
+/// Commands that work without ODE Desktop's config.
+fn run_standalone(command: &Command) -> Option<ApiResult<ExitCode>> {
+    let ok = ExitCode::SUCCESS;
+    Some(match command {
+        Command::Forms(FormsCmd::Validate { path }) => local_api::validate::validate_path(path)
+            .map(|r| {
+                let valid = r.valid;
+                print_report(r, valid)
+            }),
+        Command::Skills(SkillsCmd::List) => {
+            print_json(SkillsBody {
+                skills: local_api::skills::list(),
+            });
+            Ok(ok)
+        }
+        Command::Skills(SkillsCmd::Show { name }) => local_api::skills::show(name).map(|md| {
+            println!("{md}");
+            ok
         }),
+        Command::Skills(SkillsCmd::Install { dest, force }) => {
+            local_api::skills::install(dest, *force).map(|r| {
+                print_json(r);
+                ok
+            })
+        }
+        _ => return None,
+    })
+}
+
+fn run(cli: Cli) -> ApiResult<ExitCode> {
+    if matches!(cli.command, Command::Mcp) {
+        // stdout carries the protocol; nothing else may be printed there.
+        local_api::mcp::Server::new(cli.config)
+            .serve()
+            .map_err(|e| ApiError::new(ErrorCode::Io, e.to_string()))?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    if let Some(result) = run_standalone(&cli.command) {
+        return result;
+    }
+    let mut cfg = load_config(cli.config)?;
+    let cfg = &mut cfg;
+    match cli.command {
+        Command::Profiles(ProfilesCmd::List) => print_json(ProfilesBody {
+            profiles: local_api::profiles::list_profiles(cfg),
+        }),
+        Command::Profiles(ProfilesCmd::Create { label, source }) => print_json(
+            local_api::profiles::create_profile(cfg, &label, source.as_deref())?,
+        ),
         Command::Forms(FormsCmd::List { profile }) => {
-            print_json(local_api::forms::list_forms(&cfg, &profile)?)
+            print_json(local_api::forms::list_forms(cfg, &profile)?)
         }
         Command::Forms(FormsCmd::Show { form_type, profile }) => print_json(
-            local_api::forms::get_form_details(&cfg, &profile, &form_type)?,
+            local_api::forms::get_form_details(cfg, &profile, &form_type)?,
         ),
         Command::Data(DataCmd::Export {
             profile,
@@ -202,11 +334,41 @@ fn run(cli: Cli) -> ApiResult<ExitCode> {
                 }
             };
             print_json(local_api::export::export_parquet(
-                &cfg,
+                cfg,
                 &profile,
                 &opts,
                 &mut progress,
             )?)
+        }
+        Command::App(AppCmd::Status {
+            profile,
+            check_server,
+        }) => print_json(local_api::app::status(cfg, &profile, check_server)?),
+        Command::App(AppCmd::Checkout { profile, dest }) => {
+            print_json(local_api::app::checkout(cfg, &profile, &dest)?)
+        }
+        Command::App(AppCmd::Dev {
+            mode,
+            profile,
+            source,
+        }) => print_json(local_api::app::set_dev_mode(
+            cfg,
+            &profile,
+            matches!(mode, OnOff::On),
+            source.as_deref(),
+        )?),
+        Command::App(AppCmd::Validate { profile }) => {
+            let report = local_api::app::validate(cfg, &profile)?;
+            let valid = report.valid;
+            return Ok(print_report(report, valid));
+        }
+        Command::App(AppCmd::Push { profile, yes }) => {
+            let report = local_api::app::push(cfg, &profile, yes)?;
+            let ok = report.validation.valid;
+            return Ok(print_report(report, ok));
+        }
+        Command::Forms(FormsCmd::Validate { .. }) | Command::Skills(_) | Command::Mcp => {
+            unreachable!("handled above")
         }
     }
     Ok(ExitCode::SUCCESS)

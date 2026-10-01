@@ -102,6 +102,7 @@ vi.mock('./lib/tauriClient', () => ({
     downloadAndApplyAppBundle: vi.fn(),
     listActiveBundleForms: vi.fn().mockResolvedValue([]),
     getLocalToolsCliPath: vi.fn().mockResolvedValue(null),
+    syncExternalConfig: vi.fn().mockResolvedValue(false),
     readBundleFormSpec: vi.fn(),
     removeWorkspaceAttachment: vi.fn(),
     getObservation: vi.fn(),

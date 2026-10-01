@@ -272,6 +272,10 @@ export interface ServerProfile {
   localToolsEnabled?: boolean;
   /** Local tools may access observation data and attachments. Rust default: false. */
   localToolsAllowData?: boolean;
+  /** Local tools may manage developer mode / the dev mirror. Rust default: false. */
+  localToolsAllowAuthoring?: boolean;
+  /** Local tools may push the app bundle to Synkronus (requires authoring). Rust default: false. */
+  localToolsAllowPush?: boolean;
 }
 
 /** Result of mirroring a local custom app folder into the profile workspace. */

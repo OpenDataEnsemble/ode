@@ -83,6 +83,29 @@ pub(crate) fn read_form_spec_in_roots(
     })
 }
 
+/// Effective form version, resolved like Formulus (#909): non-empty string `schemaVersion`,
+/// then `version`, else `"1.0"`.
+pub(crate) fn form_version(schema: &Value) -> String {
+    ["schemaVersion", "version"]
+        .iter()
+        .filter_map(|k| schema.get(*k).and_then(Value::as_str))
+        .map(str::trim)
+        .find(|v| !v.is_empty())
+        .unwrap_or("1.0")
+        .to_string()
+}
+
+/// Form definitions in `roots` keyed by form type (unreadable forms are skipped).
+pub(crate) fn specs_in_roots(roots: &[PathBuf]) -> BTreeMap<String, BundleFormSpec> {
+    let mut out = BTreeMap::new();
+    for entry in list_forms_in_roots(roots).unwrap_or_default() {
+        if let Ok(Some(spec)) = find_form_spec_in_roots(roots, &entry.form_type) {
+            out.insert(entry.form_type, spec);
+        }
+    }
+    out
+}
+
 /// Flattened fields for every form in the bundle (unreadable forms are skipped).
 pub(crate) fn bundle_form_fields(workspace: &Path, dev: bool) -> BTreeMap<String, Vec<FieldInfo>> {
     let roots = bundle_form_roots(workspace, dev);
@@ -144,6 +167,8 @@ pub struct FormDetails {
     pub profile_id: String,
     pub bundle: &'static str,
     pub form_type: String,
+    /// Effective form version (see [`form_version`]).
+    pub version: String,
     pub schema: Value,
     pub ui_schema: Value,
     pub fields: Vec<FieldInfo>,
@@ -210,6 +235,7 @@ pub fn get_form_details(
     Ok(FormDetails {
         profile_id: pf.profile_id,
         bundle: pf.bundle,
+        version: form_version(&spec.form_schema),
         form_type: spec.form_type,
         schema: spec.form_schema,
         ui_schema: spec.ui_schema,

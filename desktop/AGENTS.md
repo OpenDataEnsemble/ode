@@ -84,7 +84,9 @@ Developer mode on with missing/invalid folder → blocking error in UI; no silen
 
 ## Local tools (`ode` CLI)
 
-Headless CLI for AI assistants and scripts: profiles and form definitions as JSON, gated by per-profile **Local tools** settings (`localToolsEnabled`, `localToolsAllowData`). Shared logic lives in `src-tauri/src/local_api/`, and the CLI is `src-tauri/src/bin/ode.rs`. See [docs/LOCAL_TOOLS.md](docs/LOCAL_TOOLS.md).
+Headless CLI for AI assistants and scripts: profiles, form definitions, data export, form validation, custom app authoring and publishing, and Agent Skills. All output is JSON. Access is gated by the per-profile **Local tools** settings (`localToolsEnabled`, `localToolsAllowData`, `localToolsAllowAuthoring`, `localToolsAllowPush`). Shared logic lives in `src-tauri/src/local_api/`, and the CLI is `src-tauri/src/bin/ode.rs`.
+
+The CLI writes `config.json` only for new profiles and developer-mode fields. Desktop merges those edits (`merge_external_changes`, called from `persist_config` and `sync_external_config`) and never overwrites them. See [docs/LOCAL_TOOLS.md](docs/LOCAL_TOOLS.md).
 
 ---
 

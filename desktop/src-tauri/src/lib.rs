@@ -145,6 +145,12 @@ struct ServerProfile {
     /// Local tools may access observation data and attachments (e.g. `ode data export`).
     #[serde(default)]
     local_tools_allow_data: bool,
+    /// Local tools may manage developer mode / the dev mirror (`ode app dev`, `checkout`, push dry run).
+    #[serde(default)]
+    local_tools_allow_authoring: bool,
+    /// Local tools may publish the app bundle to Synkronus (`ode app push --yes`). Requires authoring.
+    #[serde(default)]
+    local_tools_allow_push: bool,
 }
 
 fn default_true() -> bool {
@@ -519,6 +525,56 @@ struct AppCtx {
     active_sync: Mutex<Option<sync_engine::ActiveSyncHandle>>,
     /// Coalesces overlapping observation-index rebuild jobs into one run (+ optional follow-up).
     index_rebuild_gate: Mutex<IndexRebuildGate>,
+    /// Last `config.json` state seen on disk, to merge changes made by the `ode` CLI.
+    config_disk: Mutex<ConfigDiskState>,
+}
+
+struct ConfigDiskState {
+    mtime: Option<std::time::SystemTime>,
+    /// Config as last read from / written to disk (three-way merge base).
+    baseline: AppConfigFile,
+}
+
+fn config_file_mtime(path: &Path) -> Option<std::time::SystemTime> {
+    fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
+/// Caller holds `config_disk`. Merges external (CLI) edits of `config.json` into memory when the
+/// file changed since we last read/wrote it; returns whether it did. Lock order: `config_disk` →
+/// `config`.
+fn merge_external_config_locked(
+    ctx: &AppCtx,
+    disk_state: &mut ConfigDiskState,
+) -> Result<bool, CustodianError> {
+    let mtime = config_file_mtime(&ctx.config_path);
+    if mtime.is_none() || mtime == disk_state.mtime {
+        return Ok(false);
+    }
+    let disk: Option<AppConfigFile> = fs::read_to_string(&ctx.config_path)
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok());
+    // Unreadable (e.g. mid-write): retry on the next call.
+    let Some(disk) = disk else {
+        return Ok(false);
+    };
+    {
+        let mut cfg = ctx
+            .config
+            .lock()
+            .map_err(|_| CustodianError::Message("failed to lock config".to_string()))?;
+        local_api::config::merge_external_changes(&mut cfg, &disk_state.baseline, &disk);
+    }
+    disk_state.mtime = mtime;
+    disk_state.baseline = disk;
+    Ok(true)
+}
+
+fn sync_external_config_changes(ctx: &AppCtx) -> Result<bool, CustodianError> {
+    let mut disk_state = ctx
+        .config_disk
+        .lock()
+        .map_err(|_| CustodianError::Message("failed to lock config state".to_string()))?;
+    merge_external_config_locked(ctx, &mut disk_state)
 }
 
 #[derive(Default)]
@@ -870,6 +926,8 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
             last_export: None,
             local_tools_enabled: true,
             local_tools_allow_data: false,
+            local_tools_allow_authoring: false,
+            local_tools_allow_push: false,
         }],
     }
 }
@@ -898,6 +956,8 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
             last_export: None,
             local_tools_enabled: true,
             local_tools_allow_data: false,
+            local_tools_allow_authoring: false,
+            local_tools_allow_push: false,
         }],
     }
 }
@@ -2082,6 +2142,12 @@ fn read_app_bundle_state_unlocked(
 }
 
 fn persist_config(ctx: &AppCtxHandle) -> Result<(), CustodianError> {
+    let mut disk_state = ctx
+        .config_disk
+        .lock()
+        .map_err(|_| CustodianError::Message("failed to lock config state".to_string()))?;
+    // Never overwrite edits the `ode` CLI made since our last read.
+    merge_external_config_locked(ctx, &mut disk_state)?;
     let cfg = ctx
         .config
         .lock()
@@ -2091,6 +2157,8 @@ fn persist_config(ctx: &AppCtxHandle) -> Result<(), CustodianError> {
         fs::create_dir_all(parent)?;
     }
     fs::write(&ctx.config_path, serde_json::to_string_pretty(&cfg)?)?;
+    disk_state.mtime = config_file_mtime(&ctx.config_path);
+    disk_state.baseline = cfg;
     Ok(())
 }
 
@@ -2315,6 +2383,7 @@ fn upsert_observation_from_local_import(
 
 #[tauri::command]
 fn get_settings(ctx: tauri::State<'_, AppCtxHandle>) -> Result<SettingsResponse, String> {
+    sync_external_config_changes(&ctx).map_err(|e| e.to_string())?;
     let cfg = ctx
         .config
         .lock()
@@ -3683,6 +3752,12 @@ fn backup_workspace(
         Ok(out.to_string_lossy().to_string())
     })
     .map_err(|e| e.to_string())
+}
+
+/// Merge `config.json` edits made by the `ode` CLI; true when anything changed (UI should refresh).
+#[tauri::command]
+fn sync_external_config(ctx: tauri::State<'_, AppCtxHandle>) -> Result<bool, String> {
+    sync_external_config_changes(&ctx).map_err(|e| e.to_string())
 }
 
 /// Path of the bundled `ode` CLI, for agent prompts / snippet hints (`None` if not shipped).
@@ -5694,32 +5769,7 @@ async fn synk_login(
     req: SyncLoginRequest,
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<AuthSession, String> {
-    let client = reqwest::Client::new();
-    let response = client
-        .post(format!(
-            "{}/api/auth/login",
-            req.base_url.trim_end_matches('/')
-        ))
-        .header(CONTENT_TYPE, "application/json")
-        .json(&serde_json::json!({
-            "username": req.username,
-            "password": req.password
-        }))
-        .send()
-        .await
-        .map_err(|err| err.to_string())?;
-    if !response.status().is_success() {
-        return Err(format!("login failed with status {}", response.status()));
-    }
-    let payload: Value = response.json().await.map_err(|err| err.to_string())?;
-    let token = payload
-        .get("token")
-        .or_else(|| payload.get("access_token"))
-        .or_else(|| payload.get("jwt"))
-        .and_then(Value::as_str)
-        .ok_or_else(|| "login response does not contain token/access_token/jwt".to_string())?
-        .to_string();
-
+    let token = synk_login_token(&req.base_url, &req.username, &req.password).await?;
     let session = AuthSession {
         base_url: req.base_url,
         token,
@@ -5732,6 +5782,36 @@ async fn synk_login(
         *auth_guard = Some(session.clone());
     }
     Ok(session)
+}
+
+/// `POST /api/auth/login` → bearer token.
+pub(crate) async fn synk_login_token(
+    base_url: &str,
+    username: &str,
+    password: &str,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post(format!("{}/api/auth/login", base_url.trim_end_matches('/')))
+        .header(CONTENT_TYPE, "application/json")
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password
+        }))
+        .send()
+        .await
+        .map_err(|err| err.to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("login failed with status {}", response.status()));
+    }
+    let payload: Value = response.json().await.map_err(|err| err.to_string())?;
+    payload
+        .get("token")
+        .or_else(|| payload.get("access_token"))
+        .or_else(|| payload.get("jwt"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "login response does not contain token/access_token/jwt".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -5749,6 +5829,10 @@ pub fn run() {
             let ctx = Arc::new(AppCtx {
                 config_path: config_path.clone(),
                 data_dir: data_dir.clone(),
+                config_disk: Mutex::new(ConfigDiskState {
+                    mtime: config_file_mtime(&config_path),
+                    baseline: config.clone(),
+                }),
                 config: Mutex::new(config),
                 auth: Mutex::new(None),
                 workspace_sqlite_lock: Mutex::new(()),
@@ -5770,6 +5854,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             get_local_tools_cli_path,
+            sync_external_config,
             set_active_profile,
             upsert_profile,
             delete_profile,
