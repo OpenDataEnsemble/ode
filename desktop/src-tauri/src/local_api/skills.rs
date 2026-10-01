@@ -14,6 +14,22 @@ struct Skill {
 
 const SKILLS: &[Skill] = &[
     Skill {
+        name: "ode-describe-app",
+        body: include_str!("skills/ode-describe-app.md"),
+    },
+    Skill {
+        name: "ode-describe-form",
+        body: include_str!("skills/ode-describe-form.md"),
+    },
+    Skill {
+        name: "ode-describe-question",
+        body: include_str!("skills/ode-describe-question.md"),
+    },
+    Skill {
+        name: "ode-analyze-export",
+        body: include_str!("skills/ode-analyze-export.md"),
+    },
+    Skill {
         name: "ode-edit-form",
         body: include_str!("skills/ode-edit-form.md"),
     },

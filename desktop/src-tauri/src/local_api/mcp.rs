@@ -56,9 +56,13 @@ fn tool_specs() -> Vec<(&'static str, &'static str, Value, bool, bool)> {
         ),
         (
             "ode_show_form",
-            "A form's schema, UI schema, version, and field list (labels, types, coded choices, linked sub-forms) in UI order.",
+            "A form's title, version, locales, and questions in UI order: labels per locale, types, coded choices, required, skip-logic rules (readable), page/group, and linked sub-forms.",
             object_schema(
-                json!({ "profile": profile_prop(), "form_type": { "type": "string" } }),
+                json!({
+                    "profile": profile_prop(),
+                    "form_type": { "type": "string" },
+                    "include_raw": { "type": "boolean", "default": false, "description": "Also return the raw schema.json and ui.json (large; rarely needed)." }
+                }),
                 &["profile", "form_type"],
             ),
             true,
@@ -259,6 +263,7 @@ impl Server {
                 cfg,
                 arg_str(args, "profile")?,
                 arg_str(args, "form_type")?,
+                arg_bool(args, "include_raw"),
             )?)),
             "ode_export_data" => {
                 let forms = args

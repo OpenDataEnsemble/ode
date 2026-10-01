@@ -9,6 +9,7 @@ use serde_json::Value;
 
 use super::config::{LocalConfig, workspace_for};
 use super::policy::{self, Capability};
+use super::ui_info::{self, FieldRule};
 use super::{ApiError, ApiResult, ErrorCode};
 use crate::import_validate::ATTACHMENT_SCHEMA_FORMATS;
 use crate::{
@@ -136,8 +137,8 @@ pub struct FormList {
     pub forms: Vec<FormSummary>,
 }
 
-/// Leaf field from `schema.json`, derived from metadata only.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+/// Leaf field from `schema.json` (plus its `ui.json` placement), derived from metadata only.
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct FieldInfo {
     /// Dot-separated property path, e.g. `household.head_name`.
@@ -153,6 +154,19 @@ pub struct FieldInfo {
     /// Form type of sub-observations (`format: sub-observation`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub linked_form: Option<String>,
+    /// In the top-level `required` list. Conditional requirements (`if`/`then`) are not shown.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub required: bool,
+    /// Skip logic affecting the question, including rules on its page or group.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rules: Vec<FieldRule>,
+    /// Question label per locale (`default` is the base `label` in `ui.json`).
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub labels: BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -169,9 +183,15 @@ pub struct FormDetails {
     pub form_type: String,
     /// Effective form version (see [`form_version`]).
     pub version: String,
-    pub schema: Value,
-    pub ui_schema: Value,
+    pub title: Option<String>,
+    /// Locales with translations in `ui.json`.
+    pub locales: Vec<String>,
     pub fields: Vec<FieldInfo>,
+    /// Raw `schema.json` / `ui.json`, only when requested (`--raw` / `include_raw`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ui_schema: Option<Value>,
 }
 
 struct ProfileForms {
@@ -216,6 +236,7 @@ pub fn get_form_details(
     cfg: &LocalConfig,
     profile_id: &str,
     form_type: &str,
+    include_raw: bool,
 ) -> ApiResult<FormDetails> {
     let pf = profile_forms(cfg, profile_id)?;
     let spec = find_form_spec_in_roots(&pf.roots, form_type)
@@ -236,10 +257,16 @@ pub fn get_form_details(
         profile_id: pf.profile_id,
         bundle: pf.bundle,
         version: form_version(&spec.form_schema),
+        title: spec
+            .form_schema
+            .get("title")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        locales: ui_info::analyze(&spec.ui_schema).locales,
         form_type: spec.form_type,
-        schema: spec.form_schema,
-        ui_schema: spec.ui_schema,
         fields,
+        schema: include_raw.then_some(spec.form_schema),
+        ui_schema: include_raw.then_some(spec.ui_schema),
     })
 }
 
@@ -249,6 +276,24 @@ pub fn get_form_details(
 pub(crate) fn schema_fields(schema: &Value, ui_schema: &Value) -> Vec<FieldInfo> {
     let mut out = Vec::new();
     collect_fields(schema, schema, "", &mut out);
+
+    let required: Vec<&str> = schema
+        .get("required")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+    let mut ui = ui_info::analyze(ui_schema);
+    for f in &mut out {
+        f.required = required.contains(&f.path.as_str());
+        if let Some(info) = ui.fields.remove(&f.path) {
+            f.rules = info.rules;
+            f.labels = info.labels;
+            f.page = info.page;
+            f.group = info.group;
+        }
+    }
 
     let ui_order = ui_scope_paths(ui_schema);
     let rank = |path: &str| {
@@ -309,6 +354,7 @@ fn collect_fields(root: &Value, schema: &Value, prefix: &str, out: &mut Vec<Fiel
             attachment,
             choices,
             linked_form,
+            ..Default::default()
         });
     }
 }

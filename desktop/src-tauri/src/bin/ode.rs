@@ -16,7 +16,7 @@ Quick start:
   ode profiles list                             # profile ids, labels, capabilities
   ode skills list                               # step-by-step guides for common tasks
   ode forms list --profile <id|label>           # form types in the profile's bundle
-  ode forms show <form-type> --profile <id|label>  # schema, UI schema, field list
+  ode forms show <form-type> --profile <id|label>  # questions, choices, skip logic, labels
   ode forms validate <form-folder|forms-folder>  # check edits before previewing/publishing
   ode data export --profile <id|label> --form <form-type> --destination <dir>
                                                 # Parquet + manifest (needs data access)
@@ -89,13 +89,17 @@ enum FormsCmd {
         #[arg(long)]
         profile: String,
     },
-    /// Show a form's schema, UI schema, and flattened field list.
+    /// Show a form: questions in UI order with labels per locale, types, coded choices, skip
+    /// logic, pages/groups, and linked sub-forms.
     Show {
         /// Form type, as returned by `ode forms list`.
         form_type: String,
         /// Profile id or label (see `ode profiles list`).
         #[arg(long)]
         profile: String,
+        /// Also include the raw schema.json and ui.json (large).
+        #[arg(long)]
+        raw: bool,
     },
     /// Validate form files on disk: one form folder, or a forms folder (all forms in it).
     /// Exits with 1 when any form has errors; warnings do not fail.
@@ -307,9 +311,13 @@ fn run(cli: Cli) -> ApiResult<ExitCode> {
         Command::Forms(FormsCmd::List { profile }) => {
             print_json(local_api::forms::list_forms(cfg, &profile)?)
         }
-        Command::Forms(FormsCmd::Show { form_type, profile }) => print_json(
-            local_api::forms::get_form_details(cfg, &profile, &form_type)?,
-        ),
+        Command::Forms(FormsCmd::Show {
+            form_type,
+            profile,
+            raw,
+        }) => print_json(local_api::forms::get_form_details(
+            cfg, &profile, &form_type, raw,
+        )?),
         Command::Data(DataCmd::Export {
             profile,
             forms,

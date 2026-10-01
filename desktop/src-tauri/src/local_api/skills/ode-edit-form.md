@@ -7,6 +7,8 @@ description: Change an ODE form (questions, choices, skip logic, translations) o
 
 You edit files with your own tools. The `ode` CLI tells you where the files are, checks them, and publishes them. All `ode` output is JSON. Run `ode --help` for every command.
 
+Run `ode` commands one at a time, never in parallel. For example, `app dev on` rewrites Desktop's copy, which a `forms show` running at the same time would read half-updated.
+
 ## 1. Find the source folder
 
 ```sh
@@ -28,7 +30,7 @@ ode forms list --profile <id>
 ode forms show <form_type> --profile <id>
 ```
 
-`fields` lists each question in UI order, with its label, type, `choices`, and `linkedForm`. The raw `schema` and `uiSchema` hold the details, including rules and translations.
+`fields` lists each question in UI order, with its labels per locale, type, `choices`, `rules` (skip logic), `page`/`group`, and `linkedForm`. To edit, read and change the files in the source folder itself. `--raw` also returns the raw schemas, which is rarely needed.
 
 ## 3. Make the change
 

@@ -277,7 +277,17 @@ fn checkout_push_dry_run_and_permission_gates() {
 fn skills_list_show_and_install() {
     let list = skills::list();
     let names: Vec<_> = list.iter().map(|s| s.name).collect();
-    assert_eq!(names, ["ode-edit-form", "ode-new-project"]);
+    assert_eq!(
+        names,
+        [
+            "ode-describe-app",
+            "ode-describe-form",
+            "ode-describe-question",
+            "ode-analyze-export",
+            "ode-edit-form",
+            "ode-new-project"
+        ]
+    );
     assert!(list.iter().all(|s| !s.description.is_empty()));
     assert!(
         skills::show("ode-new-project")
@@ -288,9 +298,9 @@ fn skills_list_show_and_install() {
 
     let dest = temp_base("skills");
     let first = skills::install(&dest, false).unwrap();
-    assert_eq!(first.installed.len(), 2);
+    assert_eq!(first.installed.len(), names.len());
     let again = skills::install(&dest, false).unwrap();
-    assert_eq!(again.unchanged.len(), 2);
+    assert_eq!(again.unchanged.len(), names.len());
     let edited = dest.join("ode-edit-form/SKILL.md");
     fs::write(&edited, "my notes").unwrap();
     assert_eq!(skills::install(&dest, false).unwrap().skipped.len(), 1);

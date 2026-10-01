@@ -252,12 +252,15 @@ fn lists_active_and_dev_local_forms() {
     assert_eq!(dev.forms.len(), 1);
     assert_eq!(dev.forms[0].form_type, "draft_form");
 
-    let details = get_form_details(&cfg, "dev", "draft_form").unwrap();
+    let details = get_form_details(&cfg, "dev", "draft_form", false).unwrap();
     assert_eq!(details.fields[0].path, "name");
+    assert!(details.schema.is_none() && details.ui_schema.is_none());
+    let raw = get_form_details(&cfg, "dev", "draft_form", true).unwrap();
+    assert!(raw.schema.is_some() && raw.ui_schema.is_some());
 
-    let err = get_form_details(&cfg, "dev", "household").unwrap_err();
+    let err = get_form_details(&cfg, "dev", "household", false).unwrap_err();
     assert_eq!(err.code, ErrorCode::FormNotFound);
-    let err = get_form_details(&cfg, "dev", "../secret").unwrap_err();
+    let err = get_form_details(&cfg, "dev", "../secret", false).unwrap_err();
     assert_eq!(err.code, ErrorCode::InvalidArgument);
 }
 
@@ -284,8 +287,7 @@ fn schema_fields_flattens_objects_and_keeps_attachments_as_leaves() {
             title: Some("Age".into()),
             format: None,
             attachment: false,
-            choices: None,
-            linked_form: None,
+            ..Default::default()
         })
     );
     assert!(get("pic").unwrap().attachment);
@@ -334,4 +336,67 @@ fn schema_fields_include_choices_links_and_follow_ui_order() {
     assert_eq!(get("rooms").linked_form.as_deref(), Some("room"));
     assert_eq!(get("count").choices.as_ref().unwrap()[0].value, json!(88));
     assert!(get("a_unused").choices.is_none());
+}
+
+#[test]
+fn schema_fields_describe_rules_labels_and_placement() {
+    let schema = json!({
+        "required": ["consent"],
+        "properties": {
+            "consent": { "type": "string" },
+            "age": { "type": "integer" },
+            "reason": { "type": "string" },
+            "nets": { "type": "integer" }
+        }
+    });
+    let ui = json!({ "type": "SwipeLayout", "translations": { "fr": {} }, "elements": [
+        { "type": "VerticalLayout", "elements": [
+            { "type": "Control", "scope": "#/properties/consent", "label": "Consent?",
+              "translations": { "pt": { "label": "Consentimento?" } } },
+            { "type": "Control", "scope": "#/properties/reason",
+              "rule": { "effect": "SHOW", "condition": { "scope": "#/properties/consent", "schema": { "const": "2" } } } }
+        ] },
+        { "type": "Group", "label": "Household",
+          "rule": { "effect": "SHOW", "condition": { "scope": "#/properties/consent", "schema": { "const": "1" } } },
+          "elements": [
+            { "type": "Control", "scope": "#/properties/age" },
+            { "type": "Control", "scope": "#/properties/nets",
+              "rule": { "effect": "HIDE", "condition": { "type": "OR", "conditions": [
+                  { "scope": "#/properties/age", "schema": { "type": "integer", "maximum": 0 } },
+                  { "type": "AND", "conditions": [
+                      { "scope": "#/properties/reason", "schema": { "minLength": 1 } },
+                      { "scope": "#/properties/consent", "schema": { "enum": ["1", "3"] } }
+                  ] }
+              ] } } }
+        ] }
+    ] });
+    let fields = schema_fields(&schema, &ui);
+    let get = |p: &str| fields.iter().find(|f| f.path == p).unwrap();
+
+    let consent = get("consent");
+    assert!(consent.required && consent.rules.is_empty());
+    assert_eq!(consent.page, Some(1));
+    assert_eq!(consent.labels["default"], "Consent?");
+    assert_eq!(consent.labels["pt"], "Consentimento?");
+
+    assert_eq!(get("reason").rules[0].when, "consent == \"2\"");
+    assert_eq!(get("reason").rules[0].on, None);
+
+    let age = get("age");
+    assert_eq!(
+        (age.page, age.group.as_deref()),
+        (Some(2), Some("Household"))
+    );
+    assert_eq!(age.rules[0].on.as_deref(), Some("Household"));
+
+    let nets = get("nets");
+    assert_eq!(nets.rules.len(), 2);
+    assert_eq!(nets.rules[1].effect, "HIDE");
+    assert_eq!(
+        nets.rules[1].when,
+        "age <= 0 or (reason is not empty and consent in [\"1\",\"3\"])"
+    );
+
+    let locales = super::ui_info::analyze(&ui).locales;
+    assert_eq!(locales, ["fr", "pt"]);
 }

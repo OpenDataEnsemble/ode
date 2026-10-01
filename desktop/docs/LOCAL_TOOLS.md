@@ -70,9 +70,9 @@ All output is JSON on stdout and includes `"schemaVersion": 1`. The exit code is
 }
 ```
 
-### `ode forms show <form-type> --profile <id>`
+### `ode forms show <form-type> --profile <id> [--raw]`
 
-Returns the raw `schema` (`schema.json`), `uiSchema` (`ui.json`), and `fields`, a flattened list of leaf fields derived only from the schema.
+Returns the form's `title`, `version`, translated `locales`, and `fields`: the questions in UI order, with their labels, choices, skip logic, and placement. The raw `schema` (`schema.json`) and `uiSchema` (`ui.json`) are only included with `--raw` (MCP: `include_raw: true`). They're large and rarely needed.
 
 ```json
 {
@@ -80,8 +80,9 @@ Returns the raw `schema` (`schema.json`), `uiSchema` (`ui.json`), and `fields`, 
   "profileId": "…",
   "bundle": "active",
   "formType": "household",
-  "schema": {},
-  "uiSchema": {},
+  "title": "Household",
+  "version": "2",
+  "locales": ["pt"],
   "fields": [
     {
       "path": "head.age",
@@ -99,7 +100,23 @@ Returns the raw `schema` (`schema.json`), `uiSchema` (`ui.json`), and `fields`, 
       "choices": [
         { "value": "1", "label": "Yes" },
         { "value": "2", "label": "No" }
-      ]
+      ],
+      "required": true,
+      "labels": { "default": "Consent?", "pt": "Consentimento?" },
+      "page": 1
+    },
+    {
+      "path": "nets",
+      "type": "integer",
+      "title": "Nets",
+      "format": null,
+      "attachment": false,
+      "rules": [
+        { "effect": "SHOW", "when": "consent == \"1\"", "on": "Household" },
+        { "effect": "SHOW", "when": "has_net == \"1\"" }
+      ],
+      "page": 2,
+      "group": "Household"
     },
     {
       "path": "rooms",
@@ -119,6 +136,12 @@ How `fields` is built:
 - **Nesting:** nested objects are flattened to dot-separated paths. Attachment fields (`photo`, `audio`, `video`, `signature`, `select_file`) and arrays are reported as single leaves.
 - **`choices`** (when present) lists the coded values from `enum`, or the `const`/`title` entries of `oneOf`/`anyOf`. Local `$ref`s such as `#/$defs/yes_no` are followed. For arrays (multi-select), choices are taken from `items`.
 - **`linkedForm`** (when present) is the form type of a sub-observation field. Use it to join exported child tables to their parent table.
+- **`rules`:** the skip logic that affects the question. A rule with `on` sits on the enclosing page or group (named by its label, or `page N`). `when` is readable text built from the condition: `==`, `in`, `>=`, `is not empty`, `and`, `or`, and `not`. Conditions it can't express are shown as `<path> matches <schema>`.
+- **`labels`:** from `ui.json`. `default` is the base `label`, plus one entry per `translations` locale. If a question has no UI label, use `title`.
+- **`required`:** the field is in the top-level `required` list. Requirements in `if`/`then` aren't reflected.
+- **`page` / `group`:** the 1-based page in a `SwipeLayout` root, and the nearest labelled layout.
+
+The export manifest's `fields` contain the same information.
 
 ### `ode data export --profile <id> --form <form-type> --destination <dir>`
 

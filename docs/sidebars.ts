@@ -103,6 +103,7 @@ const sidebars: SidebarsConfig = {
             'guides/dynamic-choice-lists',
             'guides/observation-queries',
             'guides/ode-desktop-developer-mode',
+            'guides/ai-agents',
             'guides/custom-extensions',
             'guides/custom-question-types',
             'guides/server-architecture-for-it',

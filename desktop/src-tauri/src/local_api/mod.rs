@@ -13,6 +13,7 @@ pub mod mcp;
 pub mod policy;
 pub mod profiles;
 pub mod skills;
+pub mod ui_info;
 pub mod validate;
 
 #[cfg(test)]

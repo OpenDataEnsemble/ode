@@ -1074,10 +1074,7 @@ mod tests {
             path: "meta.x".into(),
             json_type: Some("integer".into()),
             title: Some("X".into()),
-            format: None,
-            attachment: false,
-            choices: None,
-            linked_form: None,
+            ..Default::default()
         };
         let result = write_parquet_export(
             &ws,
