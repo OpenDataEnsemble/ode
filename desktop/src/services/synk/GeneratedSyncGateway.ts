@@ -90,7 +90,7 @@ function mapObservationToOpenApi(observation: ObservationRecord): Observation {
     data: payloadObject,
     created_at: createdAt,
     updated_at: updatedAt,
-    deleted: x?.deleted ?? false,
+    deleted: observation.deleted,
     synced_at: x?.syncedAt ? parseMaybeDate(x.syncedAt) : null,
     geolocation: geo,
     author: x?.author ?? null,

@@ -42,10 +42,7 @@ function metaColumnSql(
     return dialect === 'formulus' ? `${alias}.observation_id` : `${alias}.id`;
   }
   if (field === 'deleted') {
-    if (dialect === 'formulus') {
-      return `${alias}.deleted`;
-    }
-    return `COALESCE(json_extract(${alias}.observation_extras, '$.deleted'), 0)`;
+    return `${alias}.deleted`;
   }
   return `${alias}.${field}`;
 }
@@ -301,13 +298,7 @@ export function compileObservationQuery(
   }
 
   if (!options.includeDeleted) {
-    if (dialect === 'formulus') {
-      whereParts.push(`${alias}.deleted = 0`);
-    } else {
-      whereParts.push(
-        `COALESCE(json_extract(${alias}.observation_extras, '$.deleted'), 0) = 0`,
-      );
-    }
+    whereParts.push(`${alias}.deleted = 0`);
   }
 
   if (options.filter) {

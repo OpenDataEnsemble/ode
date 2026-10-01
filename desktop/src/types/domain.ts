@@ -37,6 +37,8 @@ export interface ObservationRecord {
   hasConflictCopy: boolean;
   lastSavedAt: string;
   lastPushedAt?: string | null;
+  /** Authoritative local tombstone flag; mirrored in `extras.deleted` for envelope compatibility. */
+  deleted: boolean;
   extras?: ObservationExtras | null;
 }
 
