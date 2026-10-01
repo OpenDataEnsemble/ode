@@ -2,7 +2,7 @@
 
 The ODE documentation site, built with [Docusaurus](https://docusaurus.io/) and published at [opendataensemble.org](https://opendataensemble.org/).
 
-This site lives in the [`OpenDataEnsemble/ode`](https://github.com/OpenDataEnsemble/ode) monorepo under `docs/`. It is an independent **npm** project — the rest of the monorepo uses **pnpm**, so run npm commands from this directory.
+This site lives in the [`OpenDataEnsemble/ode`](https://github.com/OpenDataEnsemble/ode) monorepo under `docs/`. Like the other JavaScript projects in the monorepo, it uses **pnpm**. Run the commands below from this directory.
 
 ## Layout
 
@@ -13,14 +13,14 @@ This site lives in the [`OpenDataEnsemble/ode`](https://github.com/OpenDataEnsem
 | `docusaurus.config.ts` | Site config: navbar, footer, routing, plugins |
 | `sidebars.ts` | Sidebar structure (persona-based: For Data Collectors / For Implementers / For Developers) |
 | `plugins/` | Remark/rehype link fixups |
-| `scripts/validate-docs.ts` | Fast validation run by `npm run test` |
+| `scripts/validate-docs.ts` | Fast validation run by `pnpm run test` |
 | `src/` | Custom React components, theme overrides, and the `/downloads` page |
 
 ## Local development
 
 ```bash
-npm install
-npm start
+pnpm install
+pnpm start
 ```
 
 Starts a dev server with hot reload. The site is served at `/`, documentation under `/docs`.
@@ -30,12 +30,12 @@ Starts a dev server with hot reload. The site is served at `/`, documentation un
 Run these before opening a PR — the CI workflow runs the same commands.
 
 ```bash
-npm run test      # fast: docId references, internal links, config paths
-npm run build     # full: compiles every page, fails on broken links
-npm run validate  # both of the above
+pnpm run test      # fast: docId references, internal links, config paths
+pnpm run build     # full: compiles every page, fails on broken links
+pnpm run validate  # both of the above
 ```
 
-`npm run build` is the real gate: the site is configured with `onBrokenLinks: 'throw'`, so a broken internal link fails the build rather than shipping.
+`pnpm run build` is the real gate: the site is configured with `onBrokenLinks: 'throw'`, so a broken internal link fails the build rather than shipping.
 
 ## Deployment
 
