@@ -99,7 +99,7 @@ android {
         applicationId = "org.opendataensemble.formulus"
         minSdk = rootProject.ext.minSdkVersion
         targetSdk = rootProject.ext.targetSdkVersion
-        versionCode = 108
+        versionCode = 112
         versionName = "1.4.0"
 
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", (findProperty("newArchEnabled") ?: "false").toString()
