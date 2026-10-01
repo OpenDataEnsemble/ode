@@ -22,12 +22,13 @@ sequenceDiagram
   FM->>FM: commitDraftAttachmentsAfterSave
   FM->>DB: saveObservation → obs_1712_4410
   Note over DB: synced_at stays null, so the row is pending
+  FM->>SK: POST /api/sync/pull
+  SK-->>FM: records, change_cutoff, has_more
+  FM->>DB: applyServerChanges
   FM->>SK: POST /api/sync/push
   SK->>SK: ProcessPushedRecords, one upsert per record
   SK-->>FM: current_version
   FM->>DB: markObservationsAsSynced
-  FM->>SK: POST /api/sync/pull
-  SK-->>FM: records, change_cutoff, has_more
 ```
 
 ## Where each step lives
@@ -40,10 +41,19 @@ sequenceDiagram
 | 4 | Receive it natively | Formulus | [`FormulusMessageHandlers.ts`](https://github.com/OpenDataEnsemble/ode/blob/dev/formulus/src/webview/FormulusMessageHandlers.ts) — `onSubmitObservation` delegates to the active session |
 | 5 | Commit draft files, then write | Formulus | [`FormplayerModal.tsx`](https://github.com/OpenDataEnsemble/ode/blob/dev/formulus/src/components/FormplayerModal.tsx) — `handleSubmission`, then [`attachmentStorage.ts`](https://github.com/OpenDataEnsemble/ode/blob/dev/formulus/src/services/attachmentStorage.ts) — `persistObservationWithAttachments` |
 | 6 | Create the local row | Formulus | [`WatermelonDBRepo.ts`](https://github.com/OpenDataEnsemble/ode/blob/dev/formulus/src/database/repositories/WatermelonDBRepo.ts) — `saveObservation`; table shape in [`schema.ts`](https://github.com/OpenDataEnsemble/ode/blob/dev/formulus/src/database/schema.ts) |
-| 7 | Push a batch | Formulus | [`SyncService.ts`](https://github.com/OpenDataEnsemble/ode/blob/dev/formulus/src/services/SyncService.ts) — `syncObservations`, and [`api/synkronus/index.ts`](https://github.com/OpenDataEnsemble/ode/blob/dev/formulus/src/api/synkronus/index.ts) for the HTTP call |
-| 8 | Apply the batch | Synkronus | [`handlers/sync.go`](https://github.com/OpenDataEnsemble/ode/blob/dev/synkronus/internal/handlers/sync.go) — `Push`; [`pkg/sync/service.go`](https://github.com/OpenDataEnsemble/ode/blob/dev/synkronus/pkg/sync/service.go) — `ProcessPushedRecords` |
-| 9 | Pull, then apply | Synkronus → Formulus | `GetRecordsSinceVersion` in the same service file, then `applyServerChanges` in `WatermelonDBRepo.ts` |
+| 7 | Pull first, then push | Formulus | [`SyncService.ts`](https://github.com/OpenDataEnsemble/ode/blob/dev/formulus/src/services/SyncService.ts) — `syncObservations`, which orders the two in [`api/synkronus/index.ts`](https://github.com/OpenDataEnsemble/ode/blob/dev/formulus/src/api/synkronus/index.ts) — `syncObservationsImpl` awaits `pullObservations` before `pushObservations` |
+| 8 | Pull the server's changes | Synkronus → Formulus | `GetRecordsSinceVersion` in [`pkg/sync/service.go`](https://github.com/OpenDataEnsemble/ode/blob/dev/synkronus/pkg/sync/service.go), then `applyServerChanges` in `WatermelonDBRepo.ts` |
+| 9 | Push a batch, server upserts | Formulus → Synkronus | [`handlers/sync.go`](https://github.com/OpenDataEnsemble/ode/blob/dev/synkronus/internal/handlers/sync.go) — `Push`, then `ProcessPushedRecords` in the service file above |
 | 10 | Export | Synkronus | [`pkg/dataexport/service.go`](https://github.com/OpenDataEnsemble/ode/blob/dev/synkronus/pkg/dataexport/service.go) — `ExportParquetZip` and `ExportRawJSONZip` |
+
+## A sync pulls before it pushes
+
+Step 7 is not an arbitrary order. `syncObservationsImpl` awaits
+`pullObservations` and only then `pushObservations`, so a device reconciles
+against fresh server state before it offers its own changes. ODE Desktop drives
+the two as separate operations — `synkPull` and `synkPush` in
+[`useCustodianStore.ts`](https://github.com/OpenDataEnsemble/ode/blob/dev/desktop/src/store/useCustodianStore.ts)
+— which leaves its UI free to sequence them.
 
 ## What changes when the device is offline
 
