@@ -156,6 +156,7 @@ const sidebars: SidebarsConfig = {
         'developer/developer-getting-started',
         'development/quick-start',
         'development/architecture',
+        'development/observation-journey',
         'development/setup',
         'development/building-testing',
         'development/contributing',
