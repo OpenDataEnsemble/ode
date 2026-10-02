@@ -238,10 +238,6 @@ fn infer_col_kind(values: &[&Value]) -> ColKind {
     }
 }
 
-fn extras_deleted(extras: &Option<ObservationExtras>) -> bool {
-    extras.as_ref().and_then(|e| e.deleted).unwrap_or(false)
-}
-
 struct DbExportCandidate {
     id: String,
     payload: Value,
@@ -253,13 +249,7 @@ struct DbExportCandidate {
     extras: Option<ObservationExtras>,
 }
 
-fn row_from_db(c: DbExportCandidate) -> Option<ExportRow> {
-    if c.sync_status == "conflict" {
-        return None;
-    }
-    if extras_deleted(&c.extras) {
-        return None;
-    }
+fn row_from_db(c: DbExportCandidate) -> ExportRow {
     let form_type = c
         .form_type
         .filter(|s| !s.trim().is_empty())
@@ -297,7 +287,7 @@ fn row_from_db(c: DbExportCandidate) -> Option<ExportRow> {
         .into_iter()
         .map(|(k, v)| (k, json_value_to_export_cell(&v)))
         .collect();
-    Some(ExportRow {
+    ExportRow {
         observation_id: c.id,
         form_type,
         form_version,
@@ -313,7 +303,7 @@ fn row_from_db(c: DbExportCandidate) -> Option<ExportRow> {
         pending,
         data,
         raw_payload: c.payload,
-    })
+    }
 }
 
 /// Load exportable rows; `form_types` empty means all forms.
@@ -322,23 +312,25 @@ pub(crate) fn load_export_rows(
     include_pending: bool,
     form_types: &[String],
 ) -> Result<Vec<ExportRow>, CustodianError> {
-    let sql = if include_pending {
+    let mut sql = String::from(
         "SELECT id, payload, form_type, updated_at, dirty, sync_status, last_saved_at, observation_extras
          FROM observations
-         WHERE sync_status != 'conflict'
-         ORDER BY COALESCE(form_type, ''), id"
-    } else {
-        "SELECT id, payload, form_type, updated_at, dirty, sync_status, last_saved_at, observation_extras
-         FROM observations
-         WHERE sync_status != 'conflict' AND dirty = 0
-         ORDER BY COALESCE(form_type, ''), id"
-    };
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map([], |row| {
+         WHERE deleted = 0 AND sync_status != 'conflict'",
+    );
+    if !include_pending {
+        sql.push_str(" AND dirty = 0");
+    }
+    if !form_types.is_empty() {
+        let placeholders = vec!["?"; form_types.len()].join(", ");
+        sql.push_str(&format!(" AND form_type IN ({placeholders})"));
+    }
+    sql.push_str(" ORDER BY COALESCE(form_type, ''), id");
+
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(form_types.iter()), |row| {
         let payload_raw: String = row.get(1)?;
         let payload = serde_json::from_str::<Value>(&payload_raw).unwrap_or(Value::Null);
         let dirty: i64 = row.get(4)?;
-        let sync_status: String = row.get(5)?;
         let extras_raw: Option<String> = row.get(7)?;
         let extras = extras_raw.and_then(|s| {
             let t = s.trim();
@@ -354,7 +346,7 @@ pub(crate) fn load_export_rows(
             row.get::<_, Option<String>>(2)?,
             row.get::<_, Option<String>>(3)?,
             dirty == 1,
-            sync_status,
+            row.get::<_, String>(5)?,
             row.get::<_, String>(6)?,
             extras,
         ))
@@ -363,14 +355,7 @@ pub(crate) fn load_export_rows(
     let mut out = Vec::new();
     for row in rows {
         let (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at, extras) = row?;
-        if !form_types.is_empty()
-            && !form_type
-                .as_deref()
-                .is_some_and(|ft| form_types.iter().any(|t| t == ft))
-        {
-            continue;
-        }
-        if let Some(r) = row_from_db(DbExportCandidate {
+        out.push(row_from_db(DbExportCandidate {
             id,
             payload,
             form_type,
@@ -379,9 +364,7 @@ pub(crate) fn load_export_rows(
             sync_status,
             last_saved_at,
             extras,
-        }) {
-            out.push(r);
-        }
+        }));
     }
     Ok(out)
 }
@@ -1000,7 +983,8 @@ mod tests {
                 conflict_payload TEXT,
                 last_saved_at TEXT NOT NULL,
                 last_pushed_at TEXT,
-                observation_extras TEXT
+                observation_extras TEXT,
+                deleted INTEGER NOT NULL DEFAULT 0
             );
             "#,
         )
@@ -1025,6 +1009,53 @@ mod tests {
         let e = json!(true);
         let f = json!(false);
         assert_eq!(infer_col_kind(&[&e, &f]), ColKind::Boolean);
+    }
+
+    #[test]
+    fn load_export_rows_filters_in_sql() {
+        let conn = setup_db();
+        for (id, form_type, deleted, dirty, sync_status) in [
+            ("requested-clean", "person", 0, 0, "clean"),
+            ("requested-pending", "person", 0, 1, "dirty"),
+            ("requested-deleted", "person", 1, 0, "clean"),
+            ("requested-conflict", "person", 0, 1, "conflict"),
+            ("unrequested-clean", "household", 0, 0, "clean"),
+        ] {
+            conn.execute(
+                "INSERT INTO observations (
+                    id, payload, form_type, updated_at, dirty, sync_status,
+                    last_saved_at, observation_extras, deleted
+                 ) VALUES (?1, '{}', ?2, '2026-01-01T00:00:00Z', ?3, ?4,
+                    '2026-01-01T00:00:00Z', '{}', ?5)",
+                params![id, form_type, dirty, sync_status, deleted],
+            )
+            .unwrap();
+        }
+
+        let requested = vec!["person".to_string()];
+        let rows = load_export_rows(&conn, false, &requested).unwrap();
+        assert_eq!(
+            rows.iter()
+                .map(|row| row.observation_id.as_str())
+                .collect::<Vec<_>>(),
+            ["requested-clean"]
+        );
+
+        let rows = load_export_rows(&conn, true, &requested).unwrap();
+        assert_eq!(
+            rows.iter()
+                .map(|row| row.observation_id.as_str())
+                .collect::<Vec<_>>(),
+            ["requested-clean", "requested-pending"]
+        );
+
+        let rows = load_export_rows(&conn, true, &[]).unwrap();
+        assert_eq!(
+            rows.iter()
+                .map(|row| row.observation_id.as_str())
+                .collect::<Vec<_>>(),
+            ["unrequested-clean", "requested-clean", "requested-pending"]
+        );
     }
 
     #[test]

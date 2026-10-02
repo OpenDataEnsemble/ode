@@ -88,6 +88,54 @@ describe('ObservationQueryCompiler form_type wildcard', () => {
   });
 });
 
+describe('ObservationQueryCompiler deleted column', () => {
+  it('uses the first-class Desktop deleted column for live-row filtering', () => {
+    const result = compileObservationQuery({
+      dialect: 'desktop',
+      jsonColumn: 'payload',
+      indexKeys: new Set<string>(),
+      formType: 'household',
+      includeDeleted: false,
+    });
+
+    expect('sql' in result).toBe(true);
+    if (!('sql' in result)) return;
+    expect(result.sql).toContain('o.deleted = 0');
+    expect(result.sql).not.toContain('observation_extras');
+  });
+
+  it('omits the deleted predicate when Desktop queries include deleted rows', () => {
+    const result = compileObservationQuery({
+      dialect: 'desktop',
+      jsonColumn: 'payload',
+      indexKeys: new Set<string>(),
+      formType: 'household',
+      includeDeleted: true,
+    });
+
+    expect('sql' in result).toBe(true);
+    if (!('sql' in result)) return;
+    expect(result.sql).not.toContain('o.deleted = 0');
+    expect(result.sql).not.toContain('observation_extras');
+  });
+
+  it('uses the first-class Desktop deleted column in metadata filters', () => {
+    const result = compileObservationQuery({
+      dialect: 'desktop',
+      jsonColumn: 'payload',
+      indexKeys: new Set<string>(),
+      includeDeleted: true,
+      filter: { field: 'deleted', op: 'eq', value: true },
+    });
+
+    expect('sql' in result).toBe(true);
+    if (!('sql' in result)) return;
+    expect(result.sql).toContain('o.deleted = ?');
+    expect(result.sql).not.toContain('observation_extras');
+    expect(result.params).toEqual([true]);
+  });
+});
+
 describe('ObservationQueryCompiler fixtures', () => {
   const fixtures = loadFixtures();
 

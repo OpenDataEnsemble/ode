@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::Connection;
 use serde::Serialize;
 
 use super::config::{LocalConfig, workspace_for};
@@ -14,7 +14,7 @@ use super::{ApiError, ApiResult, ErrorCode, hint_lines};
 use crate::data_export::{
     ExportContext, ExportParquetRequest, ExportProgressFn, load_export_rows, write_parquet_export,
 };
-use crate::{ServerProfile, sqlite_path_for_workspace};
+use crate::{ServerProfile, init_db, sqlite_path_for_workspace};
 
 /// Manifest field metadata + snippet hint for exports of `profile` (Desktop UI and CLI).
 pub(crate) fn export_context(profile: &ServerProfile, workspace: &Path) -> ExportContext {
@@ -60,7 +60,7 @@ fn io(profile_id: &str, message: impl Into<String>) -> ApiError {
     ApiError::new(ErrorCode::Io, message).with_profile(profile_id)
 }
 
-fn open_read_only(workspace: &Path, profile_id: &str) -> ApiResult<Connection> {
+fn open_database(workspace: &Path, profile_id: &str) -> ApiResult<Connection> {
     let path = sqlite_path_for_workspace(workspace);
     if !path.is_file() {
         return Err(ApiError::new(
@@ -69,11 +69,7 @@ fn open_read_only(workspace: &Path, profile_id: &str) -> ApiResult<Connection> {
         )
         .with_profile(profile_id));
     }
-    let conn = Connection::open_with_flags(
-        &path,
-        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .map_err(|e| {
+    let conn = Connection::open(&path).map_err(|e| {
         io(
             profile_id,
             format!("Could not open the local database: {e}"),
@@ -81,6 +77,12 @@ fn open_read_only(workspace: &Path, profile_id: &str) -> ApiResult<Connection> {
     })?;
     conn.busy_timeout(Duration::from_secs(30))
         .map_err(|e| io(profile_id, e.to_string()))?;
+    init_db(&conn).map_err(|e| {
+        io(
+            profile_id,
+            format!("Could not migrate the local database: {e}"),
+        )
+    })?;
     Ok(conn)
 }
 
@@ -125,7 +127,7 @@ pub fn export_parquet(
 
     progress(0, 1, "Reading observations…");
     let rows = {
-        let conn = open_read_only(&workspace, id)?;
+        let conn = open_database(&workspace, id)?;
         load_export_rows(&conn, opts.include_pending, &form_types)
             .map_err(|e| io(id, e.to_string()))?
     };

@@ -225,7 +225,7 @@ fn observation_to_push_json(o: &crate::ObservationRecord) -> Value {
         "data": o.payload.clone(),
         "created_at": created_at,
         "updated_at": updated_at,
-        "deleted": ex.and_then(|e| e.deleted).unwrap_or(false),
+        "deleted": o.deleted,
         "synced_at": ex.and_then(|e| e.synced_at.clone()),
         "geolocation": ex.and_then(|e| e.geolocation.clone()),
         "author": ex.and_then(|e| e.author.clone()),
