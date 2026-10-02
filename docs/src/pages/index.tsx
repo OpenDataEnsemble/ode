@@ -5,7 +5,6 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import Newsletter from '@site/src/components/Newsletter';
-import AnnouncementBanner from '@site/src/components/AnnouncementBanner';
 import Heading from '@theme/Heading';
 
 import styles from './index.module.css';
@@ -30,7 +29,6 @@ export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout title={siteConfig.title} description={siteConfig.tagline}>
-      <AnnouncementBanner />
       <HomepageHeader />
       <main>
         {/* Main Description Section */}
