@@ -2,6 +2,7 @@ import { initReactI18next } from 'react-i18next';
 import en from '../locales/en.json';
 import pt from '../locales/pt.json';
 import fr from '../locales/fr.json';
+import sw from '../locales/sw.json';
 import { localeSettingsService } from '../services/LocaleSettingsService';
 import { i18n } from './instance';
 
@@ -9,6 +10,7 @@ const resources = {
   en: { translation: en },
   pt: { translation: pt },
   fr: { translation: fr },
+  sw: { translation: sw },
 };
 
 let initPromise: Promise<typeof i18n> | null = null;

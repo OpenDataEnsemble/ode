@@ -3,6 +3,7 @@ import type { JsonFormsI18nState, Translator } from '@jsonforms/core';
 import en from '../locales/en.json';
 import pt from '../locales/pt.json';
 import fr from '../locales/fr.json';
+import sw from '../locales/sw.json';
 import type { OdeUiLocale } from './localeUtils';
 
 type Catalog = Record<string, string>;
@@ -11,6 +12,7 @@ const CATALOGS: Record<OdeUiLocale, Catalog> = {
   en: en as Catalog,
   pt: pt as Catalog,
   fr: fr as Catalog,
+  sw: sw as Catalog,
 };
 
 /** Simple {{key}} interpolation for catalog strings. */
