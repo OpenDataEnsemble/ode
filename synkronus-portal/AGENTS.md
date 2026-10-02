@@ -30,6 +30,7 @@ From `synkronus-portal/`: `pnpm install`, `pnpm run dev`, `pnpm run lint`, `pnpm
 
 ```bash
 pnpm run lint
+pnpm run test
 pnpm run format
 pnpm run format:check
 ```
