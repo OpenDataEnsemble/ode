@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@babel/runtime':
-        specifier: ^7.28.0
-        version: 7.29.7
+        specifier: ^8.0.0
+        version: 8.0.5
       '@ode/tokens':
         specifier: file:../tokens
         version: file:../tokens
@@ -106,6 +106,9 @@ packages:
   '@babel/runtime@7.29.7':
     resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
     engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@8.0.5':
+    resolution: {integrity: sha512-7NK+Lz3spQ52XsUGTxIEVU4jYN2/dIaX8sTxRFAUtYmttYZnVh3aehiihv+/Gb7+duMNHl2OrFcBQRyOHScxpg==}
 
   '@babel/template@7.28.6':
     resolution: {integrity: sha512-YA6Ma2KsCdGb+WC6UpBVFJGXL58MDA6oyONbjyF/+5sBgxY/dwkhLogbMT2GXXyU84/IhRw/2D1Os1B/giz+BQ==}
@@ -1481,6 +1484,8 @@ snapshots:
       '@babel/types': 7.29.0
 
   '@babel/runtime@7.29.7': {}
+
+  '@babel/runtime@8.0.5': {}
 
   '@babel/template@7.28.6':
     dependencies:
