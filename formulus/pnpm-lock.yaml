@@ -227,7 +227,7 @@ importers:
         specifier: ^19.1.0
         version: 19.1.0
       baseline-browser-mapping:
-        specifier: ^2.11.18
+        specifier: ^2.11.0
         version: 2.11.18
       eslint:
         specifier: ^9.39.5
