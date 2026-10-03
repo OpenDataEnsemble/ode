@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 0
 
       - name: Detect changed components
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
           filters: |
