@@ -61,7 +61,7 @@ RUN echo "Building Synkronus with version: ${SYNKRONUS_VERSION}" && \
     go build -a -ldflags="-w -s -X github.com/opendataensemble/synkronus/pkg/version.version=${SYNKRONUS_VERSION}" -o synkronus ./cmd/synkronus
 
 # Stage 3: Minimal runtime image — single Go server (API + portal)
-FROM alpine:3.23
+FROM alpine:3.24
 
 RUN apk --no-cache add ca-certificates tzdata wget
 
