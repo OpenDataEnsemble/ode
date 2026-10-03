@@ -122,7 +122,7 @@ jobs:
 
       - name: Build image with Buildah
         id: build-image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@719e3c40d8af9790c23eca13f7daa339f2867034 # v3
         with:
           image: ${{ env.IMAGE_NAME }}
           tags: ${{ steps.meta.outputs.tag-names }}
@@ -186,7 +186,7 @@ jobs:
 
       - name: Build image with Buildah
         id: build-image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@719e3c40d8af9790c23eca13f7daa339f2867034 # v3
         with:
           image: ${{ env.IMAGE_NAME }}
           tags: ${{ steps.meta.outputs.tag-names }}
