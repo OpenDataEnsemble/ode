@@ -29,6 +29,21 @@ import { FormInitData } from './src/webview/FormulusInterfaceDefinition.ts';
 import { FormSpec } from './src/services';
 import { initFormulusI18n, i18n } from './src/i18n';
 import { DirtyExitGate } from './src/diagnostics/DirtyExitGate';
+import type { LinkingOptions } from '@react-navigation/native';
+import type { MainAppStackParamList } from './src/navigation/ProfileNavigationTypes';
+
+const linking: LinkingOptions<MainAppStackParamList> = {
+  prefixes: ['formulus://'],
+  config: {
+    screens: {
+      MainApp: {
+        screens: {
+          Profiles: 'settings',
+        },
+      },
+    },
+  },
+};
 
 /**
  * Inner component that consumes the AppTheme context to build a dynamic
@@ -276,7 +291,7 @@ function AppInner(): React.JSX.Element {
         backgroundColor={themeColors.surface}
       />
       <DirtyExitGate />
-      <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer theme={navigationTheme} linking={linking}>
         <MainAppNavigator />
         {formplayerStack.map((entry, index) => (
           <FormplayerModal

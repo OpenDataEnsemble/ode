@@ -1,6 +1,23 @@
 import { decodeFRMLS } from '../utils/FRMLSHelpers';
 import { normalizeServerUrl } from './normalizeServerUrl';
 
+const FORMULUS_SETTINGS_URL = 'formulus://settings';
+
+function unwrapQRCode(qrString: string): string {
+  if (qrString.startsWith('FRMLS:')) return qrString;
+
+  const prefix = `${FORMULUS_SETTINGS_URL}?payload=`;
+  if (!qrString.startsWith(prefix)) {
+    throw new Error('Not a Formulus settings link');
+  }
+
+  const encodedPayload = qrString.slice(prefix.length);
+  if (!encodedPayload) {
+    throw new Error('Missing FRMLS payload');
+  }
+
+  return decodeURIComponent(encodedPayload);
+}
 export interface SettingsUpdate {
   serverUrl: string;
   username: string;
@@ -13,7 +30,7 @@ export class QRSettingsService {
    */
   static parseQRCode(qrString: string): SettingsUpdate {
     try {
-      const frmls = decodeFRMLS(qrString);
+      const frmls = decodeFRMLS(unwrapQRCode(qrString));
 
       return {
         serverUrl: frmls.s,
