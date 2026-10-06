@@ -68,7 +68,7 @@ const ProfilesScreen = ({ route, navigation }: ProfilesScreenProps) => {
   }, []);
 
   useEffect(() => {
-    const payload = route.params?.payload;
+    const payload = route?.params?.payload;
     if (!payload) return;
 
     const processDeepLink = async () => {
@@ -93,7 +93,7 @@ const ProfilesScreen = ({ route, navigation }: ProfilesScreenProps) => {
     };
 
     void processDeepLink();
-  }, [navigation, route.params?.payload, t]);
+  }, [navigation, route?.params?.payload, t]);
 
   const runAction = useCallback<RunProfileAction>(
     async (operation, fallbackKey) => {
