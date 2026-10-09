@@ -68,7 +68,7 @@
     "react-native-svg": "^15.15.5",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-webview": "^13.17.0",
-    "react-native-zip-archive": "^7.1.1"
+    "react-native-zip-archive": "^9.5.2"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
