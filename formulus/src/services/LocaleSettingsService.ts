@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as RNLocalize from 'react-native-localize';
 import {
+  isOdeUiLocale,
   resolveActiveLocale,
   type OdeUiLocale,
   type UiLocalePreference,
@@ -26,12 +27,7 @@ export class LocaleSettingsService {
     if (this.loaded) return;
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (
-        stored === 'auto' ||
-        stored === 'en' ||
-        stored === 'pt' ||
-        stored === 'fr'
-      ) {
+      if (stored === 'auto' || (stored != null && isOdeUiLocale(stored))) {
         this.preference = stored;
       }
     } catch (err) {

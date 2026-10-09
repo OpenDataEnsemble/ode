@@ -65,6 +65,7 @@
   "settings.language.en": "English",
   "settings.language.pt": "Português",
   "settings.language.fr": "Français",
+  "settings.language.sw": "Kiswahili",
   "settings.language.label": "Language:",
   "settings.appInterface.label": "App interface:",
   "settings.formsLanguage.label": "Forms:",
