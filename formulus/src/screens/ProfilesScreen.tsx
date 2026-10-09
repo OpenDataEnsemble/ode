@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { MainTabParamList } from '../navigation/ProfileNavigationTypes';
 import {
   ScrollView,
   StyleSheet,
@@ -21,7 +23,10 @@ import { profileRegistry } from '../profiles/ProfileRegistry';
 import { switchProfile, deleteProfile } from '../profiles/ProfileTransitions';
 import { ToastService } from '../services/ToastService';
 import { setCredentialsForProfile } from '../profiles/ProfileKeychain';
-import type { SettingsUpdate } from '../services/QRSettingsService';
+import {
+  QRSettingsService,
+  type SettingsUpdate,
+} from '../services/QRSettingsService';
 import {
   odeSpacing,
   odeTypography,
@@ -41,7 +46,8 @@ type LabelEditor = {
   initialSettings?: SettingsUpdate;
 };
 
-const ProfilesScreen = () => {
+type ProfilesScreenProps = BottomTabScreenProps<MainTabParamList, 'Profiles'>;
+const ProfilesScreen = ({ route, navigation }: ProfilesScreenProps) => {
   const { t } = useTranslation();
   const { themeColors } = useAppTheme();
   const shellStyle = useScreenShellStyle();
@@ -60,6 +66,34 @@ const ProfilesScreen = () => {
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const payload = route?.params?.payload;
+    if (!payload) return;
+
+    const processDeepLink = async () => {
+      try {
+        const settings = await QRSettingsService.processQRCode(
+          `formulus://settings?payload=${encodeURIComponent(payload)}`,
+        );
+
+        if (!mountedRef.current) return;
+
+        setDropdownOpen(false);
+        setEditor({ label: '', initialSettings: settings });
+      } catch {
+        if (mountedRef.current) {
+          ToastService.showLong(t('settings.qrInvalid'));
+        }
+      } finally {
+        if (mountedRef.current) {
+          navigation.setParams({ payload: undefined });
+        }
+      }
+    };
+
+    void processDeepLink();
+  }, [navigation, route?.params?.payload, t]);
 
   const runAction = useCallback<RunProfileAction>(
     async (operation, fallbackKey) => {
