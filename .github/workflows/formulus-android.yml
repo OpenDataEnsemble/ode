@@ -153,7 +153,7 @@ jobs:
           # Gradle dependency/wrapper caching is handled by gradle/actions/setup-gradle below.
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           # Persist the Gradle build cache across CI runs (wrapper + deps + task outputs).
           # Leave the daemon on so assembleRelease + bundleRelease share one JVM.
