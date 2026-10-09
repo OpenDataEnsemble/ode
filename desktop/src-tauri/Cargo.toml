@@ -36,7 +36,7 @@ futures-util = "0.3"
 rayon = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
-keyring = { version = "3", features = ["windows-native", "apple-native", "sync-secret-service"] }
+keyring = { version = "4", features = ["windows-native", "apple-native", "sync-secret-service"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 walkdir = "2"
 url = "2"
