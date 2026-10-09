@@ -37,7 +37,7 @@ rayon = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
 keyring = { version = "3", features = ["windows-native", "apple-native", "sync-secret-service"] }
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "8", default-features = false, features = ["deflate"] }
 walkdir = "2"
 url = "2"
 urlencoding = "2"
