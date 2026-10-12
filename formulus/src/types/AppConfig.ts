@@ -118,7 +118,7 @@ export interface AppConfig {
   /** Local index definitions for observation queries */
   observationIndexes?: ObservationIndexDef[];
   /**
-   * Default UI locale when device language is not in ODE catalogs (en, pt, fr).
+   * Default UI locale when device language is not in ODE catalogs (en, pt, fr, sw).
    * Used when Formulus Settings language is Auto.
    */
   defaultLocale?: string;
