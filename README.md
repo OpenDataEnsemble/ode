@@ -42,7 +42,7 @@ Formulus is the mobile app that field teams use to collect data. It works fully 
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/08_help_support.png" alt="Help and support screen in Formulus" width="24%">
 </p>
 
-Formulus is available on [Google Play](https://play.google.com/store/apps/details?id=org.opendataensemble.formulus), [F-Droid](https://f-droid.org/packages/org.opendataensemble.formulus/) and the [App Store](https://apps.apple.com/app/formulus/id6798318215), and as an APK from [GitHub Releases](https://github.com/OpenDataEnsemble/ode/releases/latest).
+Formulus is available on [F-Droid](https://f-droid.org/packages/org.opendataensemble.formulus/), the [App Store](https://apps.apple.com/app/formulus/id6798318215) and [Google Play](https://play.google.com/store/apps/details?id=org.opendataensemble.formulus), and as an APK from [GitHub Releases](https://github.com/OpenDataEnsemble/ode/releases/latest).
 
 ## Architecture
 
