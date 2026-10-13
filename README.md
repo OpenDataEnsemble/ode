@@ -76,7 +76,7 @@ curl -fsSL https://raw.githubusercontent.com/OpenDataEnsemble/ode/main/scripts/i
 **License note:** this component is currently **GPL-2.0-or-later** (see `synkronus-cli/LICENSE`) while the QR PNG stack depends on GPL-classified libraries; we plan to swap in a stdlib-only renderer and return the CLI to **MIT**. See `synkronus-cli/FOLLOWUP-custom-qrcode-writer.md` and `THIRD_PARTY_NOTICES.md`.
 
 ### **synkronus-portal**
-A web-based version of the the **synkronus-cli**
+A web-based version of the **synkronus-cli**
 
 ### **docs**
 The public documentation site (Docusaurus), published at [opendataensemble.org](https://opendataensemble.org/). It is an independent npm project inside this monorepo — see [docs/README.md](docs/README.md).
