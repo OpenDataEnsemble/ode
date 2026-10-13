@@ -30,16 +30,16 @@ ODE is a monorepo containing all the core components in the ODE universe - the e
 Formulus is the mobile app that field teams use to collect data. It works fully offline, syncs with your Synkronus server when a connection is available, and can hold several projects on one device.
 
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01_observations.png" alt="Observations list in Formulus" width="24%">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01_home.png" alt="Home tab in Formulus showing a custom app" width="24%">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02_forms.png" alt="Forms list in Formulus" width="24%">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03_sync.png" alt="Sync screen in Formulus" width="24%">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/04_sync_progress.png" alt="Sync in progress in Formulus" width="24%">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03_observations.png" alt="Observations list in Formulus" width="24%">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/04_sync.png" alt="Sync screen in Formulus" width="24%">
 </p>
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05_profiles.png" alt="Profiles screen in Formulus" width="24%">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06_settings.png" alt="Settings screen in Formulus" width="24%">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/07_help_support.png" alt="Help and support screen in Formulus" width="24%">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/08_home.png" alt="Home tab in Formulus showing a custom app" width="24%">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05_sync_progress.png" alt="Sync in progress in Formulus" width="24%">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06_profiles.png" alt="Profiles screen in Formulus" width="24%">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/07_settings.png" alt="Settings screen in Formulus" width="24%">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/08_help_support.png" alt="Help and support screen in Formulus" width="24%">
 </p>
 
 Formulus is available on [Google Play](https://play.google.com/store/apps/details?id=org.opendataensemble.formulus), [F-Droid](https://f-droid.org/packages/org.opendataensemble.formulus/) and the [App Store](https://apps.apple.com/app/formulus/id6798318215), and as an APK from [GitHub Releases](https://github.com/OpenDataEnsemble/ode/releases/latest).
