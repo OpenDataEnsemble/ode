@@ -1,4 +1,4 @@
-# Open Data Ensemble (ODE) 🎼
+# Open Data Ensemble (ODE)
 
 <!-- Build & CI status -->
 [![CI](https://github.com/OpenDataEnsemble/ode/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/ci.yml)
@@ -17,13 +17,13 @@
 
 <!-- Project meta -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
-Welcome to the **Open Data Ensemble** - a comprehensive platform for mobile data collection and synchronization!
+**Open Data Ensemble (ODE)** is an open-source platform for mobile data collection and synchronization.
 
 ## About ODE
 
-ODE is a monorepo containing all the core components in the ODE universe - the essential members of our *ensemble*, if you will. We're building a modern, open-source solution for field data collection that works seamlessly across mobile devices and web platforms.
+This monorepo contains all the core components of ODE, the members of our *ensemble*. Together they provide an offline-first solution for field data collection that works across mobile devices, the desktop and the web.
 
 ## Formulus at a Glance
 
@@ -49,73 +49,74 @@ Formulus is available on [F-Droid](https://f-droid.org/packages/org.opendataense
 This repository houses the core components plus the public documentation site:
 
 ### **formulus**
-A React Native project containing the code for Android and iOS apps. This is your mobile data collection companion, designed for field work and offline-first data gathering.
+A React Native project containing the Android and iOS apps. Formulus is the mobile data collection client, designed for field work and offline-first data gathering.
 
 ### **formulus-formplayer**
-A React web application responsible for rendering JSON forms and communicating with the Formulus mobile app. It provides the dynamic form interface that powers your data collection workflows, including built-in controls such as **`format: sub-observation`** (embedded child rows). Author-facing documentation: [Custom extensions](https://opendataensemble.org/docs/guides/custom-extensions) on opendataensemble.org.
+A React web application responsible for rendering JSON forms and communicating with the Formulus mobile app. It provides the form interface used during data collection, including built-in controls such as **`format: sub-observation`** (embedded child rows). Author-facing documentation: [Custom extensions](https://opendataensemble.org/docs/guides/custom-extensions) on opendataensemble.org.
 
 ### **synkronus**
-The server component written in Go. This handles data synchronization, storage, and provides the backbone for all data operations across the platform.
+The server component, written in Go. It handles authentication, data synchronization and storage for the whole platform.
 
 ### **synkronus-cli**
-A command-line utility to interact with the Synkronus server. Use it to manage custom app data, handle user administration, export data to Parquet format, and perform various administrative tasks.
+A command-line utility to interact with the Synkronus server. Use it to manage custom app data, handle user administration, export data to Parquet format, and perform other administrative tasks.
 
-You can install the CLI by running this command:
+Install the CLI with one of these commands:
 
-#### Powershell
+#### PowerShell
 ```powershell
 irm https://raw.githubusercontent.com/OpenDataEnsemble/ode/main/scripts/install-synkronus-cli.ps1 | iex
 ```
 
-#### Mac OS / zsh
+#### macOS / Linux
 ```sh
 curl -fsSL https://raw.githubusercontent.com/OpenDataEnsemble/ode/main/scripts/install-synkronus-cli.sh | bash
 ```
 
-
-**License note:** this component is currently **GPL-2.0-or-later** (see `synkronus-cli/LICENSE`) while the QR PNG stack depends on GPL-classified libraries; we plan to swap in a stdlib-only renderer and return the CLI to **MIT**. See `synkronus-cli/FOLLOWUP-custom-qrcode-writer.md` and `THIRD_PARTY_NOTICES.md`.
+**License note:** this component is currently **GPL-2.0-or-later** (see [synkronus-cli/LICENSE](synkronus-cli/LICENSE)) while the QR PNG stack depends on GPL-classified libraries. We plan to swap in a stdlib-only renderer and return the CLI to **MIT**. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ### **synkronus-portal**
-A web-based version of the **synkronus-cli**
+A web-based admin interface for Synkronus. It covers the same tasks as **synkronus-cli** in the browser.
+
+### **desktop**
+ODE Desktop, a Tauri app for managing collected data and for building and testing forms and custom apps.
 
 ### **docs**
-The public documentation site (Docusaurus), published at [opendataensemble.org](https://opendataensemble.org/). It is an independent npm project inside this monorepo — see [docs/README.md](docs/README.md).
+The public documentation site (Docusaurus), published at [opendataensemble.org](https://opendataensemble.org/). It is an independent npm project inside this monorepo. See [docs/README.md](docs/README.md).
 
-## We're Young & Fresh! 🌱🌱🌱
+## A Young and Welcoming Project
 
-ODE is a **young and vibrant open-source project**, and we're incredibly welcoming to contributors of all experience levels and interests! Whether you're passionate about:
+ODE is a young open-source project, and we welcome contributors of all experience levels and interests, including:
 
 - **Software Development** (React Native, React, Go, TypeScript)
 - **Documentation** (helping others understand and use ODE)
 - **Implementation** (deploying, testing, real-world usage)
 - **Community Building** (fostering collaboration and growth)
-- **UI/UX Design** (making data collection delightful)
+- **UI/UX Design** (making data collection easier to use)
 - **Data Science** (improving data workflows and analytics)
-
-...we'd love to have you join our ensemble! 
 
 ## Contributing
 
-For the full contribution workflow — setup, commit rules, and PR checks — read [CONTRIBUTING.md](CONTRIBUTING.md).
+For the full contribution workflow (setup, commit rules, and PR checks), read [CONTRIBUTING.md](CONTRIBUTING.md).
 
-We believe that diverse perspectives and varied skill sets make our project stronger. Don't worry if you're new to open source or if you think your skills might not be "technical enough" - there's a place for everyone here.
+Different perspectives and skills make the project stronger. If you are new to open source, or think your skills are not "technical enough", there is still a place for you here.
 
-**Getting Started:**
-- Browse our issues to find something that interests you
-- Join our discussions to share ideas
+**Getting started:**
+- Browse the [issues](https://github.com/OpenDataEnsemble/ode/issues) to find something that interests you
+- Join the [discussions](https://github.com/OpenDataEnsemble/ode/discussions) to share ideas
 - Improve documentation where you see gaps
 - Test the platform and report your experience
 - Share how you're using ODE in your work
 
-## CI/CD Pipeline 
-This monorepo uses GitHub Actions for CI/CD. For details (trigger conditions, tags, and workflows), see `.github/CICD.md`.
+## CI/CD Pipeline
+
+This monorepo uses GitHub Actions for CI/CD. For details (trigger conditions, tags, and workflows), see [.github/CICD.md](.github/CICD.md).
 
 - Synkronus Docker build & publish: `.github/workflows/synkronus-docker.yml`
 - Formulus Android build (includes Formplayer asset build): `.github/workflows/formulus-android.yml`
 - Documentation site: `.github/workflows/docs.yml` (validates PRs; deploys from `dev`)
 - Synkronus deployment docs: `synkronus/DOCKER.md`, `synkronus/DEPLOYMENT.md`
 
-## Code Quality: Linting & Formatting 
+## Code Quality: Linting & Formatting
 
 ODE enforces consistent formatting and linting for the frontend projects both **locally** and in **CI**.
 
@@ -151,10 +152,10 @@ CI will **fail** if:
 
 The repository root is [MIT](./LICENSE). **synkronus-cli** is **GPL-2.0-or-later** until the QR dependency cleanup above is done. Third-party and mixed-component details: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
-## Get Involved 📬 
+## Get Involved
 
-Ready to join the ensemble? We're excited to meet you and see what unique perspective you'll bring to ODE!
+Questions, ideas or feedback are welcome:
 
----
-
-*Building the future of open data collection, one contribution at a time.*
+- Community forum: [forum.opendataensemble.org](https://forum.opendataensemble.org)
+- GitHub: [issues](https://github.com/OpenDataEnsemble/ode/issues) and [discussions](https://github.com/OpenDataEnsemble/ode/discussions)
+- Email: [hello@opendataensemble.org](mailto:hello@opendataensemble.org)
