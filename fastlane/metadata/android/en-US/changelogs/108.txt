@@ -1,0 +1,7 @@
+New in Formulus 1.4.0:
+
+• Multiple profiles: keep several projects on one device, each with its own custom app and Synkronus server, and switch between them inside the app
+• Photos and files are now chosen with the Android system picker
+• Tables adapt to small screens
+• Safer app bundle updates, with a clear message when storage is low
+• Fixes for the camera, sign-in and switching servers
