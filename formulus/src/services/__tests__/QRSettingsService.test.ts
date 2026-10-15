@@ -54,6 +54,81 @@ describe('QRSettingsService', () => {
   it('rejects a Formulus settings deep link with no payload', () => {
     expect(() =>
       QRSettingsService.parseQRCode('formulus://settings?payload='),
-    ).toThrow('Missing FRMLS payload');
+    ).toThrow('Missing or duplicate FRMLS payload');
+  });
+
+  it('parses a settings link with a trailing slash', () => {
+  const frmls = encodeFRMLS({
+    v: 1,
+    s: 'https://example.org/',
+    u: 'allen',
+    p: 'secret',
+  });
+
+  const qr = `formulus://settings/?payload=${encodeURIComponent(frmls)}`;
+
+  expect(QRSettingsService.parseQRCode(qr)).toEqual({
+    serverUrl: 'https://example.org/',
+    username: 'allen',
+    password: 'secret',
+  });
+});
+
+it('parses a settings link with additional query parameters', () => {
+  const frmls = encodeFRMLS({
+    v: 1,
+    s: 'https://example.org/',
+    u: 'allen',
+    p: 'secret',
+  });
+
+  const qr =
+    `formulus://settings?source=qr&payload=${encodeURIComponent(frmls)}` +
+    '&version=1';
+
+  expect(QRSettingsService.parseQRCode(qr)).toEqual({
+    serverUrl: 'https://example.org/',
+    username: 'allen',
+    password: 'secret',
+  });
+});
+
+it('rejects duplicate payload parameters', () => {
+  expect(() =>
+    QRSettingsService.parseQRCode(
+      'formulus://settings?payload=first&payload=second',
+    ),
+  ).toThrow('Missing or duplicate FRMLS payload');
+});
+
+it('rejects malformed percent-encoding', () => {
+  expect(() =>
+    QRSettingsService.parseQRCode(
+      'formulus://settings?payload=%ZZ',
+    ),
+  ).toThrow('Malformed settings link encoding');
+});
+
+it('rejects a settings link with an unexpected path', () => {
+  expect(() =>
+    QRSettingsService.parseQRCode(
+      'formulus://settings/other?payload=test',
+    ),
+  ).toThrow('Not a Formulus settings link');
+});
+
+it('parses an extracted payload directly', () => {
+  const frmls = encodeFRMLS({
+    v: 1,
+    s: 'https://example.org/',
+    u: 'allen',
+    p: 'secret',
+  });
+
+  expect(QRSettingsService.parsePayload(frmls)).toEqual({
+    serverUrl: 'https://example.org/',
+    username: 'allen',
+    password: 'secret',
+  });
   });
 });

@@ -55,6 +55,11 @@ const ProfilesScreen = ({ route, navigation }: ProfilesScreenProps) => {
 
   const { profiles, activeProfile } = useProfiles();
   const [editor, setEditor] = useState<LabelEditor | null>(null);
+  const editorRef = useRef(editor);
+
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -70,14 +75,21 @@ const ProfilesScreen = ({ route, navigation }: ProfilesScreenProps) => {
   useEffect(() => {
     const payload = route?.params?.payload;
     if (!payload) return;
+    if (editor) {
+      ToastService.showLong(t('profiles.finishCreationFirst'));
+      navigation.setParams({ payload: undefined });
+      return;
+    }
 
     const processDeepLink = async () => {
       try {
-        const settings = await QRSettingsService.processQRCode(
-          `formulus://settings?payload=${encodeURIComponent(payload)}`,
-        );
+        const settings = await QRSettingsService.processPayload(payload);
 
         if (!mountedRef.current) return;
+        if (editorRef.current) {
+          ToastService.showLong(t('profiles.finishCreationFirst'));
+          return;
+        }
 
         setDropdownOpen(false);
         setEditor({ label: '', initialSettings: settings });
@@ -93,7 +105,7 @@ const ProfilesScreen = ({ route, navigation }: ProfilesScreenProps) => {
     };
 
     void processDeepLink();
-  }, [navigation, route?.params?.payload, t]);
+  }, [editor, navigation, route?.params?.payload, t]);
 
   const runAction = useCallback<RunProfileAction>(
     async (operation, fallbackKey) => {
