@@ -59,7 +59,8 @@ function main() {
   try {
     const frmls = parseArgs();
     const encoded = encodeFRMLS(frmls);
-    console.log(encoded);
+    const deepLink = `formulus://settings?payload=${encodeURIComponent(encoded)}`;
+    console.log(deepLink);
   } catch (error) {
     console.error(
       'Error:',
