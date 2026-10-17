@@ -33,6 +33,10 @@ Connect with the ODE community, get help, and share your experiences.
   </div>
 </div>
 
+## Governance
+
+ODE is run by its community through five councils. Read how [governance](./governance/index.md) works, or [join a council](./governance/join-a-council.md).
+
 ## Join the Community
 
 - **Forum**: [forum.opendataensemble.org](https://forum.opendataensemble.org) - Ask questions and share knowledge

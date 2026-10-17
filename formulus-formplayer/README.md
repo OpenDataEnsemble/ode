@@ -33,7 +33,7 @@ Use `pnpm run build:copy` to build the project and copy the bundle into the Form
 
 ## Internationalization
 
-- **ODE chrome** — `src/locales/{en,pt,fr}.json`, wired via `createOdeI18n()` and JsonForms `i18n`. Host sets `params.locale`.
+- **ODE chrome** — `src/locales/{en,pt,fr,sw}.json`, wired via `createOdeI18n()` and JsonForms `i18n`. Host sets `params.locale`.
 - **Form copy** — optional `translations` objects on `ui.json`; merged once at init by `applyFormUiTranslations()`. See [form translations](https://opendataensemble.org/docs/guides/form-translations).
 
 ## Javascript interface
