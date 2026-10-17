@@ -33,7 +33,7 @@
     "@docusaurus/types": "3.10.2",
     "@types/node": "^20.19.27",
     "tsx": "^4.21.0",
-    "typescript": "^5.2.2"
+    "typescript": "^7.0.0"
   },
   "browserslist": {
     "production": [
