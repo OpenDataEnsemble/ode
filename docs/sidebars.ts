@@ -243,6 +243,12 @@ const sidebars: SidebarsConfig = {
         'community/examples',
         'community/contribute/first-time',
         'community/contribute/code-of-conduct',
+        {
+          type: 'category',
+          label: 'Governance',
+          link: {type: 'doc', id: 'community/governance/index'},
+          items: ['community/governance/join-a-council'],
+        },
       ],
     },
 
