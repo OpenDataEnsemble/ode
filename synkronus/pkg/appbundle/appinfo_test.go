@@ -3,10 +3,18 @@ package appbundle
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
+	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -208,6 +216,153 @@ func TestGenerateAppInfo_ErrorCases(t *testing.T) {
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
+func TestBundleChanges_FieldAddition(t *testing.T) {
+	tempDir := t.TempDir()
+	service := NewService(Config{
+		BundlePath:   filepath.Join(tempDir, "bundle"),
+		VersionsPath: filepath.Join(tempDir, "versions"),
+		MaxVersions:  5,
+	}, logger.NewLogger())
+
+	require.NoError(t, service.Initialize(context.Background()))
+
+	bundle1, err := os.Open(createAppInfoFixtureBundle(t, false))
+	require.NoError(t, err)
+	defer bundle1.Close()
+
+	_, err = service.PushBundle(context.Background(), bundle1)
+	require.NoError(t, err)
+
+	versions, err := service.GetVersions(context.Background())
+	require.NoError(t, err)
+	require.Contains(t, versions, "0001")
+
+	require.NoError(t, service.SwitchVersion(context.Background(), "0001"))
+
+	manifest, err := service.GetManifest(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "0001", manifest.Version)
+
+	bundle2, err := os.Open(createAppInfoFixtureBundle(t, true))
+	require.NoError(t, err)
+	defer bundle2.Close()
+
+	_, err = service.PushBundle(context.Background(), bundle2)
+	require.NoError(t, err)
+
+	manifest, err = service.GetManifest(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "0001", manifest.Version)
+	require.False(t, slices.ContainsFunc(manifest.Files, func(file File) bool {
+		return file.Path == "app/THIS_IS_VERSION_2.txt"
+	}))
+
+	_, _, err = service.GetFile(context.Background(), "app/THIS_IS_VERSION_2.txt")
+	require.Error(t, err)
+
+	versions, err = service.GetVersions(context.Background())
+	require.NoError(t, err)
+	require.Contains(t, versions, "0001 *")
+	require.Contains(t, versions, "0002")
+
+	require.NoError(t, service.SwitchVersion(context.Background(), "0002"))
+
+	manifest, err = service.GetManifest(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "0002", manifest.Version)
+	require.True(t, slices.ContainsFunc(manifest.Files, func(file File) bool {
+		return file.Path == "app/THIS_IS_VERSION_2.txt"
+	}))
+
+	marker, _, err := service.GetFile(context.Background(), "app/THIS_IS_VERSION_2.txt")
+	require.NoError(t, err)
+	defer marker.Close()
+
+	content, err := io.ReadAll(marker)
+	require.NoError(t, err)
+	require.Equal(t, "Something...", string(content))
+
+	changeLog, err := service.CompareAppInfos(context.Background(), "0001", "0002")
+	require.NoError(t, err)
+
+	version1, err := strconv.Atoi(changeLog.CompareVersionA)
+	require.NoError(t, err)
+
+	version2, err := strconv.Atoi(changeLog.CompareVersionB)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, version1)
+	assert.Equal(t, 2, version2)
+	assert.True(t, changeLog.FormChanges)
+	require.Len(t, changeLog.ModifiedForms, 1)
+
+	modifiedForm := changeLog.ModifiedForms[0]
+	assert.True(t, modifiedForm.SchemaChange)
+	assert.False(t, modifiedForm.CoreChange)
+	assert.True(t, slices.ContainsFunc(modifiedForm.AddedFields, func(field FieldChange) bool {
+		return field.Name == "lastname"
+	}), "expected lastname field addition")
+}
+
+func TestPushBundleGeneratesAppInfo(t *testing.T) {
+	tests := []struct {
+		name       string
+		versionTwo bool
+		fieldCount int
+	}{
+		{
+			name:       "valid bundle 01",
+			versionTwo: false,
+			fieldCount: 7,
+		},
+		{
+			name:       "valid bundle 02",
+			versionTwo: true,
+			fieldCount: 8,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			config := Config{
+				BundlePath:   filepath.Join(tempDir, "bundle"),
+				VersionsPath: filepath.Join(tempDir, "versions"),
+				MaxVersions:  5,
+			}
+
+			service := NewService(config, logger.NewLogger())
+			require.NoError(t, service.Initialize(context.Background()))
+
+			bundle, err := os.Open(createAppInfoFixtureBundle(t, test.versionTwo))
+			require.NoError(t, err)
+			defer bundle.Close()
+
+			_, err = service.PushBundle(context.Background(), bundle)
+			require.NoError(t, err)
+
+			versions, err := service.GetVersions(context.Background())
+			require.NoError(t, err)
+			require.NotEmpty(t, versions)
+
+			version := strings.TrimSuffix(versions[0], " *")
+			appInfo, err := service.GetAppInfo(context.Background(), version)
+			require.NoError(t, err)
+
+			exampleForm, exists := appInfo.Forms["example"]
+			require.True(t, exists)
+
+			assert.Len(t, exampleForm.Fields, test.fieldCount)
+			assert.NotEmpty(t, appInfo.Version)
+			assert.NotEmpty(t, appInfo.Timestamp)
+
+			appInfoPath := filepath.Join(config.VersionsPath, version, "APP_INFO.json")
+			_, err = os.Stat(appInfoPath)
+			assert.NoError(t, err)
 		})
 	}
 }
