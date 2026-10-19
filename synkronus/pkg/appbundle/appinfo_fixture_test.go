@@ -2,10 +2,8 @@ package appbundle
 
 import (
 	"archive/zip"
+	"bytes"
 	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"testing"
 )
@@ -59,7 +57,7 @@ var appInfoFixtureUISchema = map[string]any{
 
 // createAppInfoFixtureBundle replaces the historical binary ZIP fixtures with
 // small bundles generated on demand for app-info and version-change tests.
-func createAppInfoFixtureBundle(t *testing.T, includeVersionTwoChanges bool) string {
+func createAppInfoFixtureBundle(t *testing.T, includeVersionTwoChanges bool) *bytes.Reader {
 	t.Helper()
 
 	schema := appInfoFixtureSchema(includeVersionTwoChanges)
@@ -84,12 +82,31 @@ func createAppInfoFixtureBundle(t *testing.T, includeVersionTwoChanges bool) str
 		files["app/THIS_IS_VERSION_2.txt"] = []byte("Something...")
 	}
 
-	bundlePath := filepath.Join(t.TempDir(), "app-info-fixture.zip")
-	if err := writeFixtureZip(bundlePath, files); err != nil {
-		t.Fatalf("failed to create app-info fixture bundle: %v", err)
+	var bundle bytes.Buffer
+	writer := zip.NewWriter(&bundle)
+
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		entry, err := writer.Create(name)
+		if err != nil {
+			t.Fatalf("failed to create fixture entry %q: %v", name, err)
+		}
+
+		if _, err := entry.Write(files[name]); err != nil {
+			t.Fatalf("failed to write fixture entry %q: %v", name, err)
+		}
 	}
 
-	return bundlePath
+	if err := writer.Close(); err != nil {
+		t.Fatalf("failed to close app-info fixture zip: %v", err)
+	}
+
+	return bytes.NewReader(bundle.Bytes())
 }
 
 func appInfoFixtureSchema(includeLastname bool) map[string]any {
@@ -151,46 +168,4 @@ func appInfoFixtureSchema(includeLastname bool) map[string]any {
 		"properties": properties,
 		"required":   []string{"occupation", "nationality"},
 	}
-}
-
-func writeFixtureZip(path string, files map[string][]byte) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create zip file: %w", err)
-	}
-
-	writer := zip.NewWriter(file)
-
-	// Stable entry ordering makes the generated fixture reproducible.
-	names := make([]string, 0, len(files))
-	for name := range files {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		entry, err := writer.Create(name)
-		if err != nil {
-			_ = writer.Close()
-			_ = file.Close()
-			return fmt.Errorf("create zip entry %q: %w", name, err)
-		}
-
-		if _, err := entry.Write(files[name]); err != nil {
-			_ = writer.Close()
-			_ = file.Close()
-			return fmt.Errorf("write zip entry %q: %w", name, err)
-		}
-	}
-
-	if err := writer.Close(); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("close zip writer: %w", err)
-	}
-
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("close zip file: %w", err)
-	}
-
-	return nil
 }

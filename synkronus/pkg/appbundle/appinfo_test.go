@@ -230,11 +230,9 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 
 	require.NoError(t, service.Initialize(context.Background()))
 
-	bundle1, err := os.Open(createAppInfoFixtureBundle(t, false))
-	require.NoError(t, err)
-	defer bundle1.Close()
+	bundle1 := createAppInfoFixtureBundle(t, false)
 
-	_, err = service.PushBundle(context.Background(), bundle1)
+	_, err := service.PushBundle(context.Background(), bundle1)
 	require.NoError(t, err)
 
 	versions, err := service.GetVersions(context.Background())
@@ -247,9 +245,7 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "0001", manifest.Version)
 
-	bundle2, err := os.Open(createAppInfoFixtureBundle(t, true))
-	require.NoError(t, err)
-	defer bundle2.Close()
+	bundle2 := createAppInfoFixtureBundle(t, true)
 
 	_, err = service.PushBundle(context.Background(), bundle2)
 	require.NoError(t, err)
@@ -338,11 +334,9 @@ func TestPushBundleGeneratesAppInfo(t *testing.T) {
 			service := NewService(config, logger.NewLogger())
 			require.NoError(t, service.Initialize(context.Background()))
 
-			bundle, err := os.Open(createAppInfoFixtureBundle(t, test.versionTwo))
-			require.NoError(t, err)
-			defer bundle.Close()
+			bundle := createAppInfoFixtureBundle(t, test.versionTwo)
 
-			_, err = service.PushBundle(context.Background(), bundle)
+			_, err := service.PushBundle(context.Background(), bundle)
 			require.NoError(t, err)
 
 			versions, err := service.GetVersions(context.Background())
