@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council application | Open Data Ensemble</title>
+<style>
+  :root {
+    --accent: #2E7D4F; --ink: #1c1f1d; --muted: #5f6662; --line: #d9dedb;
+    --bg: #ffffff; --field: #ffffff; --soft: #f6f7f6; --error: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --accent: #6FB58A; --ink: #e9ecea; --muted: #a3aaa6; --line: #3a403c; --bg: #151816; --field: #1c201d; --soft: #1c201d; --error: #f2b8b5; }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 40px 20px 64px; }
+  .brand { margin: 0 0 28px; }
+  .brand a { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 600; }
+  .brand img { width: 40px; height: 40px; }
+  .read { margin: 20px 0 8px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); }
+  .read p { margin: 0 0 6px; font-weight: 600; }
+  .read ul { margin: 0; padding-left: 18px; }
+  .read li { margin: 4px 0; }
+  footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 18px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 12px; font-weight: 700; }
+  h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 40px 0 4px; padding-top: 24px; border-top: 1px solid var(--line); }
+  p { margin: 0 0 12px; }
+  .lead { color: var(--muted); }
+  .q { margin: 22px 0; }
+  .q > label, .q > .label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .hint { color: var(--muted); font-size: 14px; margin: -2px 0 8px; }
+  input[type=text], input[type=email], input[type=url], textarea {
+    width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 6px;
+    font: inherit; color: var(--ink); background: var(--field);
+  }
+  textarea { min-height: 110px; resize: vertical; }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .opts { display: grid; gap: 4px; }
+  .opts label { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; padding: 6px 0; cursor: pointer; }
+  .opts input { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+  .req { color: var(--muted); font-weight: 400; }
+  .council-q { display: none; }
+  .council-q.show { display: block; }
+  .submit { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line); }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 6px; padding: 14px 22px; cursor: pointer; background: var(--accent); color: #fff; width: 100%; }
+  @media (min-width: 560px) { button { width: auto; } }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .status { margin-top: 16px; min-height: 1.5em; }
+  .status.error { color: var(--error); }
+  .status ol { margin: 8px 0 0; padding-left: 20px; }
+  .small { font-size: 14px; color: var(--muted); }
+  a { color: var(--accent); }
+  @media (max-width: 480px) { main { padding: 28px 16px 48px; } h1 { font-size: 24px; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="brand"><a href="https://opendataensemble.org/"><img src="/img/ode-logo.png" alt="" width="40" height="40">Open Data Ensemble</a></p>
+  <h1>Council application</h1>
+  <p class="lead">Seats are open on the Product, Technical, Community and So.Me. councils. You don't need to be an expert, and your contribution doesn't have to be code.</p>
+  <p class="small">This takes about 20 minutes. When you finish, your answers are saved as a text file and your email app opens addressed to <a href="mailto:hello@opendataensemble.org">hello@opendataensemble.org</a>. Attach the file and send. Applying does not guarantee a seat; the Governance Council votes on new members. Fields marked <span class="req">(required)</span> must be filled in.</p>
+
+  <div class="read">
+    <p>Before you apply</p>
+    <ul>
+      <li><a href="https://opendataensemble.org/docs/community/governance" target="_blank" rel="noopener">How ODE is governed</a>: the councils, roles and seats</li>
+      <li><a href="https://opendataensemble.org/docs/community/governance/join-a-council" target="_blank" rel="noopener">Join a council</a>: who can apply and how selection works</li>
+      <li><a href="https://github.com/OpenDataEnsemble/.github/blob/main/GOVERNANCE.md" target="_blank" rel="noopener">Governance rules (GOVERNANCE.md)</a></li>
+      <li><a href="https://opendataensemble.org/docs/community/contribute/code-of-conduct" target="_blank" rel="noopener">Code of conduct</a></li>
+      <li><a href="https://opendataensemble.org/docs/community/contribute/first-time" target="_blank" rel="noopener">First-time contributor guide</a></li>
+    </ul>
+  </div>
+
+  <form id="f" novalidate>
+    <h2>About you</h2>
+    <div class="q"><label for="name">Full name <span class="req">(required)</span></label><input type="text" id="name" autocomplete="name" required></div>
+    <div class="q"><label for="email">Email address <span class="req">(required)</span></label><input type="email" id="email" autocomplete="email" inputmode="email" required></div>
+    <div class="q"><label for="gh">GitHub profile</label><input type="url" id="gh" inputmode="url" placeholder="https://github.com/username"></div>
+    <div class="q"><label for="forum">ODE forum username</label><input type="text" id="forum"></div>
+    <div class="q"><label for="li">LinkedIn or other profile</label><input type="url" id="li" inputmode="url"></div>
+    <div class="q"><label for="where">Country and time zone</label><input type="text" id="where" placeholder="e.g. Uganda, EAT"></div>
+
+    <h2>Your ODE journey</h2>
+    <div class="q"><span class="label">How have you taken part in ODE so far?</span><p class="hint">Select all that apply.</p>
+      <div class="opts" data-group>
+        <label><input type="checkbox" value="Code">Code</label>
+        <label><input type="checkbox" value="Pull requests or reviews">Pull requests or reviews</label>
+        <label><input type="checkbox" value="Issues">Reporting or working on issues</label>
+        <label><input type="checkbox" value="Documentation">Documentation</label>
+        <label><input type="checkbox" value="Testing">Testing</label>
+        <label><input type="checkbox" value="Product feedback">Product ideas or feedback</label>
+        <label><input type="checkbox" value="Design">Design or UX</label>
+        <label><input type="checkbox" value="Forum">ODE forum</label>
+        <label><input type="checkbox" value="Events">Community events</label>
+        <label><input type="checkbox" value="Social media or content">Social media or content</label>
+        <label><input type="checkbox" value="Mentoring">Mentoring or helping contributors</label>
+        <label><input type="checkbox" value="Translations">Translations</label>
+        <label><input type="checkbox" value="Not yet">Not yet, but I'd like to start</label>
+      </div></div>
+    <div class="q"><label for="contrib">Tell us briefly about your contributions</label><p class="hint">Links to pull requests, issues, posts or events are welcome.</p><textarea id="contrib"></textarea></div>
+
+    <h2>Council</h2>
+    <div class="q"><span class="label">Which council are you applying to? <span class="req">(required)</span></span>
+      <div class="opts" data-radio>
+        <label><input type="radio" name="council" value="Product">Product</label>
+        <label><input type="radio" name="council" value="Technical">Technical</label>
+        <label><input type="radio" name="council" value="Community">Community</label>
+        <label><input type="radio" name="council" value="So.Me.">So.Me. (social media and communication)</label>
+      </div></div>
+    <div class="q"><label for="why">Why this council? <span class="req">(required)</span></label><p class="hint">What interests you about this area, and why do you want a more active role?</p><textarea id="why" required></textarea></div>
+    <div class="q"><label for="could">What could you contribute to it?</label><textarea id="could"></textarea></div>
+    <div class="q"><label for="improve">What is one thing ODE could improve in this area?</label><textarea id="improve"></textarea></div>
+    <div class="q council-q" data-for="Product"><label for="idea-p">What product, user or implementer problem would you like ODE to understand better?</label><textarea id="idea-p"></textarea></div>
+    <div class="q council-q" data-for="Technical"><label for="idea-t">What technical area of ODE would you most like to help improve, and why?</label><textarea id="idea-t"></textarea></div>
+    <div class="q council-q" data-for="Community"><label for="idea-c">What could ODE do better to help contributors join, take part and grow?</label><textarea id="idea-c"></textarea></div>
+    <div class="q council-q" data-for="So.Me."><label for="idea-s">What ODE story should more people know about, and how would you tell it?</label><textarea id="idea-s"></textarea></div>
+
+    <h2>Availability</h2>
+    <div class="q"><span class="label">How much time could you usually give?</span>
+      <div class="opts" data-radio>
+        <label><input type="radio" name="time" value="1–2 hours a week">1–2 hours a week</label>
+        <label><input type="radio" name="time" value="3–5 hours a week">3–5 hours a week</label>
+        <label><input type="radio" name="time" value="5–10 hours a week">5–10 hours a week</label>
+        <label><input type="radio" name="time" value="More than 10 hours a week">More than 10 hours a week</label>
+        <label><input type="radio" name="time" value="It varies">It varies</label>
+      </div></div>
+    <div class="q"><span class="label">How would you prefer to take part?</span><p class="hint">Select all that apply.</p>
+      <div class="opts" data-group>
+        <label><input type="checkbox" value="Regular meetings">Regular council meetings</label>
+        <label><input type="checkbox" value="Asynchronous work">Asynchronous work</label>
+        <label><input type="checkbox" value="Owning specific tasks">Owning specific tasks</label>
+        <label><input type="checkbox" value="Organising activities">Organising activities</label>
+        <label><input type="checkbox" value="Mentoring">Mentoring contributors</label>
+        <label><input type="checkbox" value="Reviewing and giving feedback">Reviewing and giving feedback</label>
+      </div></div>
+    <div class="q"><label for="circ">Anything that could affect your availability?</label><p class="hint">Optional. It helps us plan and won't count against you.</p><textarea id="circ"></textarea></div>
+
+    <h2>Working with others</h2>
+    <div class="q"><label for="collab">Describe a time you worked with others to solve a problem. What was your role?</label><textarea id="collab"></textarea></div>
+    <div class="q"><label for="disagree">How do you usually handle disagreement in a team?</label><textarea id="disagree"></textarea></div>
+    <div class="q"><label for="learn">What would you like to learn through council work?</label><textarea id="learn"></textarea></div>
+    <div class="q"><label for="else">Anything else we should know?</label><textarea id="else"></textarea></div>
+
+    <div class="submit">
+      <button type="submit">Download and email</button>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <p class="small">Your answers stay on this device until you send them. They are read only by ODE council members.</p>
+    </div>
+  </form>
+  <footer>
+    <a href="https://opendataensemble.org/">opendataensemble.org</a>
+    <a href="https://forum.opendataensemble.org/">Forum</a>
+    <a href="https://github.com/OpenDataEnsemble/ode">GitHub</a>
+    <a href="mailto:hello@opendataensemble.org">hello@opendataensemble.org</a>
+  </footer>
+</main>
+
+<script>
+(function () {
+  var form = document.getElementById('f');
+  var status = document.getElementById('status');
+  var TO = 'hello@opendataensemble.org';
+  var KEY = 'ode-council-application';
+
+  function council() { var c = form.querySelector('input[name=council]:checked'); return c ? c.value : ''; }
+  function showIdea() {
+    var c = council();
+    form.querySelectorAll('.council-q').forEach(function (el) { el.classList.toggle('show', el.dataset.for === c); });
+  }
+
+  function text() {
+    var lines = ['ODE COUNCIL APPLICATION', 'Date: ' + new Date().toISOString().slice(0, 10), ''];
+    form.querySelectorAll('h2, .q').forEach(function (el) {
+      if (el.tagName === 'H2') { lines.push('', '== ' + el.textContent.toUpperCase() + ' =='); return; }
+      if (el.classList.contains('council-q') && !el.classList.contains('show')) return;
+      var title = (el.querySelector('label, .label').textContent || '').replace(/\s*\(required\)\s*$/, '').trim();
+      var g = el.querySelector('[data-group]'), r = el.querySelector('[data-radio]'), v;
+      if (g) v = Array.prototype.map.call(g.querySelectorAll('input:checked'), function (i) { return i.value; }).join('; ');
+      else if (r) { var c = r.querySelector('input:checked'); v = c ? c.value : ''; }
+      else v = el.querySelector('input, textarea').value.trim();
+      lines.push('', title, v || '-');
+    });
+    return lines.join('\r\n') + '\r\n';
+  }
+
+  function missing() {
+    var need = [];
+    if (!document.getElementById('name').value.trim()) need.push('your name');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(document.getElementById('email').value.trim())) need.push('a valid email address');
+    if (!council()) need.push('a council');
+    if (!document.getElementById('why').value.trim()) need.push('why you chose this council');
+    return need;
+  }
+
+  function save() {
+    try {
+      var d = [];
+      form.querySelectorAll('input, textarea').forEach(function (el) { d.push(el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value); });
+      localStorage.setItem(KEY, JSON.stringify(d));
+    } catch (e) {}
+  }
+  function load() {
+    try {
+      var d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!d) return;
+      form.querySelectorAll('input, textarea').forEach(function (el, i) {
+        if (i >= d.length) return;
+        if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!d[i]; else el.value = d[i];
+      });
+    } catch (e) {}
+  }
+
+  form.addEventListener('input', function () { showIdea(); save(); });
+  form.addEventListener('change', function () { showIdea(); save(); });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var need = missing();
+    status.className = 'status';
+    if (need.length) { status.className = 'status error'; status.textContent = 'Please add ' + need.join(', ') + '.'; return; }
+
+    var name = document.getElementById('name').value.trim();
+    var file = 'ODE-council-application-' + council().replace(/\W+/g, '') + '-' + name.replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') + '.txt';
+    var blob = new Blob([text()], { type: 'text/plain;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = file;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 60000);
+
+    status.innerHTML = '<strong>Your application was saved as ' + file.replace(/</g, '') + '.</strong>' +
+      '<ol><li>Your email app is opening, addressed to ' + TO + '.</li>' +
+      '<li>Attach the downloaded file (check your Downloads folder).</li>' +
+      '<li>Press send.</li></ol>' +
+      '<p class="small">If no email opened, send the file to <a href="mailto:' + TO + '">' + TO + '</a> yourself.</p>';
+
+    var subject = 'Council application: ' + council() + ' – ' + name;
+    var body = 'Hello ODE councils,\r\n\r\nPlease find my application for the ' + council() + ' Council attached (' + file + ').\r\n\r\n' + name;
+    setTimeout(function () {
+      window.location.href = 'mailto:' + TO + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    }, 1200);
+  });
+
+  load(); showIdea();
+})();
+</script>
+</body>
+</html>

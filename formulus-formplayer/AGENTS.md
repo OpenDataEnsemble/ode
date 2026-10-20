@@ -67,10 +67,10 @@ When a Control becomes not visible (`visible: false` from JSON Forms rules), For
 
 Two **independent** layers:
 
-| Layer      | Owner       | Mechanism                                                                                 |
-| ---------- | ----------- | ----------------------------------------------------------------------------------------- |
-| ODE chrome | ODE         | `src/locales/{en,pt,fr}.json`, `createOdeI18n()`, JsonForms `i18n` prop, `useOdeT()` hook |
-| Form copy  | Form author | Optional `translations` on `ui.json`; `applyFormUiTranslations()` at init in `App.tsx`    |
+| Layer      | Owner       | Mechanism                                                                                    |
+| ---------- | ----------- | -------------------------------------------------------------------------------------------- |
+| ODE chrome | ODE         | `src/locales/{en,pt,fr,sw}.json`, `createOdeI18n()`, JsonForms `i18n` prop, `useOdeT()` hook |
+| Form copy  | Form author | Optional `translations` on `ui.json`; `applyFormUiTranslations()` at init in `App.tsx`       |
 
 - Host passes `params.locale` (reserved bridge key, not observation data).
 - Custom question types receive localized `options` from `ui.json` via `CustomQuestionTypeAdapter`.

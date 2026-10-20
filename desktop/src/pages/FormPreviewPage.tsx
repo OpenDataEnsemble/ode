@@ -735,6 +735,7 @@ export function FormPreviewPage() {
                 <option value="en">English</option>
                 <option value="pt">Português</option>
                 <option value="fr">Français</option>
+                <option value="sw">Kiswahili</option>
               </select>
               <select
                 id="form-locale-select"
