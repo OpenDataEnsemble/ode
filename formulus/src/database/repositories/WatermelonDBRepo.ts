@@ -558,31 +558,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       'Database: markObservationAsSynced',
       async () => {
         try {
-          // Find the observation using our improved lookup approach
-          let record: ObservationModel | null = null;
-
-          // Try to find by direct ID first
-          try {
-            record = await this.observationsCollection.find(id);
-          } catch {
-            // not found by primary key
-          }
-
-          // If not found by ID, try to find by observationId field
-          if (!record) {
-            const observations = await this.observationsCollection
-              .query(Q.where('observation_id', id))
-              .fetch();
-
-            if (observations.length > 0) {
-              record = observations[0];
-            }
-          }
-
-          if (!record) {
-            console.error('Observation not found with ID:', id);
-            return false;
-          }
+          const record = await this.observationsCollection.find(id);
 
           // Update the syncedAt timestamp
           let success = false;
