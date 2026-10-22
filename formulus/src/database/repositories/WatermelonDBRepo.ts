@@ -253,20 +253,6 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     });
   }
 
-  /** Resolve a row by Watermelon id or by observation_id column (legacy ingested rows - TODO: Legacy support to be removed in vNextMinor). */
-  private async findObservationRecord(
-    stableId: string,
-  ): Promise<ObservationModel | null> {
-    try {
-      return await this.observationsCollection.find(stableId);
-    } catch {
-      const rows = await this.observationsCollection
-        .query(Q.where('observation_id', stableId))
-        .fetch();
-      return rows[0] ?? null;
-    }
-  }
-
   /**
    * Get an observation by its ID
    * @param id The unique identifier for the observation
