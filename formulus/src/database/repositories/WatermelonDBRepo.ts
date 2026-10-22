@@ -482,12 +482,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   async updateObservation(input: UpdateObservationInput): Promise<boolean> {
     return profileActivity.run('Database: updateObservation', async () => {
       try {
-        const record = await this.findObservationRecord(input.observationId);
-
-        if (!record) {
-          console.error('Observation not found with ID:', input.observationId);
-          return false;
-        }
+        const record = await this.observationsCollection.find(
+          input.observationId,
+        );
 
         // Update the record
         let success = false;
@@ -537,12 +534,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   async deleteObservation(id: string): Promise<boolean> {
     return profileActivity.run('Database: deleteObservation', async () => {
       try {
-        const record = await this.findObservationRecord(id);
-
-        if (!record) {
-          console.error('Observation not found with ID:', id);
-          return false;
-        }
+        const record = await this.observationsCollection.find(id);
 
         // Mark the record as deleted (soft delete)
         let success = false;
