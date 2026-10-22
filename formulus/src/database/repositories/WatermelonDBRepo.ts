@@ -757,17 +757,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         }
         const now = new Date();
         await this.database.write(async () => {
-          const byPk = await this.observationsCollection
+          const records = await this.observationsCollection
             .query(Q.where('id', Q.oneOf(ids)))
             .fetch();
-          const byObservationColumn = await this.observationsCollection
-            .query(Q.where('observation_id', Q.oneOf(ids)))
-            .fetch();
-          const merged = new Map<string, ObservationModel>();
-          for (const r of [...byPk, ...byObservationColumn]) {
-            merged.set(r.id, r);
-          }
-          const records = [...merged.values()];
 
           const batchOps = records.map(record =>
             record.prepareUpdate(rec => {
