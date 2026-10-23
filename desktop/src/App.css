@@ -3094,12 +3094,57 @@ input:not([type]) {
     grid-template-rows: auto minmax(0, 1fr);
   }
 
+  /* Keep navigation compact on smaller desktop windows so page content remains usable. */
   .sidebar {
     position: sticky;
     top: 0;
     z-index: 4;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'brand mode status'
+      'nav nav nav';
+    align-items: center;
+    gap: 0.65rem 1rem;
+    padding: 0.75rem 1rem;
     border-right: 0;
     border-bottom: 1px solid #2d3449;
+  }
+
+  .brand {
+    grid-area: brand;
+    min-width: 0;
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  .mode-switch {
+    grid-area: mode;
+  }
+
+  .nav {
+    grid-area: nav;
+    flex-direction: row;
+    gap: 0.35rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding-bottom: 0.15rem;
+  }
+
+  .nav-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .sidebar-footer {
+    grid-area: status;
+    margin-top: 0;
+  }
+
+  .sidebar-footer > span {
+    display: none;
   }
 
   .cards {
