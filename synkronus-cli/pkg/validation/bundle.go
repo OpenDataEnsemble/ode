@@ -303,6 +303,23 @@ func isBuiltInRenderer(rendererType string) bool {
 	return false
 }
 
+// knownFormats lists the formats Formplayer renders natively, so they don't need an extension renderer
+var knownFormats = []string{
+	"date", "date-time", "time", "adate", "html",
+	"photo", "qrcode", "signature", "select_file", "audio", "gps", "video",
+	"likert", "duration", "sub-observation",
+}
+
+// isKnownFormat checks if a format is rendered natively by Formplayer
+func isKnownFormat(format string) bool {
+	for _, known := range knownFormats {
+		if known == format {
+			return true
+		}
+	}
+	return false
+}
+
 // checkSchemaRendererReferences recursively checks for renderer references in the schema
 // This includes format-based renderers (used by custom question types)
 func checkSchemaRendererReferences(data interface{}, availableRenderers map[string]bool, extensionRenderers map[string]bool) error {
@@ -329,16 +346,7 @@ func checkSchemaRendererReferences(data interface{}, availableRenderers map[stri
 		if format, ok := v["format"].(string); ok {
 			// Format-based renderers must be in extension renderers or built-in
 			if !extensionRenderers[format] && !isBuiltInRenderer(format) {
-				// Check if it's a known format
-				knownFormats := []string{"date", "date-time", "time", "photo", "qrcode", "signature", "select_file", "audio", "gps", "video", "adate", "html"}
-				isKnownFormat := false
-				for _, known := range knownFormats {
-					if format == known {
-						isKnownFormat = true
-						break
-					}
-				}
-				if !isKnownFormat {
+				if !isKnownFormat(format) {
 					return fmt.Errorf("schema property references renderer with format '%s' but no extension renderer is defined for this format", format)
 				}
 			}
@@ -571,16 +579,7 @@ func checkUISchemaRendererReferences(data interface{}, availableRenderers map[st
 		if format, ok := v["format"].(string); ok {
 			// Format-based renderers must be in extension renderers or built-in
 			if !extensionRenderers[format] && !isBuiltInRenderer(format) {
-				// Check if it's a known format (date, date-time, time are built-in)
-				knownFormats := []string{"date", "date-time", "time", "photo", "qrcode", "signature", "select_file", "audio", "gps", "video", "adate", "html"}
-				isKnownFormat := false
-				for _, known := range knownFormats {
-					if format == known {
-						isKnownFormat = true
-						break
-					}
-				}
-				if !isKnownFormat {
+				if !isKnownFormat(format) {
 					return fmt.Errorf("UI schema references renderer with format '%s' but no extension renderer is defined for this format", format)
 				}
 			}
