@@ -253,20 +253,6 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     });
   }
 
-  /** Resolve a row by Watermelon id or by observation_id column (legacy ingested rows - TODO: Legacy support to be removed in vNextMinor). */
-  private async findObservationRecord(
-    stableId: string,
-  ): Promise<ObservationModel | null> {
-    try {
-      return await this.observationsCollection.find(stableId);
-    } catch {
-      const rows = await this.observationsCollection
-        .query(Q.where('observation_id', stableId))
-        .fetch();
-      return rows[0] ?? null;
-    }
-  }
-
   /**
    * Get an observation by its ID
    * @param id The unique identifier for the observation
@@ -275,28 +261,8 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   async getObservation(id: string): Promise<Observation | null> {
     return profileActivity.run('Database: getObservation', async () => {
       try {
-        // First try direct lookup by ID (WatermelonDB's internal ID)
-        try {
-          const observation = await this.observationsCollection.find(id);
-          return this.mapObservationModelToInterface(observation);
-        } catch {
-          // ID not found, continue to next approach
-        }
-
-        // If not found by ID, try to find by observationId field
-        // Force a database sync before querying to ensure we have the latest data
-        await this.database.get('observations').query().fetch();
-
-        const observations = await this.observationsCollection
-          .query(Q.where('observation_id', id))
-          .fetch();
-
-        if (observations.length > 0) {
-          const observation = observations[0];
-          return this.mapObservationModelToInterface(observation);
-        }
-
-        return null;
+        const observation = await this.observationsCollection.find(id);
+        return this.mapObservationModelToInterface(observation);
       } catch (error) {
         console.error(
           'Error getting observation:',
@@ -502,12 +468,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   async updateObservation(input: UpdateObservationInput): Promise<boolean> {
     return profileActivity.run('Database: updateObservation', async () => {
       try {
-        const record = await this.findObservationRecord(input.observationId);
-
-        if (!record) {
-          console.error('Observation not found with ID:', input.observationId);
-          return false;
-        }
+        const record = await this.observationsCollection.find(
+          input.observationId,
+        );
 
         // Update the record
         let success = false;
@@ -557,12 +520,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   async deleteObservation(id: string): Promise<boolean> {
     return profileActivity.run('Database: deleteObservation', async () => {
       try {
-        const record = await this.findObservationRecord(id);
-
-        if (!record) {
-          console.error('Observation not found with ID:', id);
-          return false;
-        }
+        const record = await this.observationsCollection.find(id);
 
         // Mark the record as deleted (soft delete)
         let success = false;
@@ -600,31 +558,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       'Database: markObservationAsSynced',
       async () => {
         try {
-          // Find the observation using our improved lookup approach
-          let record: ObservationModel | null = null;
-
-          // Try to find by direct ID first
-          try {
-            record = await this.observationsCollection.find(id);
-          } catch {
-            // not found by primary key
-          }
-
-          // If not found by ID, try to find by observationId field
-          if (!record) {
-            const observations = await this.observationsCollection
-              .query(Q.where('observation_id', id))
-              .fetch();
-
-            if (observations.length > 0) {
-              record = observations[0];
-            }
-          }
-
-          if (!record) {
-            console.error('Observation not found with ID:', id);
-            return false;
-          }
+          const record = await this.observationsCollection.find(id);
 
           // Update the syncedAt timestamp
           let success = false;
@@ -823,17 +757,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         }
         const now = new Date();
         await this.database.write(async () => {
-          const byPk = await this.observationsCollection
+          const records = await this.observationsCollection
             .query(Q.where('id', Q.oneOf(ids)))
             .fetch();
-          const byObservationColumn = await this.observationsCollection
-            .query(Q.where('observation_id', Q.oneOf(ids)))
-            .fetch();
-          const merged = new Map<string, ObservationModel>();
-          for (const r of [...byPk, ...byObservationColumn]) {
-            merged.set(r.id, r);
-          }
-          const records = [...merged.values()];
 
           const batchOps = records.map(record =>
             record.prepareUpdate(rec => {
