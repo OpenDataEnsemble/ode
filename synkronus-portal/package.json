@@ -12,6 +12,7 @@
     "generate:api": "pnpm dlx @openapitools/openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated \"--additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original\" && pnpm run format",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "test": "vitest run",
     "format": "pnpm exec prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
     "format:check": "pnpm exec prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
     "preview": "vite preview"
@@ -45,6 +46,7 @@
     "prettier": "3.8.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.54.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^3.2.7"
   }
 }

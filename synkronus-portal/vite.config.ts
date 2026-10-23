@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -15,6 +16,11 @@ export default defineConfig({
   // Ensure React is properly resolved and deduplicated
   resolve: {
     dedupe: ['react', 'react-dom'],
+  },
+  test: {
+    // Portal utilities under test are plain TypeScript; no DOM needed yet.
+    environment: 'node',
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
   optimizeDeps: {
     include: ['react', 'react-dom'],
