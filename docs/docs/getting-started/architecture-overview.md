@@ -48,6 +48,7 @@ Desktop application (Tauri + React + Rust) for data stewardship and app developm
 - **Data management**: Pull, inspect, edit, import, and sync observations against Synkronus
 - **Forms / app workbench**: Download app bundles, preview forms, and test custom apps
 - **Developer mode**: Mirror a local custom app build without replacing the Synk-downloaded bundle
+- **Local tools for AI agents**: the `ode` command (CLI and MCP server) lets AI assistants describe forms, export data, and author apps. Permissions are set per profile. See [AI agent support](/docs/guides/ai-agents).
 - **Same public API**: Uses Synkronus REST API — no privileged desktop channel
 
 Introduced in **ODE v1.1.0**. See [ODE Desktop reference](/docs/reference/ode-desktop) and [install guide](/docs/getting-started/installation/installing-ode-desktop).

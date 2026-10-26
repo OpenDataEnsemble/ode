@@ -12,7 +12,7 @@ How **user-defined forms** (JSON Schema + `ui.json` in custom app bundles) suppo
 
 | Layer | Who owns it | Where strings live | When it applies |
 |-------|-------------|-------------------|-----------------|
-| **ODE chrome** | ODE platform | `formulus-formplayer/src/locales/{en,pt,fr}.json`, Formulus i18n catalogs | Next/Back, validation errors, sub-obs “+ Add …” template, loading text |
+| **ODE chrome** | ODE platform | `formulus-formplayer/src/locales/{en,pt,fr,sw}.json`, Formulus i18n catalogs | Next/Back, validation errors, sub-obs “+ Add …” template, loading text |
 | **Form copy** | Form / app author | `ui.json` base fields + optional `translations` blocks | Field labels, descriptions, SwipeLayout headers, custom widget copy |
 
 Form authors **do not** edit ODE locale JSON. They embed translations in each form’s `ui.json`. ODE developers extend chrome strings when adding new platform UI.
@@ -21,7 +21,7 @@ Form authors **do not** edit ODE locale JSON. They embed translations in each fo
 
 ## How form locale is chosen
 
-1. User setting in Formulus **Settings → Language** (`auto`, `en`, `pt`, `fr`)
+1. User setting in Formulus **Settings → Language** (`auto`, `en`, `pt`, `fr`, `sw`)
 2. **Auto** → device language; if unsupported, bundle `defaultLocale` from `app.config.json`
 3. Fallback `en`
 
@@ -240,7 +240,7 @@ When changing merge rules or label resolution, update **`applyFormUiTranslations
 ## Author checklist
 
 - [ ] Every visible field has `Control.label` in `ui.json` (not only `schema.title`)
-- [ ] Base `label` set; `translations` added for other ODE UI locales you ship (`en`, `pt`, `fr`)
+- [ ] Base `label` set; `translations` added for other ODE UI locales you ship (`en`, `pt`, `fr`, `sw`)
 - [ ] SwipeLayout headers/buttons translated where needed
 - [ ] Sub-obs columns use `key` only; labels live on linked child forms
 - [ ] Custom question type strings in `options`, not in renderer JS

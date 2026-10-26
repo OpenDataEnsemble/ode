@@ -103,6 +103,7 @@ const sidebars: SidebarsConfig = {
             'guides/dynamic-choice-lists',
             'guides/observation-queries',
             'guides/ode-desktop-developer-mode',
+            'guides/ai-agents',
             'guides/custom-extensions',
             'guides/custom-question-types',
             'guides/server-architecture-for-it',
@@ -155,6 +156,7 @@ const sidebars: SidebarsConfig = {
         'developer/developer-getting-started',
         'development/quick-start',
         'development/architecture',
+        'development/observation-journey',
         'development/setup',
         'development/building-testing',
         'development/contributing',
@@ -241,6 +243,12 @@ const sidebars: SidebarsConfig = {
         'community/examples',
         'community/contribute/first-time',
         'community/contribute/code-of-conduct',
+        {
+          type: 'category',
+          label: 'Governance',
+          link: {type: 'doc', id: 'community/governance/index'},
+          items: ['community/governance/join-a-council'],
+        },
       ],
     },
 

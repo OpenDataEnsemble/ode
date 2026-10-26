@@ -577,16 +577,8 @@ describe('WatermelonDBRepo', () => {
   });
 
   /**
-   * Regression: observations ingested via applyServerChanges must keep the server's
-   * observation_id as the canonical id exposed to the app and to Synkronus push payloads.
-   *
-   * Why earlier tests missed it:
-   * - All existing WatermelonDBRepo tests only used saveObservation(), which sets both
-   *   Watermelon record id and observation_id to the same obs_${timestamp}_ value.
-   * - applyServerChanges was never covered (only a synchronize() todo).
-   * - prepareCreate for pull sets observation_id but leaves Watermelon to assign a
-   *   different internal id; mappers incorrectly used model.id as domain observationId,
-   *   so pushes could use a random uuid as observation_id and duplicate server rows.
+   * Pulled observations keep the server observation_id as the stable identifier
+   * across the WatermelonDB row, domain model, lookup path, and API payload.
    */
   test('applyServerChanges (new row): domain observationId matches server observation_id', async () => {
     const serverObservationId = 'obs_pulled_from_sync_1001';

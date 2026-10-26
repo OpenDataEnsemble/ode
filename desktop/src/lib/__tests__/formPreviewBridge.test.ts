@@ -122,6 +122,39 @@ describe('handleFormPreviewBridgeMessage', () => {
     expect(payload.result).toBe(FORM_PREVIEW_FORMULUS_INTERFACE_VERSION);
   });
 
+  it.each([
+    [false, undefined],
+    [true, true],
+  ] as const)(
+    'passes includeDeleted=%s to native getObservations pagination',
+    async (expected, requested) => {
+      const listObservationsPage = vi.mocked(tauriClient.listObservationsPage);
+      listObservationsPage.mockClear();
+      const postMessage = vi.fn();
+      const iframe = {
+        contentWindow: { postMessage } as unknown as Window,
+      } as HTMLIFrameElement;
+
+      await handleFormPreviewBridgeMessage(
+        bridgeMessageFromIframe(iframe, {
+          type: 'getObservations',
+          messageId: `observations-${expected}`,
+          formType: 'demo',
+          ...(requested === undefined ? {} : { includeDeleted: requested }),
+        }),
+        { iframe, onFinalize: async () => ({ error: 'no' }) },
+      );
+
+      expect(listObservationsPage).toHaveBeenCalledWith(undefined, {
+        formType: 'demo',
+        includeDeleted: expected,
+        limit: 5000,
+        offset: 0,
+      });
+      expect(postMessage).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('routes replies to iframe matched by resolveReplyIframe when source is nested', async () => {
     const postPrimary = vi.fn();
     const postNested = vi.fn();

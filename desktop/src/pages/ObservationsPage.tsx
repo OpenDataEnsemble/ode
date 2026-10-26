@@ -39,7 +39,7 @@ function toPayloadText(value: unknown) {
 }
 
 function statusClass(obs: ObservationRecord) {
-  if (obs.extras?.deleted) return 'danger';
+  if (obs.deleted) return 'danger';
   if (obs.syncStatus === 'conflict') return 'danger';
   if (obs.dirty) return 'warn';
   return 'ok';
@@ -102,7 +102,7 @@ function draftFromRecord(record: ObservationRecord): ObservationEditorDraft {
     updatedAt: record.updatedAt ?? '',
     formVersion: x?.formVersion ?? DEFAULT_OBSERVATION_FORM_VERSION,
     createdAt: x?.createdAt ?? record.updatedAt ?? '',
-    deleted: x?.deleted ?? false,
+    deleted: record.deleted,
     syncedAt: x?.syncedAt ?? '',
     geoText:
       x?.geolocation != null && typeof x.geolocation === 'object'
@@ -266,7 +266,7 @@ export function ObservationsPage() {
     } else if (filter === 'recent') {
       list = list.filter(isRecentlyModified);
     } else if (filter === 'deleted') {
-      list = list.filter(o => o.extras?.deleted);
+      list = list.filter(o => o.deleted);
     }
     return list;
   }, [observations, filter]);
@@ -880,7 +880,7 @@ export function ObservationsPage() {
                     title={syncPillLabel(item)}>
                     {syncPillLabel(item)}
                   </span>
-                  {item.extras?.deleted ? (
+                  {item.deleted ? (
                     <span className="tag-deleted">Deleted</span>
                   ) : null}
                   <span className="observation-list-id">{item.id}</span>

@@ -34,7 +34,10 @@ import {
   selectImportActivity,
   useImportStagingStore,
 } from './store/useImportStagingStore';
-import { guardedProfileNavigation } from './store/useProfileDraftGuardStore';
+import {
+  guardedProfileNavigation,
+  useProfileDraftGuardStore,
+} from './store/useProfileDraftGuardStore';
 import { useToastStore } from './store/useToastStore';
 import {
   ensureBundleApplyEventPipeline,
@@ -80,6 +83,20 @@ function ProfilesBootstrap() {
   const refreshSettings = useCustodianStore(s => s.refreshSettings);
   useEffect(() => {
     void refreshSettings();
+    // Pick up profiles / developer mode changed by the `ode` CLI while Desktop was in the background.
+    // Skip while the Profiles page has unsaved edits (a refresh would reset the draft).
+    const onFocus = () => {
+      void tauriClient
+        .syncExternalConfig()
+        .then(changed => {
+          if (changed && !useProfileDraftGuardStore.getState().isDirty) {
+            void refreshSettings();
+          }
+        })
+        .catch(() => undefined);
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, [refreshSettings]);
   return null;
 }

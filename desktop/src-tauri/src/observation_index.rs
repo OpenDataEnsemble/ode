@@ -217,7 +217,11 @@ pub fn rebuild_all_indexes(
         params![new_gen],
     )?;
 
-    let total: i64 = conn.query_row("SELECT COUNT(*) FROM observations", [], |r| r.get(0))?;
+    let total: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM observations WHERE deleted = 0",
+        [],
+        |r| r.get(0),
+    )?;
     if let Some(ref mut cb) = progress {
         cb(0, total, Some("Indexing observations…"));
     }
@@ -235,7 +239,8 @@ pub fn rebuild_all_indexes(
     // 2. Parallel map: parse each payload once and extract all EAV rows.
     // 3. Join: batch INSERT in one transaction (avoids per-row autocommit).
     let observations: Vec<(String, String, String)> = {
-        let mut stmt = conn.prepare("SELECT id, form_type, payload FROM observations")?;
+        let mut stmt =
+            conn.prepare("SELECT id, form_type, payload FROM observations WHERE deleted = 0")?;
         let mapped = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, String>(0)?,
@@ -433,7 +438,8 @@ mod tests {
             "CREATE TABLE observations (
                 id TEXT PRIMARY KEY,
                 form_type TEXT,
-                payload TEXT NOT NULL
+                payload TEXT NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
             );",
         )
         .unwrap();
@@ -526,9 +532,9 @@ mod tests {
     fn rebuild_swaps_generation() {
         let conn = test_conn();
         let defs = sample_defs();
-        conn.execute(
-            "INSERT INTO observations (id, form_type, payload) VALUES ('obs1', 'person', '{\"p_id\":\"P1\"}')",
-            [],
+        conn.execute_batch(
+            "INSERT INTO observations (id, form_type, payload) VALUES ('obs1', 'person', '{\"p_id\":\"P1\"}');
+             INSERT INTO observations (id, form_type, payload, deleted) VALUES ('deleted', 'person', '{\"p_id\":\"P2\"}', 1);",
         )
         .unwrap();
         let gen1 = rebuild_all_indexes(&conn, &defs, None).unwrap();

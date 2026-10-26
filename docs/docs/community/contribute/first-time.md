@@ -218,7 +218,7 @@ Once your PR is approved and merged, you're officially a contributor! Your code 
 
 **Contributing to Documentation:**
 - Documentation lives in this monorepo under [`docs/`](https://github.com/OpenDataEnsemble/ode/tree/dev/docs) (Markdown + Docusaurus). Doc pages are in `docs/docs/`
-- That site uses **npm** for its own tooling (`npm install`, `npm start` in the `docs` directory); ODE application code uses **pnpm** (see above)
+- The documentation site also uses **pnpm** (`pnpm install`, `pnpm start` in the `docs` directory)
 - The site publishes automatically when a change to `docs/` is merged to `dev`
 - Follow the same PR process for doc changes
 

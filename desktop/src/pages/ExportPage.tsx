@@ -23,6 +23,8 @@ import {
 import { useExportPageStore } from '../store/useExportPageStore';
 import { useToastStore } from '../store/useToastStore';
 import type { ExportParquetResult } from '../types/domain';
+import { localToolsHintLines } from '../lib/localTools';
+import { useLocalToolsCliPath } from '../hooks/useLocalToolsCliPath';
 
 type ExportProgressPayload = {
   phase?: string;
@@ -123,9 +125,15 @@ export function ExportPage() {
     [lastResult, formTypes],
   );
 
+  const cliPath = useLocalToolsCliPath();
+  const snippetHint = useMemo(
+    () => localToolsHintLines(activeProfile, cliPath),
+    [activeProfile, cliPath],
+  );
+
   const snippetCode = useMemo(
-    () => buildExportLoadSnippet(snippetLang, snippetFiles),
-    [snippetLang, snippetFiles],
+    () => buildExportLoadSnippet(snippetLang, snippetFiles, snippetHint),
+    [snippetLang, snippetFiles, snippetHint],
   );
 
   const pickDestination = useCallback(async () => {

@@ -59,7 +59,7 @@ The observations list supports filtering by:
 | Path | Contents |
 |------|----------|
 | `<form_type>.parquet` | One Parquet file per form type (envelope columns + top-level `data_*` fields, plus a `pending` flag) |
-| `export_manifest.json` | Export metadata (options, counts, attachment path hints) |
+| `export_manifest.json` | Export metadata: options, counts, and per form its Parquet file and a data dictionary (question labels, types, coded choices, linked sub-forms, Parquet column). Paths are relative to the export folder. |
 | `snippets/` | Ready-to-run load scripts (`load_r.R`, `load_python.py`, `load_stata.do`, `load_julia.jl`) with variables named after each form type |
 | `attachments/` | Present when **Include attachments** is on — flat copies of referenced files |
 

@@ -4,7 +4,8 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-const ATTACHMENT_SCHEMA_FORMATS: &[&str] = &["photo", "select_file", "signature", "audio", "video"];
+pub(crate) const ATTACHMENT_SCHEMA_FORMATS: &[&str] =
+    &["photo", "select_file", "signature", "audio", "video"];
 
 const ATTACHMENT_BASENAME_EXT: &[&str] = &[
     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".heic", ".tif", ".tiff", ".pdf", ".doc",

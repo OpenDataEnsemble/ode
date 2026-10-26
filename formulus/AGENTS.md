@@ -68,7 +68,7 @@ Server-side timeouts that used to kill long transfers live in Synkronus (`ReadHe
 
 ## UI language (i18n)
 
-- **Settings → Language** (`SettingsScreen`): Auto / `en` / `pt` / `fr`; stored in AsyncStorage (`@ode/uiLocale`) via [`LocaleSettingsService`](src/services/LocaleSettingsService.ts).
+- **Settings → Language** (`SettingsScreen`): Auto / `en` / `pt` / `fr` / `sw`; stored in AsyncStorage (`@ode/uiLocale`) via [`LocaleSettingsService`](src/services/LocaleSettingsService.ts).
 - Resolution: [`src/lib/locale.ts`](src/lib/locale.ts) — preference → device → `app.config.json` `defaultLocale` → `en`.
 - Shell strings: `react-i18next` + [`src/locales/`](src/locales/).
 - Formplayer receives resolved locale as `params.locale` from [`FormplayerModal`](src/components/FormplayerModal.tsx).
