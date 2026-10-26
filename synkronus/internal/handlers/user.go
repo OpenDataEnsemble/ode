@@ -109,9 +109,7 @@ func (h *Handler) ListUsersHandler(w http.ResponseWriter, r *http.Request) {
 		SendErrorResponse(w, http.StatusBadRequest, err, err.Error())
 		return
 	}
-	if err := json.NewEncoder(w).Encode(userList); err != nil {
-		h.log.Error("Failed to encode user list response", "error", err)
-	}
+	SendJSONResponse(w, http.StatusOK, userList)
 }
 
 // ChangePasswordRequest represents the request body for changing password
