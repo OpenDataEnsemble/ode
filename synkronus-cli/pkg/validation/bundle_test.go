@@ -229,6 +229,29 @@ func TestValidateBundle(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "built-in likert, duration and sub-observation formats",
+			files: map[string]string{
+				"app/index.html": "<html></html>",
+				"forms/survey/schema.json": `{"type": "object", "properties": {
+					"satisfaction": {"type": "integer", "format": "likert", "oneOf": [{"const": 1, "title": "Low"}, {"const": 5, "title": "High"}]},
+					"time_spent": {"type": "string", "format": "duration"},
+					"members": {"type": "array", "format": "sub-observation"}
+				}}`,
+				"forms/survey/ui.json": `{"type": "VerticalLayout", "elements": [{"type": "Control", "scope": "#/properties/satisfaction", "options": {"format": "likert"}}]}`,
+			},
+			wantErr: false,
+		},
+		{
+			name: "unknown format without extension renderer",
+			files: map[string]string{
+				"app/index.html":         "<html></html>",
+				"forms/user/schema.json": `{"type": "object", "properties": {"x": {"type": "string", "format": "not-a-real-format"}}}`,
+				"forms/user/ui.json":     "{}",
+			},
+			wantErr: true,
+			errMsg:  "no extension renderer is defined for this format",
+		},
 	}
 
 	for _, tt := range tests {
