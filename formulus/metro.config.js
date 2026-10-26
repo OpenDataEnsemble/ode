@@ -1,4 +1,5 @@
 import { getDefaultConfig, mergeConfig } from '@react-native/metro-config';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,26 +23,29 @@ const workspaceWatchFolders = [
 const projectRoot = __dirname;
 
 /**
+ * Real path of a package in the app's node_modules. pnpm's isolated layout
+ * symlinks top-level packages into node_modules/.pnpm/…; returning the symlink
+ * path from resolveRequest makes Metro resolve that package's own (unhoisted)
+ * dependencies, e.g. react-native → invariant, from the wrong directory.
+ */
+const appModule = name =>
+  fs.realpathSync(path.resolve(projectRoot, 'node_modules', name));
+
+/**
  * Force react and react-native to always resolve from the app's node_modules
  * (avoids incomplete copy in packages/components). react-native-svg only uses
  * extraNodeModules so Metro resolves its real entry (lib/commonjs/index.js).
  */
-const babelRuntimeRoot = path.resolve(
-  projectRoot,
-  'node_modules/@babel/runtime',
-);
+const babelRuntimeRoot = appModule('@babel/runtime');
 
 const forcedModules = {
-  react: path.resolve(projectRoot, 'node_modules/react'),
-  'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+  react: appModule('react'),
+  'react-native': appModule('react-native'),
   '@babel/runtime': babelRuntimeRoot,
 };
 const extraModules = {
   ...forcedModules,
-  'react-native-svg': path.resolve(
-    projectRoot,
-    'node_modules/react-native-svg',
-  ),
+  'react-native-svg': appModule('react-native-svg'),
   '@ode/components/react-native': path.resolve(
     monorepoRoot,
     'packages/components/src/react-native/index.ts',
@@ -95,9 +99,9 @@ const config = {
       }
       // Handle react-native-svg - resolve to its actual entry point
       if (moduleName === 'react-native-svg') {
-        const svgPath = path.resolve(
-          projectRoot,
-          'node_modules/react-native-svg/lib/commonjs/index.js',
+        const svgPath = path.join(
+          extraModules['react-native-svg'],
+          'lib/commonjs/index.js',
         );
         return {
           type: 'sourceFile',
