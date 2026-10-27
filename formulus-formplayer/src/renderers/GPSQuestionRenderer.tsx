@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { rankWith, ControlProps, formatIs } from '@jsonforms/core';
+import { rankWith, ControlProps, schemaMatches } from '@jsonforms/core';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import {
   Typography,
@@ -341,10 +341,11 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
   );
 };
 
-// Tester function to determine when this renderer should be used
+// Match on format alone so both documented object schemas and legacy
+// string schemas use the GPS renderer.
 export const gpsQuestionTester = rankWith(
-  10, // Priority - higher than default string renderer
-  formatIs('gps'),
+  10,
+  schemaMatches(schema => schema.format === 'gps'),
 );
 
 export default withJsonFormsControlProps(GPSQuestionRenderer);
