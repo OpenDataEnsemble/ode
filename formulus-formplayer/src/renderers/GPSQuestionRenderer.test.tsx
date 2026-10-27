@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { JsonForms } from '@jsonforms/react';
 import Ajv from 'ajv';
 import GPSQuestionRenderer, { gpsQuestionTester } from './GPSQuestionRenderer';
+import FormulusClient from '../services/FormulusInterface';
 
 const ajv = new Ajv({ strict: false });
 ajv.addFormat('gps', () => true);
@@ -72,6 +73,56 @@ describe('gpsQuestionTester', () => {
     expect(
       gpsQuestionTester(uischema as any, rootSchema as any, {} as any),
     ).toBe(10);
+  });
+});
+
+describe('GPS capture storage', () => {
+  it('stores captured GPS data as an object for an object schema', async () => {
+    vi.spyOn(FormulusClient.getInstance(), 'requestLocation').mockResolvedValue(
+      {
+        status: 'success',
+        data: {
+          type: 'location',
+          latitude: 0.347596,
+          longitude: 32.58252,
+          accuracy: 5,
+          altitude: null,
+          altitudeAccuracy: null,
+          timestamp: '2026-10-27T10:00:00.000Z',
+        },
+      },
+    );
+
+    const onChange = vi.fn();
+
+    render(
+      <JsonForms
+        schema={objectGpsSchema}
+        uischema={gpsUischema}
+        data={{}}
+        renderers={renderers}
+        ajv={ajv}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Capture GPS location' }),
+    );
+
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalled();
+      const latest = onChange.mock.calls.at(-1)?.[0]?.data;
+
+      expect(latest?.location).toEqual({
+        latitude: 0.347596,
+        longitude: 32.58252,
+        accuracy: 5,
+        altitude: undefined,
+        altitudeAccuracy: undefined,
+        timestamp: '2026-10-27T10:00:00.000Z',
+      });
+    });
   });
 });
 
