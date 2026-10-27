@@ -110,7 +110,10 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
           altitudeAccuracy: result.data.altitudeAccuracy ?? undefined,
           timestamp: result.data.timestamp,
         };
-        handleChange(path, JSON.stringify(stored));
+        handleChange(
+          path,
+          schema.type === 'object' ? stored : JSON.stringify(stored),
+        );
       } else {
         const msg =
           result.message ||
@@ -141,7 +144,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
     } finally {
       setIsCapturing(false);
     }
-  }, [enabled, fieldId, handleChange, path]);
+  }, [enabled, fieldId, handleChange, path, schema.type]);
 
   const handleDeleteLocation = () => {
     setError(null);
