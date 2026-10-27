@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { JsonForms } from '@jsonforms/react';
 import Ajv from 'ajv';
 import GPSQuestionRenderer, { gpsQuestionTester } from './GPSQuestionRenderer';
@@ -35,6 +41,11 @@ const gpsUischema = {
 const renderers = [
   { tester: gpsQuestionTester, renderer: GPSQuestionRenderer },
 ];
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function ObjectGpsForm({ value }: { value: Record<string, unknown> }) {
   return (
