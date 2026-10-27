@@ -44,21 +44,31 @@ interface LocationDisplayData {
 }
 
 function parseLocationDisplayData(data: unknown): LocationDisplayData | null {
-  if (!data || typeof data !== 'string') {
+  if (!data) {
     return null;
   }
-  try {
-    const parsed = JSON.parse(data);
-    if (
-      parsed &&
-      typeof parsed.latitude === 'number' &&
-      typeof parsed.longitude === 'number'
-    ) {
-      return parsed as LocationDisplayData;
-    }
-  } catch (e) {
-    console.warn('Failed to parse existing location data:', e);
+
+  const parsed =
+    typeof data === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(data);
+          } catch (e) {
+            console.warn('Failed to parse existing location data:', e);
+            return null;
+          }
+        })()
+      : data;
+
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    typeof (parsed as LocationDisplayData).latitude === 'number' &&
+    typeof (parsed as LocationDisplayData).longitude === 'number'
+  ) {
+    return parsed as LocationDisplayData;
   }
+
   return null;
 }
 
