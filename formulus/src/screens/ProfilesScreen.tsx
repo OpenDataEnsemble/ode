@@ -75,7 +75,7 @@ const ProfilesScreen = ({ route, navigation }: ProfilesScreenProps) => {
   useEffect(() => {
     const payload = route?.params?.payload;
     if (!payload) return;
-    if (editor) {
+    if (editorRef.current) {
       ToastService.showLong(t('profiles.finishCreationFirst'));
       navigation.setParams({ payload: undefined });
       return;
@@ -105,7 +105,7 @@ const ProfilesScreen = ({ route, navigation }: ProfilesScreenProps) => {
     };
 
     void processDeepLink();
-  }, [editor, navigation, route?.params?.payload, t]);
+  }, [navigation, route?.params?.payload, t]);
 
   const runAction = useCallback<RunProfileAction>(
     async (operation, fallbackKey) => {

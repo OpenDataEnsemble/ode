@@ -409,6 +409,7 @@ async function openQRCreation(screen: ReturnType<typeof render>) {
   );
   await confirm();
   expect(screen.getByPlaceholderText('Profile name')).toHaveProp('value', '');
+  expect(ToastService.showLong).not.toHaveBeenCalled();
   expect(profileRegistry.add).not.toHaveBeenCalled();
 }
 
