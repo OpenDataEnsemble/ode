@@ -444,11 +444,17 @@ const SwipeLayoutRenderer = ({
     ],
   );
 
+  const startedOnNoSwipe = (e: { target: EventTarget | null }) =>
+    e.target instanceof Element &&
+    !!e.target.closest('canvas, [data-no-swipe]');
+
   const handlers = useSwipeable({
-    onSwipedLeft: () => {
+    onSwipedLeft: ({ event }) => {
+      if (startedOnNoSwipe(event)) return;
       if (nextVisiblePage !== null) navigateToPage(nextVisiblePage);
     },
-    onSwipedRight: () => {
+    onSwipedRight: ({ event }) => {
+      if (startedOnNoSwipe(event)) return;
       if (prevVisiblePage !== null) navigateToPage(prevVisiblePage);
     },
   });
