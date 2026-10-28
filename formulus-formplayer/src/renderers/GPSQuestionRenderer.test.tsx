@@ -85,6 +85,28 @@ describe('gpsQuestionTester', () => {
       gpsQuestionTester(uischema as any, rootSchema as any, {} as any),
     ).toBe(10);
   });
+
+  it('matches an object GPS schema without properties', () => {
+    const rootSchema = {
+      type: 'object',
+      properties: {
+        location: {
+          type: 'object',
+          format: 'gps',
+          title: 'Current Location',
+        },
+      },
+    };
+
+    const uischema = {
+      type: 'Control',
+      scope: '#/properties/location',
+    };
+
+    expect(
+      gpsQuestionTester(uischema as any, rootSchema as any, {} as any),
+    ).toBe(10);
+  });
 });
 
 describe('GPS capture storage', () => {
@@ -147,6 +169,40 @@ describe('GPS object observation values', () => {
           accuracy: 5,
           timestamp: '2026-10-27T10:00:00.000Z',
         }}
+      />,
+    );
+
+    expect(screen.getByText('Location Captured')).toBeInTheDocument();
+    expect(screen.getByText('0.347596° N')).toBeInTheDocument();
+    expect(screen.getByText('32.582520° E')).toBeInTheDocument();
+  });
+
+  it('displays an existing legacy string GPS value', () => {
+    const legacyStringGpsSchema = {
+      type: 'object',
+      properties: {
+        location: {
+          type: 'string',
+          format: 'gps',
+          title: 'Current Location',
+        },
+      },
+    };
+
+    render(
+      <JsonForms
+        schema={legacyStringGpsSchema}
+        uischema={gpsUischema}
+        data={{
+          location: JSON.stringify({
+            latitude: 0.347596,
+            longitude: 32.58252,
+            accuracy: 5,
+            timestamp: '2026-10-27T10:00:00.000Z',
+          }),
+        }}
+        renderers={renderers}
+        ajv={ajv}
       />,
     );
 
