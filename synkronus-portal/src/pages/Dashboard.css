@@ -1334,7 +1334,7 @@ button.logo-home-link:focus-visible {
     0 8px 32px var(--color-neutral-black-alpha-40),
     inset 0 1px 0 var(--color-neutral-white-alpha-5);
   min-height: 500px;
-  color: var(--color-neutral-white);
+  color: var(--color-text-primary);
   transition: all var(--duration-normal) var(--easing-ease-out);
   display: flex;
   flex-direction: column;
@@ -3691,6 +3691,15 @@ button.logo-home-link:focus-visible {
   min-height: auto !important;
   border-radius: var(--border-radius-md) !important;
   border: none !important;
+}
+
+[data-theme='light'] .change-password-button {
+  color: var(--color-brand-secondary-600) !important;
+}
+
+[data-theme='light'] .change-password-button:hover:not(:disabled) {
+  background: var(--color-brand-secondary-500) !important;
+  color: var(--color-neutral-white) !important;
 }
 
 /* Responsive adjustments */
