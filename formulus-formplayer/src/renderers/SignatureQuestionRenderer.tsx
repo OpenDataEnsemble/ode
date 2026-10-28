@@ -126,6 +126,7 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
         | React.TouchEvent<HTMLCanvasElement>,
     ) => {
       e.preventDefault();
+      e.stopPropagation();
       const point = getCanvasPoint(e);
       if (!point) return;
 
@@ -142,6 +143,7 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
         | React.TouchEvent<HTMLCanvasElement>,
     ) => {
       e.preventDefault();
+      e.stopPropagation();
       if (!isDrawingRef.current || !canvasRef.current) return;
 
       const point = getCanvasPoint(e);
@@ -164,10 +166,19 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
     [getCanvasPoint],
   );
 
-  const stopDrawing = useCallback(() => {
-    isDrawingRef.current = false;
-    lastPointRef.current = null;
-  }, []);
+  const stopDrawing = useCallback(
+    (
+      e:
+        | React.MouseEvent<HTMLCanvasElement>
+        | React.TouchEvent<HTMLCanvasElement>,
+    ) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isDrawingRef.current = false;
+      lastPointRef.current = null;
+    },
+    [],
+  );
 
   // Clear canvas
   const clearCanvas = useCallback(() => {
