@@ -833,6 +833,7 @@ test('incoming deep link prefills a new profile without saving', async () => {
   );
 
   expect(screen.getByPlaceholderText('Profile name')).toHaveProp('value', '');
+  expect(ToastService.showLong).not.toHaveBeenCalled();
 
   expect(profileRegistry.add).not.toHaveBeenCalled();
   expect(mockSetParams).toHaveBeenCalledWith({
