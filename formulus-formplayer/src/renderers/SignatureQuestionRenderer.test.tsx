@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { JsonForms } from '@jsonforms/react';
 import Ajv from 'ajv';
 import SignatureQuestionRenderer, {
@@ -36,6 +43,30 @@ function Form({ value }: { value: Record<string, unknown> }) {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+
+describe('signature drawing gestures', () => {
+  it('does not bubble touch gestures from the signature canvas', () => {
+    const onTouchStart = vi.fn();
+    const onTouchEnd = vi.fn();
+
+    const { container } = render(
+      <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <Form value={{}} />
+      </div>,
+    );
+
+    const canvas = container.querySelector('canvas');
+    expect(canvas).not.toBeNull();
+
+    fireEvent.touchStart(canvas!, {
+      touches: [{ clientX: 20, clientY: 20 }],
+    });
+    fireEvent.touchEnd(canvas!);
+
+    expect(onTouchStart).not.toHaveBeenCalled();
+    expect(onTouchEnd).not.toHaveBeenCalled();
+  });
 });
 
 describe('signature profile-safe preview', () => {
