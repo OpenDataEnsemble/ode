@@ -3694,12 +3694,12 @@ button.logo-home-link:focus-visible {
 }
 
 [data-theme='light'] .change-password-button {
-  color: var(--color-brand-secondary-600) !important;
+  color: var(--color-text-primary) !important;
 }
 
 [data-theme='light'] .change-password-button:hover:not(:disabled) {
   background: var(--color-brand-secondary-500) !important;
-  color: var(--color-neutral-white) !important;
+  color: var(--color-neutral-black) !important;
 }
 
 /* Responsive adjustments */
