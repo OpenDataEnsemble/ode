@@ -48,7 +48,13 @@ jest.mock('react-native', () => {
 
 const mockNavigate = jest.fn();
 const mockReset = jest.fn();
-const mockNavigation = { navigate: mockNavigate, reset: mockReset };
+const mockSetParams = jest.fn();
+
+const mockNavigation = {
+  navigate: mockNavigate,
+  reset: mockReset,
+  setParams: mockSetParams,
+};
 const mockConfirm = jest.fn();
 const mockListeners = new Set<() => void>();
 let mockQRResult: (result: ScannerModalResults) => void;
@@ -223,7 +229,10 @@ jest.mock('../../services/ServerConfigService', () => ({
   serverConfigService: { isHealthEndpointOk: jest.fn() },
 }));
 jest.mock('../../services/QRSettingsService', () => ({
-  QRSettingsService: { processQRCode: jest.fn() },
+  QRSettingsService: {
+    processQRCode: jest.fn(),
+    processPayload: jest.fn(),
+  },
 }));
 jest.mock('../../services/SettingsHydrationCache', () => ({
   loadSettingsHydrationFromStorage: jest.fn(),
@@ -345,6 +354,11 @@ beforeEach(() => {
     username: 'qr-user',
     password: 'qr-secret',
   });
+  jest.mocked(QRSettingsService.processPayload).mockResolvedValue({
+    serverUrl: 'https://scanned.example',
+    username: 'scan-user',
+    password: 'scan-secret',
+  });
 });
 
 async function setup() {
@@ -395,6 +409,7 @@ async function openQRCreation(screen: ReturnType<typeof render>) {
   );
   await confirm();
   expect(screen.getByPlaceholderText('Profile name')).toHaveProp('value', '');
+  expect(ToastService.showLong).not.toHaveBeenCalled();
   expect(profileRegistry.add).not.toHaveBeenCalled();
 }
 
@@ -788,6 +803,94 @@ test('new-profile panel requires a name and Cancel abandons manual entry', async
     'First',
   );
   expect(profileRegistry.add).not.toHaveBeenCalled();
+});
+
+test('incoming deep link prefills a new profile without saving', async () => {
+  const route = {
+    params: { payload: 'FRMLS:test-payload' },
+  };
+
+  const screen = render(
+    <ProfilesScreen route={route as any} navigation={mockNavigation as any} />,
+  );
+
+  await waitFor(() => {
+    expect(QRSettingsService.processPayload).toHaveBeenCalledWith(
+      'FRMLS:test-payload',
+    );
+  });
+
+  await waitFor(() => {
+    expect(screen.getByPlaceholderText('Server URL')).toHaveProp(
+      'value',
+      'https://scanned.example',
+    );
+  });
+
+  expect(screen.getByPlaceholderText('Username')).toHaveProp(
+    'value',
+    'scan-user',
+  );
+
+  expect(screen.getByPlaceholderText('Profile name')).toHaveProp('value', '');
+  expect(ToastService.showLong).not.toHaveBeenCalled();
+
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+  expect(mockSetParams).toHaveBeenCalledWith({
+    payload: undefined,
+  });
+});
+test('incoming deep link does not overwrite an unfinished profile', async () => {
+  const route = { params: {} as { payload?: string } };
+
+  const screen = render(
+    <ProfilesScreen route={route as any} navigation={mockNavigation as any} />,
+  );
+
+  await waitFor(() =>
+    expect(screen.getByPlaceholderText('Username')).toHaveProp(
+      'editable',
+      true,
+    ),
+  );
+
+  fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
+
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Profile name'),
+    'My unfinished profile',
+  );
+
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Server URL'),
+    'https://original.example',
+  );
+
+  route.params = { payload: 'FRMLS:test-payload' };
+
+  screen.rerender(
+    <ProfilesScreen route={route as any} navigation={mockNavigation as any} />,
+  );
+
+  await waitFor(() =>
+    expect(ToastService.showLong).toHaveBeenCalledWith(
+      'Finish or cancel the current profile before opening another QR link.',
+    ),
+  );
+
+  expect(screen.getByPlaceholderText('Profile name')).toHaveProp(
+    'value',
+    'My unfinished profile',
+  );
+
+  expect(screen.getByPlaceholderText('Server URL')).toHaveProp(
+    'value',
+    'https://original.example',
+  );
+
+  expect(QRSettingsService.processPayload).not.toHaveBeenCalled();
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+  expect(mockSetParams).toHaveBeenCalledWith({ payload: undefined });
 });
 
 test('creation QR fills manual fields without saving until a name is entered', async () => {

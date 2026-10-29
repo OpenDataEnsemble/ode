@@ -32,10 +32,11 @@ export function encodeFormulusLoginQr(
   username: string,
   password: string,
 ): string {
-  return encodeFRMLS({
+  const frmls = encodeFRMLS({
     v: 1,
     s: serverUrl,
     u: username,
     p: password,
   });
+  return `formulus://settings?payload=${encodeURIComponent(frmls)}`;
 }
