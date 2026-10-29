@@ -5,6 +5,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { useTranslation } from 'react-i18next';
 import { Button, Input } from '../components/common';
+import AutoSyncSettings from '../components/AutoSyncSettings';
 import QRScannerModal, {
   ScannerModalResults,
 } from '../components/QRScannerModal';
@@ -423,6 +424,9 @@ const ProfileConnection = ({
           </TouchableOpacity>
         }
       />
+
+      {!creation && <AutoSyncSettings />}
+
       {creation ? (
         <View style={styles.actions}>
           <Button
