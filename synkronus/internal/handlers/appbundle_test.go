@@ -287,9 +287,20 @@ func TestCompareAppBundleVersions(t *testing.T) {
 	tests := []struct {
 		name           string
 		currentVersion string
+		targetVersion  string
 		preview        string
 		expectedCode   int
+		expectedA      string
+		expectedB      string
 	}{
+		{
+			name:           "compare with explicit target version",
+			currentVersion: "20250102-000000",
+			targetVersion:  "20241231-000000",
+			expectedCode:   http.StatusOK,
+			expectedA:      "20250102-000000",
+			expectedB:      "20241231-000000",
+		},
 		{
 			name:           "compare with previous version",
 			currentVersion: "v2.0.0",
@@ -314,6 +325,9 @@ func TestCompareAppBundleVersions(t *testing.T) {
 			q := req.URL.Query()
 			if tc.currentVersion != "" {
 				q.Add("current", tc.currentVersion)
+			}
+			if tc.targetVersion != "" {
+				q.Add("target", tc.targetVersion)
 			}
 			if tc.preview != "" {
 				q.Add("preview", tc.preview)
@@ -340,6 +354,12 @@ func TestCompareAppBundleVersions(t *testing.T) {
 			if resp.StatusCode == http.StatusOK {
 				assert.Contains(t, respBody, "compare_version_a")
 				assert.Contains(t, respBody, "compare_version_b")
+				if tc.expectedA != "" {
+					assert.Equal(t, tc.expectedA, respBody["compare_version_a"])
+				}
+				if tc.expectedB != "" {
+					assert.Equal(t, tc.expectedB, respBody["compare_version_b"])
+				}
 			}
 		})
 	}

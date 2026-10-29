@@ -189,39 +189,43 @@ func (h *Handler) CompareAppBundleVersions(w http.ResponseWriter, r *http.Reques
 		currentVersion = strings.TrimSuffix(versions[len(versions)-1], " *")
 	}
 
-	// Determine the target version (preview or previous)
-	targetVersion := "latest"
-	if !preview {
-		// If not preview, compare with the previous version
-		versions, err := h.appBundleService.GetVersions(ctx)
-		if err != nil {
-			h.log.Error("Failed to get versions", "error", err)
-			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to get versions")
-			return
-		}
+	// Determine the target version from the request, preview, or previous version.
+	targetVersion := r.URL.Query().Get("target")
+	if targetVersion == "" {
+		targetVersion = "latest"
 
-		// Find the index of the current version
-		currentIdx := -1
-		for i, v := range versions {
-			// Strip asterisk for comparison
-			cleanVersion := strings.TrimSuffix(v, " *")
-			if cleanVersion == currentVersion {
-				currentIdx = i
-				break
+		if !preview {
+			// If no explicit target is provided, compare with the previous version.
+			versions, err := h.appBundleService.GetVersions(ctx)
+			if err != nil {
+				h.log.Error("Failed to get versions", "error", err)
+				SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to get versions")
+				return
 			}
-		}
 
-		if currentIdx <= 0 {
-			// If no previous version exists, return an empty change log
-			SendJSONResponse(w, http.StatusOK, &appbundle.ChangeLog{
-				CompareVersionA: currentVersion,
-				CompareVersionB: currentVersion,
-			})
-			return
-		}
+			// Find the index of the current version.
+			currentIdx := -1
+			for i, v := range versions {
+				// Strip asterisk for comparison.
+				cleanVersion := strings.TrimSuffix(v, " *")
+				if cleanVersion == currentVersion {
+					currentIdx = i
+					break
+				}
+			}
 
-		// Remove asterisk suffix from target version
-		targetVersion = strings.TrimSuffix(versions[currentIdx-1], " *")
+			if currentIdx <= 0 {
+				// If no previous version exists, return an empty change log.
+				SendJSONResponse(w, http.StatusOK, &appbundle.ChangeLog{
+					CompareVersionA: currentVersion,
+					CompareVersionB: currentVersion,
+				})
+				return
+			}
+
+			// Remove asterisk suffix from target version.
+			targetVersion = strings.TrimSuffix(versions[currentIdx-1], " *")
+		}
 	}
 
 	// Compare the versions

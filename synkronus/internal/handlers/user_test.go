@@ -159,6 +159,23 @@ func TestResetPasswordHandler(t *testing.T) {
 	}
 }
 
+func TestListUsersHandlerReturnsJSONContentType(t *testing.T) {
+	h, mockUserService := userHandlerTestHelper()
+	mockUserService.AddUser(&models.User{
+		Username: "admin",
+		Role:     models.RoleAdmin,
+	})
+
+	r := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	w := httptest.NewRecorder()
+
+	h.ListUsersHandler(w, r)
+
+	resp := w.Result()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+}
+
 func TestChangePasswordHandler(t *testing.T) {
 	h, mockUserService := userHandlerTestHelper()
 	mockUserService.AddUser(&models.User{Username: "changepw", PasswordHash: "oldpw", Role: models.RoleReadOnly})
