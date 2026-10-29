@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { rankWith, ControlProps, formatIs } from '@jsonforms/core';
+import { rankWith, ControlProps, schemaMatches } from '@jsonforms/core';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import {
   Typography,
@@ -44,21 +44,31 @@ interface LocationDisplayData {
 }
 
 function parseLocationDisplayData(data: unknown): LocationDisplayData | null {
-  if (!data || typeof data !== 'string') {
+  if (!data) {
     return null;
   }
-  try {
-    const parsed = JSON.parse(data);
-    if (
-      parsed &&
-      typeof parsed.latitude === 'number' &&
-      typeof parsed.longitude === 'number'
-    ) {
-      return parsed as LocationDisplayData;
-    }
-  } catch (e) {
-    console.warn('Failed to parse existing location data:', e);
+
+  const parsed =
+    typeof data === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(data);
+          } catch (e) {
+            console.warn('Failed to parse existing location data:', e);
+            return null;
+          }
+        })()
+      : data;
+
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    typeof (parsed as LocationDisplayData).latitude === 'number' &&
+    typeof (parsed as LocationDisplayData).longitude === 'number'
+  ) {
+    return parsed as LocationDisplayData;
   }
+
   return null;
 }
 
@@ -100,7 +110,10 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
           altitudeAccuracy: result.data.altitudeAccuracy ?? undefined,
           timestamp: result.data.timestamp,
         };
-        handleChange(path, JSON.stringify(stored));
+        handleChange(
+          path,
+          schema.type === 'object' ? stored : JSON.stringify(stored),
+        );
       } else {
         const msg =
           result.message ||
@@ -131,7 +144,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
     } finally {
       setIsCapturing(false);
     }
-  }, [enabled, fieldId, handleChange, path]);
+  }, [enabled, fieldId, handleChange, path, schema.type]);
 
   const handleDeleteLocation = () => {
     setError(null);
@@ -341,10 +354,11 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
   );
 };
 
-// Tester function to determine when this renderer should be used
+// Match on format alone so both documented object schemas and legacy
+// string schemas use the GPS renderer.
 export const gpsQuestionTester = rankWith(
-  10, // Priority - higher than default string renderer
-  formatIs('gps'),
+  10,
+  schemaMatches(schema => schema.format === 'gps'),
 );
 
 export default withJsonFormsControlProps(GPSQuestionRenderer);
