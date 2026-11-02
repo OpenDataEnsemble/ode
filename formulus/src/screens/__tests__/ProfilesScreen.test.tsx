@@ -129,6 +129,10 @@ jest.mock('react-native-safe-area-context', () => ({
   },
 }));
 jest.mock('@react-native-vector-icons/material-design-icons', () => 'Icon');
+jest.mock('../../components/AutoSyncSettings', () => ({
+  __esModule: true,
+  default: () => null,
+}));
 jest.mock('../../contexts/AppThemeContext', () => ({
   useAppTheme: () => ({
     themeColors: {

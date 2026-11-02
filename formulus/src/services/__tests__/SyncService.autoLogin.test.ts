@@ -235,6 +235,70 @@ describe('SyncService - Auto-Login Integration', () => {
     expect(profileActivity.isBusy()).toBe(false);
   });
 
+  describe('silent sync', () => {
+    test('syncs observations without foreground or completion notifications', async () => {
+      (isUnauthorizedError as jest.Mock).mockReturnValue(false);
+      (synkronusApi.syncObservations as jest.Mock).mockResolvedValue({
+        version: 42,
+        pendingAttachmentDownloads: 0,
+        pendingAttachmentUploads: 0,
+      });
+
+      const result = await syncService.syncObservations({
+        includeAttachments: false,
+        silent: true,
+      });
+
+      expect(result).toBe(42);
+      expect(synkronusApi.syncObservations).toHaveBeenCalledTimes(1);
+
+      expect(
+        notificationService.clearAllSyncNotifications,
+      ).not.toHaveBeenCalled();
+      expect(notificationService.startForegroundService).not.toHaveBeenCalled();
+      expect(notificationService.showSyncProgress).not.toHaveBeenCalled();
+      expect(notificationService.showSyncComplete).not.toHaveBeenCalled();
+      expect(notificationService.stopForegroundService).not.toHaveBeenCalled();
+    });
+
+    test('keeps silent sync failures non-intrusive', async () => {
+      const error = new Error('Network unavailable');
+
+      (isUnauthorizedError as jest.Mock).mockReturnValue(false);
+      (synkronusApi.syncObservations as jest.Mock).mockRejectedValue(error);
+
+      await expect(
+        syncService.syncObservations({
+          includeAttachments: false,
+          silent: true,
+        }),
+      ).rejects.toThrow('Network unavailable');
+
+      expect(notificationService.showSyncProgress).not.toHaveBeenCalled();
+      expect(notificationService.showSyncComplete).not.toHaveBeenCalled();
+      expect(notificationService.startForegroundService).not.toHaveBeenCalled();
+      expect(notificationService.stopForegroundService).not.toHaveBeenCalled();
+    });
+
+    test('preserves existing notification behavior for manual sync', async () => {
+      (isUnauthorizedError as jest.Mock).mockReturnValue(false);
+      (synkronusApi.syncObservations as jest.Mock).mockResolvedValue({
+        version: 43,
+        pendingAttachmentDownloads: 0,
+        pendingAttachmentUploads: 0,
+      });
+
+      await expect(syncService.syncObservations(false)).resolves.toBe(43);
+
+      expect(notificationService.startForegroundService).toHaveBeenCalled();
+      expect(notificationService.showSyncProgress).toHaveBeenCalled();
+      expect(notificationService.showSyncComplete).toHaveBeenCalledWith({
+        kind: 'success',
+      });
+      expect(notificationService.stopForegroundService).toHaveBeenCalled();
+    });
+  });
+
   describe('withAutoLoginRetry - syncObservations', () => {
     test('should retry syncObservations after auto-login on 401 error', async () => {
       const mockUserInfo = {
