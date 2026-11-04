@@ -64,6 +64,27 @@ class MockLocalRepo implements LocalRepoInterface {
     };
   }
 
+  async listObservationMapPoints() {
+    const rows = await this.getActiveObservations();
+    const points = rows
+      .filter(obs => obs.geolocation?.latitude != null)
+      .map(obs => ({
+        observationId: obs.observationId,
+        formType: obs.formType,
+        createdAt: obs.createdAt,
+        synced: false,
+        latitude: obs.geolocation?.latitude ?? 0,
+        longitude: obs.geolocation?.longitude ?? 0,
+        accuracy: obs.geolocation?.accuracy ?? null,
+      }));
+    return {
+      points,
+      total: rows.length,
+      withoutLocation: rows.length - points.length,
+      truncated: false,
+    };
+  }
+
   async updateObservation(
     id: string,
     observation: Partial<Observation>,
