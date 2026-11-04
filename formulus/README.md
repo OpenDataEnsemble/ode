@@ -36,6 +36,15 @@ Then:
 pnpm run android
 ```
 
+Release and default debug builds only include ARM ABIs (`armeabi-v7a` and `arm64-v8a`) to keep the APK small. If you are using an x86_64 Android emulator, build and install the matching ABI explicitly:
+
+```sh
+cd android
+./gradlew app:installDebug -PabiFilters=x86_64
+```
+
+Alternatively, use an ARM64 emulator system image. If you run Gradle directly on a fresh clone, make sure `pnpm run vendor:notifee` has been run first as described above.
+
 See `third_party/README.md` for pinning the vendored commit when you upgrade `@notifee/react-native`.
 
 ### iOS
