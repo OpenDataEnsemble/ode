@@ -108,6 +108,7 @@ jest.mock('../../database/DatabaseService', () => ({
       getObservationsByFormType: mockGetObservationsByFormType,
       getObservation: jest.fn(),
       listObservationsPage: jest.fn(),
+      listObservationMapPoints: jest.fn(),
       queryObservations: mockQueryObservations,
       deleteObservation: mockDeleteObservation,
       saveObservation: mockSaveObservation,
