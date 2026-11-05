@@ -6,7 +6,11 @@ import type {
 
 // Keep the profile UI's route extension alongside its navigator.
 export type MainTabParamList = BaseMainTabParamList & {
-  Profiles: undefined;
+  Profiles:
+    | {
+        payload?: string;
+      }
+    | undefined;
 };
 
 export type MainAppStackParamList = Omit<

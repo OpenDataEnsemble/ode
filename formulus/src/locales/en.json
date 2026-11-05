@@ -20,6 +20,7 @@
   "profiles.switchTitle": "Switch profile?",
   "profiles.switchMessage": "Switch to “{{label}}”? Finish open forms and wait for sync before switching.",
   "profiles.scanQr": "Scan QR",
+  "profiles.finishCreationFirst": "Finish or cancel the current profile before opening another QR link.",
   "profiles.notConfigured": "No server configured",
   "profiles.add": "Add profile",
   "profiles.rename": "Rename",

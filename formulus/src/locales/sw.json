@@ -2,6 +2,7 @@
   "profiles.title": "Wasifu",
   "profiles.trustWarning": "Hakikisha unaunganisha tu kwenye seva za Synkronus zinazoaminika. Msimbo wa programu maalum unaweza kufikia data kutoka wasifu mwingine kwenye kifaa hiki!",
   "profiles.closeTitle": "Funga Formulus kabisa",
+  "profiles.finishCreationFirst": "Kamilisha au ghairi wasifu wa sasa kabla ya kufungua kiungo kingine cha QR.",
   "profiles.closeMessage": "Uchaguzi wa wasifu wako umehifadhiwa; kubadilisha hakujafuta data yako. Funga Formulus kabisa kutoka kwa kibadilishaji cha programu, kisha uifungue tena ili kuendelea. Kwenda Nyumbani au kuiacha programu nyuma haitoshi. Wasifu wowote uliochagua kufuta umepangwa kufutwa ndani katika uzinduzi ujao kamili.",
   "profiles.recoveryTitle": "Haikuweza kufungua au kubadilisha wasifu kwa usalama",
   "profiles.recoveryMessage": "Funga Formulus kabisa kutoka kwa kibadilishaji cha programu, kisha uifungue tena. Kwenda Nyumbani au kuiacha programu nyuma haitoshi. Usifute data ya programu. Ikiwa hii inaendelea, wasiliana na usaidizi.",

@@ -143,6 +143,7 @@ for the Formulus mobile app. The QR encodes server URL, username, and password.`
 			}
 
 			encoded := encodeFRMLS(1, serverURL, username, password)
+			deepLink := "formulus://settings?payload=" + url.QueryEscape(encoded)
 
 			outputFile, err := cmd.Flags().GetString("output")
 			if err != nil {
@@ -154,7 +155,7 @@ for the Formulus mobile app. The QR encodes server URL, username, and password.`
 
 			// Generate QR code with logo using yeqown/go-qrcode
 			logoPath := "qr_logo.png"
-			qrc, err := qrcode.New(encoded)
+			qrc, err := qrcode.New(deepLink)
 			if err != nil {
 				return fmt.Errorf("failed to create QR code: %w", err)
 			}
