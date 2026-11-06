@@ -25,7 +25,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(
           github.event_name == 'pull_request'
-          && '[{"goos":"linux","goarch":"amd64"}]'
+          && '[{"goos":"linux","goarch":"amd64"},{"goos":"windows","goarch":"amd64"},{"goos":"windows","goarch":"arm64"}]'
           || '[{"goos":"linux","goarch":"amd64"},{"goos":"linux","goarch":"arm64"},{"goos":"windows","goarch":"amd64"},{"goos":"windows","goarch":"arm64"},{"goos":"darwin","goarch":"amd64"},{"goos":"darwin","goarch":"arm64"}]'
           ) }}
 
@@ -41,6 +41,18 @@ jobs:
         with:
           go-version: '1.25.x'
           cache-dependency-path: synkronus-cli/go.sum
+
+      - name: Generate Windows resources
+        if: matrix.goos == 'windows'
+        working-directory: synkronus-cli
+        run: |
+          case "${{ matrix.goarch }}" in
+            amd64) RESOURCE_FLAGS="-64" ;;
+            arm64) RESOURCE_FLAGS="-64 -arm" ;;
+            *) echo "Unsupported Windows architecture" >&2; exit 1 ;;
+          esac
+          go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.5.0 \
+            ${RESOURCE_FLAGS} -o cmd/synkronus/resource_windows_${{ matrix.goarch }}.syso versioninfo.json
 
       - name: Build synkronus-cli
         working-directory: synkronus-cli
@@ -91,6 +103,18 @@ jobs:
         with:
           go-version: '1.25.x'
           cache-dependency-path: synkronus-cli/go.sum
+
+      - name: Generate Windows resources
+        if: matrix.goos == 'windows'
+        working-directory: synkronus-cli
+        run: |
+          case "${{ matrix.goarch }}" in
+            amd64) RESOURCE_FLAGS="-64" ;;
+            arm64) RESOURCE_FLAGS="-64 -arm" ;;
+            *) echo "Unsupported Windows architecture" >&2; exit 1 ;;
+          esac
+          go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.5.0 \
+            ${RESOURCE_FLAGS} -o cmd/synkronus/resource_windows_${{ matrix.goarch }}.syso versioninfo.json
 
       - name: Build synkronus-cli binaries
         working-directory: synkronus-cli
