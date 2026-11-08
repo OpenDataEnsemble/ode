@@ -33,3 +33,6 @@ go.work
 # Build output
 bin/
 dist/
+
+# Generated Go Windows resource objects
+*.syso

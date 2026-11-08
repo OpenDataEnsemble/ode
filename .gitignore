@@ -33,6 +33,3 @@ sbom-dist/
 
 # pnpm store
 .pnpm-store/
-
-# Generated Go Windows resource objects
-*.syso
