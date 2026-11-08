@@ -107,13 +107,31 @@ jobs:
       - name: Generate Windows resources
         if: matrix.goos == 'windows'
         working-directory: synkronus-cli
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
+          RELEASE_VERSION="${RELEASE_TAG#v}"
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)([-+][0-9A-Za-z.+-]+)?$ ]]; then
+            echo "Invalid release version: $RELEASE_VERSION" >&2; exit 1
+          fi
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          # Windows numeric version components are unsigned 16-bit integers.
+          for COMPONENT in "$MAJOR" "$MINOR" "$PATCH"; do
+            if (( ${#COMPONENT} > 5 )) || (( COMPONENT > 65535 )); then
+              echo "Release version exceeds Windows numeric limits" >&2; exit 1
+            fi
+          done
           case "${{ matrix.goarch }}" in
             amd64) RESOURCE_FLAGS="-64" ;;
             arm64) RESOURCE_FLAGS="-64 -arm" ;;
             *) echo "Unsupported Windows architecture" >&2; exit 1 ;;
           esac
           go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.5.0 \
+            -file-version "$RELEASE_VERSION" -product-version "$RELEASE_VERSION" \
+            -ver-major "$MAJOR" -ver-minor "$MINOR" -ver-patch "$PATCH" -ver-build 0 \
+            -product-ver-major "$MAJOR" -product-ver-minor "$MINOR" -product-ver-patch "$PATCH" -product-ver-build 0 \
             ${RESOURCE_FLAGS} -o cmd/synkronus/resource_windows_${{ matrix.goarch }}.syso versioninfo.json
 
       - name: Build synkronus-cli binaries
