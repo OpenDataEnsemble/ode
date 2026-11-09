@@ -200,7 +200,30 @@ MIT — see [`LICENSE`](./LICENSE) in this directory.
 Build with: `go build -o bin/synk.exe ./cmd/synkronus`
 Run with: `bin/synk.exe`
 
-Icon: configured in versioninfo.json and built with goversioninfo `goversioninfo -o cmd/synkronus/resource.syso` to create a syso file next to main go file.
+### Windows resources
+
+Normal developer builds do not require a resource object. CI and release builds
+for Windows generate the icon and file properties from `versioninfo.json` and
+`synk.ico` with pinned `goversioninfo v1.5.0` before compiling.
+
+To include these resources locally, run the generator from `synkronus-cli/`
+using the flags for your target architecture:
+
+```sh
+# Windows AMD64
+go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.5.0 -64 -o cmd/synkronus/resource_windows_amd64.syso versioninfo.json
+
+# Windows ARM64
+go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.5.0 -64 -arm -o cmd/synkronus/resource_windows_arm64.syso versioninfo.json
+```
+
+Run the generator on the host before setting `GOOS` / `GOARCH` for a cross-build.
+Then build `./cmd/synkronus` for the matching Windows target. The generated objects
+must sit beside `main.go`; their `_windows_amd64` and `_windows_arm64` suffixes
+make Go include only the matching object and exclude both from Linux/macOS builds.
+Do not rename an i386 object to target another architecture. Generated `.syso`
+files are ignored and must not be committed. Regenerate them after changing
+`versioninfo.json` or the icon.
 
 ### Regenerating the OpenAPI client
 
