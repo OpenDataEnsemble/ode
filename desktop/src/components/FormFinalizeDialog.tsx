@@ -4,6 +4,8 @@ import { tauriClient } from '../lib/tauriClient';
 import type { FinalizeRequest } from '../lib/formPreviewBridge';
 import type { ObservationExtras } from '../types/domain';
 
+import { buildPreviewObservationSave } from '../lib/formPreviewObservation';
+
 const TESTDATA_TAG = 'Testdata';
 
 export type FormFinalizeDialogProps = {
@@ -46,11 +48,16 @@ export function FormFinalizeDialog({
         setBusy(false);
         return;
       }
-      const id =
-        request.kind === 'update' ? request.observationId : crypto.randomUUID();
+      const existing =
+        request.kind === 'update'
+          ? await tauriClient.getObservation(request.observationId)
+          : undefined;
+      const record = buildPreviewObservationSave(request, existing);
+      const id = record.id;
       const envelope = {
         observationId: id,
         formType: request.formType,
+        formVersion: record.extras?.formVersion,
         data: request.finalData,
       };
       await tauriClient.writeTextFile(path, JSON.stringify(envelope, null, 2));
@@ -89,29 +96,14 @@ export function FormFinalizeDialog({
     setBusy(true);
     setError(null);
     try {
-      if (request.kind === 'submit') {
-        const id = crypto.randomUUID();
-        const extras = await buildExtrasWithTags(undefined);
-        await tauriClient.saveObservation({
-          id,
-          payload: request.finalData,
-          formType: request.formType,
-          extras,
-        });
-        onComplete({ result: id });
-      } else {
-        const existing = await tauriClient.getObservation(
-          request.observationId,
-        );
-        const extras = await buildExtrasWithTags(existing.extras);
-        await tauriClient.saveObservation({
-          id: request.observationId,
-          payload: request.finalData,
-          formType: request.formType,
-          extras,
-        });
-        onComplete({ result: request.observationId });
-      }
+      const existing =
+        request.kind === 'update'
+          ? await tauriClient.getObservation(request.observationId)
+          : undefined;
+      const record = buildPreviewObservationSave(request, existing);
+      const extras = await buildExtrasWithTags(record.extras);
+      await tauriClient.saveObservation({ ...record, extras });
+      onComplete({ result: record.id });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

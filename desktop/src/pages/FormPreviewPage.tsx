@@ -46,6 +46,8 @@ import {
   type UiLocalePreference,
 } from '../lib/uiLocale';
 
+import { resolveFormSchemaVersion } from '../lib/formSchemaVersion';
+
 const DEFAULT_JSON = '{}';
 
 type LocationState = {
@@ -91,6 +93,7 @@ export function FormPreviewPage() {
     useState<FormLocalePreference>(() => getDesktopFormLocalePreference());
   const [scannedFormLocales, setScannedFormLocales] = useState<string[]>([]);
 
+  const sessionVersions = useRef(new WeakMap<FormInitData, string>());
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [advancedDraftParams, setAdvancedDraftParams] = useState(DEFAULT_JSON);
@@ -194,11 +197,12 @@ export function FormPreviewPage() {
       savedData: Record<string, unknown>,
       observationId: string | null,
     ) => {
+      const version = resolveFormSchemaVersion(s.formSchema);
       const ext = await loadBundleFormplayerExtensions(
         s.formType,
         developerMode,
       );
-      return buildFormPreviewInitFromBundleSpec({
+      const init = await buildFormPreviewInitFromBundleSpec({
         spec: s,
         observationId,
         params,
@@ -207,6 +211,8 @@ export function FormPreviewPage() {
         customQuestionTypes: ext.customQuestionTypes,
         loadLinkedFormSpec: ft => tauriClient.readBundleFormSpec(ft),
       });
+      sessionVersions.current.set(init, version);
+      return init;
     },
     [developerMode],
   );
@@ -463,6 +469,7 @@ export function FormPreviewPage() {
       void (async () => {
         try {
           const s = await tauriClient.readBundleFormSpec(formType);
+          const version = resolveFormSchemaVersion(s.formSchema);
           const ext = await loadBundleFormplayerExtensions(
             formType,
             developerMode,
@@ -480,6 +487,7 @@ export function FormPreviewPage() {
             skipDraftSelection,
             loadLinkedFormSpec: ft => tauriClient.readBundleFormSpec(ft),
           });
+          sessionVersions.current.set(initData, version);
           setNestedSessions(prev =>
             prev.map(sess =>
               sess.parentMessageId === messageId ? { ...sess, initData } : sess,
@@ -587,6 +595,39 @@ export function FormPreviewPage() {
         iframe: iframeRef.current?.getIframe() ?? null,
         resolveReplyIframe,
         onFinalize,
+        getSessionFormVersion: formType => {
+          // A parent and nested child can open the same form at different versions.
+          if (
+            formInitData?.formType === formType &&
+            messageSourceMatchesIframe(
+              winSrc,
+              iframeRef.current?.getIframe() ?? null,
+              rootContentWindowRef.current,
+            )
+          )
+            return sessionVersions.current.get(formInitData);
+          const nested = [...nestedSessionsRef.current]
+            .reverse()
+            .find(
+              session =>
+                session.formType === formType &&
+                session.initData &&
+                messageSourceMatchesIframe(
+                  winSrc,
+                  nestedIframeByMessageIdRef.current.get(
+                    session.parentMessageId,
+                  ),
+                  nestedContentWindowByMessageIdRef.current.get(
+                    session.parentMessageId,
+                  ),
+                ),
+            );
+          if (nested?.initData)
+            return sessionVersions.current.get(nested.initData);
+          return formInitData?.formType === formType
+            ? sessionVersions.current.get(formInitData)
+            : undefined;
+        },
         onDeferOpenSubObservation: beginDeferredNestedOpen,
         tryCompleteNestedSubObservationFinalize,
       });
@@ -594,6 +635,7 @@ export function FormPreviewPage() {
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [
+    formInitData,
     beginDeferredNestedOpen,
     onFinalize,
     resolveReplyIframe,
