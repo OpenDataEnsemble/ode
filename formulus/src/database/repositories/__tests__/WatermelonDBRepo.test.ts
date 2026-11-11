@@ -320,7 +320,7 @@ describe('WatermelonDBRepo', () => {
     // Arrange
     const testObservation: Partial<Observation> = {
       formType: 'test-form',
-      formVersion: '1.0',
+      formVersion: 'authored-7.2',
       data: { field1: 'original' },
       deleted: false,
     };
@@ -363,6 +363,8 @@ describe('WatermelonDBRepo', () => {
           : updatedObservation.data;
 
       expect(parsedData.field1).toBe('updated');
+      expect(originalObservation?.formVersion).toBe('authored-7.2');
+      expect(updatedObservation.formVersion).toBe('authored-7.2');
     }
 
     // Verify we can find the updated record by its observation_id

@@ -1304,11 +1304,17 @@ export function createFormulusMessageHandlers() {
         );
       }
 
+      const formVersion = input.observationId
+        ? undefined
+        : ((await FormService.getInstance()).getFormSpecById(input.formType)
+            ?.schemaVersion ?? '1.0');
+
       // Reuse the exact Formplayer submit persistence path (attachment promotion
       // included). Headless writes are never sub-observations.
       return persistObservationWithAttachments(
         {
           formType: input.formType,
+          formVersion,
           finalData: input.finalData,
           observationId: input.observationId ?? null,
           subObservationMode: false,

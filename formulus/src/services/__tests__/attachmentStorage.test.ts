@@ -202,7 +202,11 @@ describe('commitDraftAttachmentsAfterSave', () => {
 });
 
 describe('persistObservationWithAttachments (FormplayerModal submit contract)', () => {
-  type SaveArgs = { formType: string; data: Record<string, unknown> };
+  type SaveArgs = {
+    formType: string;
+    formVersion: string;
+    data: Record<string, unknown>;
+  };
   type UpdateArgs = {
     observationId: string;
     data: Record<string, unknown>;
@@ -236,6 +240,7 @@ describe('persistObservationWithAttachments (FormplayerModal submit contract)', 
   it('calls commitDraftAttachmentsAfterSave and saveObservation for a new observation', async () => {
     const input = {
       formType: 'person',
+      formVersion: '2.7',
       finalData: { photo: `${GUID_A}.jpg` },
       observationId: null,
       subObservationMode: false,
@@ -251,6 +256,7 @@ describe('persistObservationWithAttachments (FormplayerModal submit contract)', 
     expect(commit).toHaveBeenCalledWith(input.finalData);
     expect(saveObservation).toHaveBeenCalledWith({
       formType: 'person',
+      formVersion: '2.7',
       data: { photo: `${GUID_A}.jpg`, _committed: true },
     });
     expect(updateObservation).not.toHaveBeenCalled();
@@ -264,6 +270,7 @@ describe('persistObservationWithAttachments (FormplayerModal submit contract)', 
   it('calls commitDraftAttachmentsAfterSave and updateObservation when updating an existing observation', async () => {
     const input = {
       formType: 'person',
+      formVersion: 'new-session-version',
       finalData: { photo: `${GUID_A}.jpg` },
       observationId: 'existing-id',
       subObservationMode: false,
@@ -303,6 +310,18 @@ describe('persistObservationWithAttachments (FormplayerModal submit contract)', 
     expect(updateObservation).not.toHaveBeenCalled();
     expect(result.observationId).toBe('');
     expect(result.formData).toBe(input.finalData);
+  });
+
+  it('uses 1.0 when no host version is supplied', async () => {
+    await persistObservationWithAttachments(
+      { formType: 'person', finalData: {}, subObservationMode: false },
+      { saveObservation, updateObservation, commitDraftAttachments: commit },
+    );
+    expect(saveObservation).toHaveBeenCalledWith({
+      formType: 'person',
+      formVersion: '1.0',
+      data: { _committed: true },
+    });
   });
 
   it('throws if saveObservation returns null (e.g. DB error)', async () => {
