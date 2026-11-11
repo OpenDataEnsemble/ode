@@ -26,7 +26,13 @@ jest.mock('react-native-fs', () => ({
   readDir: jest.fn(),
 }));
 
-function setupFormSpecsFromFsMocks() {
+function setupFormSpecsFromFsMocks(
+  schema: Record<string, unknown> = {
+    type: 'object',
+    properties: { name: { type: 'string' }, age: { type: 'number' } },
+    required: ['name'],
+  },
+) {
   const RNFS = require('react-native-fs');
   const formsPath = '/test/path/forms';
   RNFS.exists.mockImplementation(async (p: string) => p === formsPath);
@@ -44,11 +50,7 @@ function setupFormSpecsFromFsMocks() {
   });
   RNFS.readFile.mockImplementation(async (path: string) => {
     if (path.endsWith('/schema.json')) {
-      return JSON.stringify({
-        type: 'object',
-        properties: { name: { type: 'string' }, age: { type: 'number' } },
-        required: ['name'],
-      });
+      return JSON.stringify(schema);
     }
     if (path.endsWith('/ui.json')) {
       return JSON.stringify({
@@ -178,6 +180,54 @@ describe('FormService', () => {
         required: ['name'],
       });
     });
+  });
+
+  describe('loaded schema version', () => {
+    test.each([
+      ['schemaVersion', { schemaVersion: '2.0' }, '2.0'],
+      ['version', { version: '3.0' }, '3.0'],
+      [
+        'schemaVersion precedence',
+        { schemaVersion: '2.0', version: '3.0' },
+        '2.0',
+      ],
+      ['missing metadata', {}, '1.0'],
+      ['blank schemaVersion', { schemaVersion: '', version: '3.0' }, '3.0'],
+      [
+        'whitespace schemaVersion',
+        { schemaVersion: ' \t\n', version: '3.0' },
+        '3.0',
+      ],
+      ...[null, 2, false, {}, []].map(schemaVersion => [
+        `non-string schemaVersion ${JSON.stringify(schemaVersion)}`,
+        { schemaVersion, version: '3.0' },
+        '3.0',
+      ]),
+      ...['', ' \t\n', null, 2, false, {}, []].map(version => [
+        `invalid version ${JSON.stringify(version)}`,
+        { version },
+        '1.0',
+      ]),
+      ['both whitespace-only', { schemaVersion: '  ', version: '\t\n' }, '1.0'],
+      ['authored whitespace preserved', { schemaVersion: ' 2.0 ' }, ' 2.0 '],
+      ['nested metadata ignored', { properties: { version: '3.0' } }, '1.0'],
+    ])(
+      'uses the expected version for %s',
+      async (_label, metadata, expected) => {
+        const schema = {
+          type: 'object',
+          ...(metadata as Record<string, unknown>),
+        };
+        setupFormSpecsFromFsMocks(schema);
+
+        await formServiceInstance.invalidateCache();
+
+        const formSpec = formServiceInstance.getFormSpecById('person');
+        expect(formSpec).toBeDefined();
+        expect(formSpec?.schemaVersion).toBe(expected);
+        expect(formSpec?.schema).toEqual(schema);
+      },
+    );
   });
 
   describe('getFormSpecById', () => {
