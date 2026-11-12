@@ -1,6 +1,6 @@
 # Third-party notices
 
-Open Data Ensemble (ODE) ships with **your own code** under the [MIT License](./LICENSE). This file summarizes **separately licensed open-source components** that may be included when you build and distribute ODE software, and points to where to find a **machine-readable** full list.
+Open Data Ensemble's own code is licensed under the [MIT License](./LICENSE). This file summarizes **separately licensed open-source components** that may be included when you build and distribute ODE software, and points to where to find a **machine-readable** full list.
 
 > **This is not legal advice.** For distribution (especially mobile apps and CLI binaries), have your process reviewed against your policies.
 

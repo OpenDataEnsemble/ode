@@ -9,6 +9,7 @@ import (
 	"image/draw"
 	"image/png"
 	"os"
+	"path/filepath"
 
 	qrcode "github.com/yeqown/go-qrcode/v2"
 )
@@ -18,43 +19,72 @@ var defaultQRLogoBytes []byte
 
 // pngWriter implements qrcode.Writer using only Go standard library image packages.
 type pngWriter struct {
-	file       *os.File
+	path       string
 	logo       image.Image
 	blockWidth int
 	padding    int
+	buf        bytes.Buffer
+	err        error
 }
 
 // newPNGWriter creates a new pngWriter that outputs to the given file path.
-func newPNGWriter(filename string, logo image.Image) (*pngWriter, error) {
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create output file: %w", err)
-	}
+func newPNGWriter(path string, logo image.Image) *pngWriter {
 	return &pngWriter{
-		file:       f,
+		path:       path,
 		logo:       logo,
 		blockWidth: 20,
 		padding:    40,
-	}, nil
+	}
 }
 
-// Write generates the PNG image from the matrix and encodes it into the file.
+// Write generates the PNG image from the matrix and encodes it into an in-memory buffer.
 func (w *pngWriter) Write(mat qrcode.Matrix) error {
-	if w.file == nil {
-		return fmt.Errorf("output file is not open")
-	}
 	img := renderQRImage(mat, w.blockWidth, w.padding, w.logo)
-	return png.Encode(w.file, img)
+	if err := png.Encode(&w.buf, img); err != nil {
+		w.err = fmt.Errorf("failed to encode PNG: %w", err)
+	}
+	return w.err
 }
 
-// Close closes the underlying file handle.
+// Close writes the buffered image to a private file.
 func (w *pngWriter) Close() error {
-	if w.file != nil {
-		err := w.file.Close()
-		w.file = nil
-		return err
+	if w.err == nil {
+		w.err = writeFilePrivate(w.path, w.buf.Bytes())
 	}
-	return nil
+	return w.err
+}
+
+// Err reports any write error. qrcode.Save only logs Close errors.
+func (w *pngWriter) Err() error {
+	return w.err
+}
+
+// writeFilePrivate writes data to path with mode 0600, via a temp file
+// in the same folder, so a failed write never leaves a partial file.
+func writeFilePrivate(path string, data []byte) (err error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".synk-qr-*.png")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(tmpName)
+		}
+	}()
+
+	if _, err = tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to write QR image: %w", err)
+	}
+	if err = tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to flush QR image: %w", err)
+	}
+	if err = tmp.Close(); err != nil {
+		return fmt.Errorf("failed to close QR image: %w", err)
+	}
+	return os.Rename(tmpName, path)
 }
 
 // renderQRImage renders the QR matrix as an RGBA image with an optional centered logo.
@@ -98,7 +128,9 @@ func renderQRImage(mat qrcode.Matrix, blockWidth, padding int, logo image.Image)
 		bounds := logo.Bounds()
 		logoW := bounds.Dx()
 		logoH := bounds.Dy()
-		if logoW > 0 && logoH > 0 && logoW <= imgW && logoH <= imgH {
+		// Match writer/standard: only draw the logo if it is at most 1/5 of the image.
+		const logoSizeMultiplier = 5
+		if logoW > 0 && logoH > 0 && logoW*logoSizeMultiplier <= imgW && logoH*logoSizeMultiplier <= imgH {
 			x0 := (imgW - logoW) / 2
 			y0 := (imgH - logoH) / 2
 			rect := image.Rect(x0, y0, x0+logoW, y0+logoH)
@@ -109,24 +141,11 @@ func renderQRImage(mat qrcode.Matrix, blockWidth, padding int, logo image.Image)
 	return img
 }
 
-// loadQRLogo attempts to load the logo from the specified path, falling back to embedded default.
-func loadQRLogo(logoPath string) (image.Image, error) {
-	if logoPath != "" {
-		if f, err := os.Open(logoPath); err == nil {
-			defer f.Close()
-			if img, err := png.Decode(f); err == nil {
-				return img, nil
-			}
-		}
+// loadQRLogo decodes the embedded default logo.
+func loadQRLogo() (image.Image, error) {
+	img, err := png.Decode(bytes.NewReader(defaultQRLogoBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode embedded logo: %w", err)
 	}
-
-	if len(defaultQRLogoBytes) > 0 {
-		img, err := png.Decode(bytes.NewReader(defaultQRLogoBytes))
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode embedded logo: %w", err)
-		}
-		return img, nil
-	}
-
-	return nil, nil
+	return img, nil
 }
