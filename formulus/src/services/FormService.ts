@@ -31,6 +31,18 @@ export interface FormSpec {
   uiSchema: unknown;
 }
 
+function resolveSchemaVersion(schema: unknown): string {
+  if (schema && typeof schema === 'object') {
+    const { schemaVersion, version } = schema as Record<string, unknown>;
+    for (const candidate of [schemaVersion, version]) {
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        return candidate;
+      }
+    }
+  }
+  return '1.0';
+}
+
 /**
  * Service for managing form-related operations
  */
@@ -172,7 +184,7 @@ export class FormService {
       id: formDir.name,
       name: formDir.name,
       description: 'Form for collecting ' + formDir.name + ' observations',
-      schemaVersion: '1.0', //TODO: Fix this
+      schemaVersion: resolveSchemaVersion(schema),
       schema: schema,
       uiSchema: uiSchema,
     };
