@@ -37,10 +37,10 @@ function likeContains(term: string): string {
     .replace(/_/g, '\\_')}%`;
 }
 
-function appendFilters(
+export function appendObservationListFilters(
   where: string[],
   params: Array<string | number>,
-  query: ObservationListQuery,
+  query: Pick<ObservationListQuery, 'formType' | 'syncStatus' | 'search'>,
 ): void {
   where.push('deleted = 0');
   if (query.formType?.trim()) {
@@ -82,7 +82,7 @@ export function buildObservationListSql(query: ObservationListQuery): {
   const offset = (page - 1) * pageSize;
   const where: string[] = [];
   const params: Array<string | number> = [];
-  appendFilters(where, params, query);
+  appendObservationListFilters(where, params, query);
   const whereSql = `WHERE ${where.join(' AND ')}`;
   return {
     listSql: `SELECT ${LIST_COLUMNS} FROM observations ${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`,

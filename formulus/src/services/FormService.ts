@@ -17,6 +17,10 @@ import type {
   ObservationListPage,
   ObservationListQuery,
 } from '../database/observationListQuery';
+import type {
+  ObservationMapQuery,
+  ObservationMapResult,
+} from '../database/observationMapQuery';
 
 /**
  * Interface representing a form type
@@ -375,6 +379,15 @@ export class FormService {
     return profileActivity.run('List observations', async () => {
       const localRepo = databaseService.getLocalRepo();
       return localRepo.listObservationsPage(query);
+    });
+  }
+
+  public async listObservationMapPoints(
+    query: ObservationMapQuery,
+  ): Promise<ObservationMapResult> {
+    return profileActivity.run('List observation map points', async () => {
+      const localRepo = databaseService.getLocalRepo();
+      return localRepo.listObservationMapPoints(query);
     });
   }
 

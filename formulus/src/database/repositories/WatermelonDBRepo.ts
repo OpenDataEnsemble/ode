@@ -26,6 +26,13 @@ import {
   type ObservationListPage,
   type ObservationListQuery,
 } from '../observationListQuery';
+import {
+  buildObservationMapSql,
+  mapObservationMapRow,
+  type ObservationMapPoint,
+  type ObservationMapQuery,
+  type ObservationMapResult,
+} from '../observationMapQuery';
 
 function parseTagsColumn(raw: string | undefined): string[] {
   if (!raw?.trim()) {
@@ -440,6 +447,56 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         totalPages,
       };
     });
+  }
+
+  async listObservationMapPoints(
+    query: ObservationMapQuery,
+  ): Promise<ObservationMapResult> {
+    return profileActivity.run(
+      'Database: listObservationMapPoints',
+      async () => {
+        await this.ensureColumnIndexes();
+        const built = buildObservationMapSql(query);
+        const started = Date.now();
+        const results = await Promise.allSettled([
+          this.observationsCollection
+            .query(Q.unsafeSqlQuery(built.pointsSql, built.pointsParams))
+            .unsafeFetchRaw(),
+          this.observationsCollection
+            .query(Q.unsafeSqlQuery(built.countSql, built.countParams))
+            .unsafeFetchRaw(),
+        ]);
+        // Drain both reads on failure before releasing the profile activity.
+        const [pointsResult, countResult] = results;
+        if (pointsResult.status === 'rejected') throw pointsResult.reason;
+        if (countResult.status === 'rejected') throw countResult.reason;
+        const rawRows = pointsResult.value;
+        const total = Number(
+          (countResult.value[0] as { cnt?: number } | undefined)?.cnt ?? 0,
+        );
+        const truncated = rawRows.length > built.limit;
+        const points: ObservationMapPoint[] = [];
+        for (const row of rawRows.slice(0, built.limit)) {
+          const point = mapObservationMapRow(row);
+          if (point) points.push(point);
+        }
+        logger.info(
+          'observations',
+          `mapPoints fetch=${Date.now() - started}ms`,
+          {
+            phase: 'query',
+            counts: points.length,
+            formType: query.formType ?? undefined,
+          },
+        );
+        return {
+          points,
+          total,
+          withoutLocation: truncated ? 0 : Math.max(0, total - points.length),
+          truncated,
+        };
+      },
+    );
   }
 
   /**

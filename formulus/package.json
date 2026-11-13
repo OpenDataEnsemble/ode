@@ -27,6 +27,7 @@
     "prebuild": "pnpm run sync:version && pnpm run generate"
   },
   "dependencies": {
+    "@maplibre/maplibre-react-native": "11.5.1",
     "@notifee/react-native": "^9.1.8",
     "@nozbe/simdjson": "3.9.4",
     "@nozbe/sqlite": "3.46.0",
