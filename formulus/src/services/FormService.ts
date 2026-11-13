@@ -454,7 +454,7 @@ export class FormService {
     const input: NewObservationInput = {
       formType,
       data,
-      formVersion: '1.0', // Default version
+      formVersion: this.getFormSpecById(formType)?.schemaVersion ?? '1.0',
     };
 
     if (input.formType === undefined) {

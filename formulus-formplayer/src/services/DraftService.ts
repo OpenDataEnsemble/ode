@@ -7,6 +7,7 @@
 
 import { FormInitData } from '../types/FormulusInterfaceDefinition';
 import { formplayerStorage } from './ProfileStorage';
+import { resolveFormSchemaVersion } from '../utils/formSchemaVersion';
 
 /**
  * Interface for a saved draft
@@ -199,7 +200,7 @@ export class DraftService {
       const newDraft: Draft = {
         id: draftId,
         formType,
-        formVersion: (formInitData?.formSchema as any)?.version || undefined,
+        formVersion: resolveFormSchemaVersion(formInitData?.formSchema),
         data,
         createdAt: now,
         updatedAt: now,

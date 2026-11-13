@@ -31,6 +31,8 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { dirname, join } from '@tauri-apps/api/path';
 import { tauriClient } from './tauriClient';
+import { resolveFormSchemaVersion } from './formSchemaVersion';
+import { buildPreviewObservationSave } from './formPreviewObservation';
 import type { ObservationRecord } from '../types/domain';
 
 /** Preview-local sequence counters (device id stub + app scope suffix). */
@@ -95,7 +97,12 @@ export const FORMULUS_INJECTION_REQUEST_TYPES = [
 ] as const;
 
 export type FinalizeRequest =
-  | { kind: 'submit'; formType: string; finalData: Record<string, unknown> }
+  | {
+      kind: 'submit';
+      formType: string;
+      finalData: Record<string, unknown>;
+      hostFormVersion?: string;
+    }
   | {
       kind: 'update';
       observationId: string;
@@ -118,6 +125,8 @@ export type FormPreviewDeferOpenSubObservationPayload = {
 
 export type FormPreviewBridgeContext = {
   iframe: HTMLIFrameElement | null;
+  /** Host-only snapshot for the currently opened preview; never read from WebView data. */
+  getSessionFormVersion?: (formType: string) => string | undefined;
   /**
    * Maps `postMessage` event source to the iframe that should receive `*_response`.
    * When omitted, replies go to {@link iframe} (legacy single-embed hosts).
@@ -153,6 +162,21 @@ export type FormPreviewBridgeContext = {
     request: FinalizeRequest,
   ) => Promise<{ result?: string; error?: string } | null>;
 };
+
+async function resolveHostFormVersion(
+  formType: string,
+  ctx: FormPreviewBridgeContext,
+): Promise<string> {
+  const captured = ctx.getSessionFormVersion?.(formType);
+  if (captured !== undefined) return captured;
+  try {
+    const spec = await tauriClient.readBundleFormSpec(formType);
+    return resolveFormSchemaVersion(spec.formSchema);
+  } catch {
+    // Headless calls may refer to a form that is not installed locally.
+    return '1.0';
+  }
+}
 
 function resolveBridgeReplyIframe(
   eventSource: Window | null | undefined,
@@ -543,6 +567,8 @@ export async function handleFormPreviewBridgeMessage(
             return;
           }
         }
+        if (req.kind === 'submit')
+          req.hostFormVersion = await resolveHostFormVersion(formType, ctx);
         const res = await ctx.onFinalize(req);
         reply('submitObservation', res);
         return;
@@ -806,12 +832,25 @@ export async function handleFormPreviewBridgeMessage(
           typeof input.observationId === 'string'
             ? input.observationId.trim()
             : '';
-        const id = existingId || crypto.randomUUID();
-        await tauriClient.saveObservation({
-          id,
-          formType,
-          payload: input.finalData,
-        });
+        const request: FinalizeRequest = existingId
+          ? {
+              kind: 'update',
+              observationId: existingId,
+              formType,
+              finalData: input.finalData,
+            }
+          : {
+              kind: 'submit',
+              formType,
+              finalData: input.finalData,
+              hostFormVersion: await resolveHostFormVersion(formType, ctx),
+            };
+        const existing = existingId
+          ? await tauriClient.getObservation(existingId)
+          : undefined;
+        const saveRequest = buildPreviewObservationSave(request, existing);
+        const id = saveRequest.id;
+        await tauriClient.saveObservation(saveRequest);
         reply('persistObservation', {
           result: { observationId: id, formData: input.finalData },
         });

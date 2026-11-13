@@ -777,11 +777,32 @@ The finalize summary shows a human-readable form (e.g. `2 min 5.3 sec`). Use `mi
 
 ## Form Versioning
 
-Forms support versioning to allow updates while maintaining compatibility:
+The authored form version is resolved from the **root of `schema.json`** in this order:
 
-- Each form has a `schemaType` and `schemaVersion`
-- When editing an observation, the form version used to create it is used
-- New observations use the latest form version
+1. `schemaVersion`, when it is a non-empty string.
+2. Otherwise, `version`, when it is a non-empty string (supported for legacy forms).
+3. Otherwise, `"1.0"`.
+
+Blank strings, whitespace-only strings, and non-string values are ignored and fall through to the next candidate. When both keys contain valid strings, `schemaVersion` takes precedence. Valid authored strings are preserved exactly as written. Nested version-like fields, such as fields inside `properties`, do not define the form version.
+
+For example, this `schema.json` declares form version `"3"`:
+
+```json
+{
+  "schemaType": "person",
+  "schemaVersion": "3",
+  "type": "object",
+  "properties": {}
+}
+```
+
+Older forms using a root `"version": "3"` remain supported when no valid root `schemaVersion` is present.
+
+**New observations** record the resolved version in their `formVersion`. Formulus and ODE Desktop capture this value on the host when the form session opens. If the available form definition changes while that session remains open, the new observation still records the version of the opened session.
+
+**Edited observations** preserve their existing stored `formVersion`; editing does not replace it with the currently available schema version. This preserves the observation's version metadata without implying that a historical form definition is automatically loaded for editing.
+
+Formplayer uses the same resolved version to separate drafts and sticky-field values by form version.
 
 ## Complete Example
 

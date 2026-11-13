@@ -230,6 +230,23 @@ describe('FormService', () => {
     );
   });
 
+  describe('direct observation creation', () => {
+    test.each([
+      ['person', '7.2'],
+      ['unknown', '1.0'],
+    ])('uses the host version for %s', async (formType, expected) => {
+      setupFormSpecsFromFsMocks({ type: 'object', schemaVersion: '7.2' });
+      await formServiceInstance.invalidateCache();
+      mockSaveObservation.mockResolvedValue('new-id');
+      await formServiceInstance.addNewObservation(formType, { name: 'Test' });
+      expect(mockSaveObservation).toHaveBeenCalledWith({
+        formType,
+        formVersion: expected,
+        data: { name: 'Test' },
+      });
+    });
+  });
+
   describe('getFormSpecById', () => {
     test('should return the correct form type for a valid ID', () => {
       formServiceInstance.addFormSpec({
