@@ -35,6 +35,11 @@ import { isCancelledError } from '../sync/transientRetry';
 type SyncStatusCallback = (status: string) => void;
 type SyncProgressDetailCallback = (progress: SyncProgress) => void;
 
+type SyncObservationsOptions = {
+  includeAttachments?: boolean;
+  silent?: boolean;
+};
+
 type SyncOutcome =
   | { kind: 'success'; finalVersion: number }
   | {
@@ -79,9 +84,16 @@ export class SyncService {
     this.statusCallbacks.forEach(callback => callback(status));
   }
 
-  private updateProgress(progress: SyncProgress): void {
+  private updateProgress(progress: SyncProgress, silent = false): void {
+    // Always update subscribers, including silent auto-sync.
     this.progressCallbacks.forEach(callback => callback(progress));
-    // Note: showSyncProgress is now async, but we don't await to avoid blocking sync
+
+    // Silent sync must not create progress notifications.
+    if (silent) {
+      return;
+    }
+
+    // Note: showSyncProgress is async, but we don't await to avoid blocking sync
     profileActivity
       .run('Sync notification', () =>
         notificationService.showSyncProgress(progress),
@@ -217,14 +229,25 @@ export class SyncService {
     }
   }
 
-  public async syncObservations(includeAttachments = false): Promise<number> {
+  public async syncObservations(
+    includeAttachmentsOrOptions: boolean | SyncObservationsOptions = false,
+  ): Promise<number> {
+    const options: SyncObservationsOptions =
+      typeof includeAttachmentsOrOptions === 'boolean'
+        ? { includeAttachments: includeAttachmentsOrOptions }
+        : includeAttachmentsOrOptions;
+
     return profileActivity.run('Sync observations', () =>
-      this.syncObservationsImpl(includeAttachments),
+      this.syncObservationsImpl(
+        options.includeAttachments ?? false,
+        options.silent ?? false,
+      ),
     );
   }
 
   private async syncObservationsImpl(
     includeAttachments: boolean,
+    silent: boolean,
   ): Promise<number> {
     if (this.isSyncing) {
       throw new Error('Sync already in progress');
@@ -236,35 +259,44 @@ export class SyncService {
     this.autoLoginRetryCount = 0;
     this.updateStatus('Starting sync...');
 
-    profileActivity
-      .run('Clear sync notifications', () =>
-        notificationService.clearAllSyncNotifications(),
-      )
-      .catch(error =>
-        logger.warn(
-          'sync',
-          error instanceof Error
-            ? error.message
-            : 'Failed to clear stale notifications',
-        ),
-      );
+    if (!silent) {
+      profileActivity
+        .run('Clear sync notifications', () =>
+          notificationService.clearAllSyncNotifications(),
+        )
+        .catch(error =>
+          logger.warn(
+            'sync',
+            error instanceof Error
+              ? error.message
+              : 'Failed to clear stale notifications',
+          ),
+        );
+    }
 
     try {
       await logger.breadcrumb('sync', 'start');
-      await notificationService.startForegroundService();
+
+      if (!silent) {
+        await notificationService.startForegroundService();
+      }
+      if (this.shouldCancel) throw new Error('Sync cancelled');
 
       const syncOptions: SynkronusSyncOptions = {
-        onProgress: progress => this.updateProgress(progress),
+        onProgress: progress => this.updateProgress(progress, silent),
         isCancelled: () => this.shouldCancel,
       };
 
-      this.updateProgress({
-        current: 0,
-        total: 0,
-        phase: 'pull_observations',
-        indeterminate: true,
-        details: i18n.t('sync.progress.starting'),
-      });
+      this.updateProgress(
+        {
+          current: 0,
+          total: 0,
+          phase: 'pull_observations',
+          indeterminate: true,
+          details: i18n.t('sync.progress.starting'),
+        },
+        silent,
+      );
 
       const result = await this.withAutoLoginRetry(
         () => synkronusApi.syncObservations(includeAttachments, syncOptions),
@@ -281,17 +313,20 @@ export class SyncService {
         `observations sync done @ ${finalVersion} gen=${repoGenStorage} pendingAttachments=${pendingAttachments}`,
       );
 
-      this.updateProgress({
-        current: 1,
-        total: 1,
-        phase: 'push_observations',
-        details:
-          pendingAttachments > 0
-            ? i18n.t('sync.progress.attachmentsRemaining', {
-                count: pendingAttachments,
-              })
-            : i18n.t('sync.progress.complete'),
-      });
+      this.updateProgress(
+        {
+          current: 1,
+          total: 1,
+          phase: 'push_observations',
+          details:
+            pendingAttachments > 0
+              ? i18n.t('sync.progress.attachmentsRemaining', {
+                  count: pendingAttachments,
+                })
+              : i18n.t('sync.progress.complete'),
+        },
+        silent,
+      );
       await AsyncStorage.setItem('@last_seen_version', finalVersion.toString());
 
       const outcome: SyncOutcome =
@@ -303,7 +338,7 @@ export class SyncService {
             }
           : { kind: 'success', finalVersion };
 
-      this.applySyncOutcome(outcome);
+      this.applySyncOutcome(outcome, silent);
       await logger.breadcrumb('sync', 'end', {
         success: pendingAttachments === 0,
         counts: pendingAttachments,
@@ -314,7 +349,7 @@ export class SyncService {
     } catch (error) {
       if (isCancelledError(error)) {
         logger.info('sync', 'cancel observed, aborting');
-        this.applySyncOutcome({ kind: 'cancelled' });
+        this.applySyncOutcome({ kind: 'cancelled' }, silent);
         throw error;
       }
       logger.error(
@@ -322,17 +357,19 @@ export class SyncService {
         error instanceof Error ? error.message : 'Sync failed',
       );
       const errorMessage = getUserFacingSyncErrorMessage(error);
-      this.applySyncOutcome({ kind: 'failed', errorMessage });
+      this.applySyncOutcome({ kind: 'failed', errorMessage }, silent);
       throw error;
     } finally {
       this.isSyncing = false;
       this.canCancel = false;
       this.shouldCancel = false;
-      await notificationService.stopForegroundService();
+      if (!silent) {
+        await notificationService.stopForegroundService();
+      }
     }
   }
 
-  private applySyncOutcome(outcome: SyncOutcome): void {
+  private applySyncOutcome(outcome: SyncOutcome, silent: boolean): void {
     let status: string;
     let notificationOutcome: SyncNotificationOutcome;
 
@@ -364,18 +401,21 @@ export class SyncService {
     }
 
     this.updateStatus(status);
-    profileActivity
-      .run('Sync outcome notification', () =>
-        notificationService.showSyncComplete(notificationOutcome),
-      )
-      .catch(error =>
-        logger.warn(
-          'sync',
-          error instanceof Error
-            ? error.message
-            : 'Failed to show sync outcome notification',
-        ),
-      );
+
+    if (!silent) {
+      profileActivity
+        .run('Sync outcome notification', () =>
+          notificationService.showSyncComplete(notificationOutcome),
+        )
+        .catch(error =>
+          logger.warn(
+            'sync',
+            error instanceof Error
+              ? error.message
+              : 'Failed to show sync outcome notification',
+          ),
+        );
+    }
   }
 
   /**
