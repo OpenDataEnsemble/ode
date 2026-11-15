@@ -110,7 +110,7 @@ Search the [issue tracker](https://github.com/OpenDataEnsemble/ode/issues) for e
 
 ## License
 
-The repository is [MIT](LICENSE) licensed, with one exception: `synkronus-cli` is currently **GPL-2.0-or-later** while it depends on a GPL-classified QR library - see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details. Contributions land under the license of the project they're in.
+The repository is [MIT](LICENSE) licensed. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for separately licensed third-party components. Contributions land under the license of the project they're in.
 
 ## Getting help
 

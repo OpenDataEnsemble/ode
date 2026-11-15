@@ -659,7 +659,7 @@ synk: command not found
 
 ## License
 
-The Synkronus CLI is currently **GPL-2.0-or-later** while it depends on GPL-classified QR code libraries. The plan is to swap in stdlib-only rendering and return to MIT license. See `synkronus-cli/FOLLOWUP-custom-qrcode-writer.md` and `THIRD_PARTY_NOTICES.md` for details.
+The Synkronus CLI is licensed under the **MIT License**. See `synkronus-cli/LICENSE` and `THIRD_PARTY_NOTICES.md` for details.
 
 ## Related Content
 

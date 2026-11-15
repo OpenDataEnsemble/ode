@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	qrcode "github.com/yeqown/go-qrcode/v2"
-	"github.com/yeqown/go-qrcode/writer/standard"
 )
 
 // encodeFRMLS replicates the FRMLS encoding used by the Formulus generateQR.ts script.
@@ -152,20 +151,23 @@ for the Formulus mobile app. The QR encodes server URL, username, and password.`
 				outputFile = deriveOutputFilename(serverURL)
 			}
 
-			// Generate QR code with logo using yeqown/go-qrcode
-			logoPath := "qr_logo.png"
+			// Generate QR code with logo using yeqown/go-qrcode and custom stdlib PNG writer
 			qrc, err := qrcode.New(encoded)
 			if err != nil {
 				return fmt.Errorf("failed to create QR code: %w", err)
 			}
 
-			w, err := standard.New(outputFile, standard.WithLogoImageFilePNG(logoPath))
+			logo, err := loadQRLogo()
 			if err != nil {
-				return fmt.Errorf("failed to create QR writer: %w", err)
+				return fmt.Errorf("failed to load QR logo: %w", err)
 			}
 
+			w := newPNGWriter(outputFile, logo)
 			if err := qrc.Save(w); err != nil {
 				return fmt.Errorf("failed to generate QR code image: %w", err)
+			}
+			if err := w.Err(); err != nil {
+				return fmt.Errorf("failed to write QR code image: %w", err)
 			}
 
 			utils.PrintSuccess("QR code generated successfully")

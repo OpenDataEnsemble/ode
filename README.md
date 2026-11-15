@@ -72,8 +72,6 @@ irm https://raw.githubusercontent.com/OpenDataEnsemble/ode/main/scripts/install-
 curl -fsSL https://raw.githubusercontent.com/OpenDataEnsemble/ode/main/scripts/install-synkronus-cli.sh | bash
 ```
 
-**License note:** this component is currently **GPL-2.0-or-later** (see [synkronus-cli/LICENSE](synkronus-cli/LICENSE)) while the QR PNG stack depends on GPL-classified libraries. We plan to swap in a stdlib-only renderer and return the CLI to **MIT**. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
 ### **synkronus-portal**
 A web-based admin interface for Synkronus. It covers the same tasks as **synkronus-cli** in the browser.
 
@@ -150,7 +148,7 @@ CI will **fail** if:
 
 ## License
 
-The repository root is [MIT](./LICENSE). **synkronus-cli** is **GPL-2.0-or-later** until the QR dependency cleanup above is done. Third-party and mixed-component details: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+The repository is licensed under the [MIT License](./LICENSE). Third-party and component details: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
 ## Get Involved
 

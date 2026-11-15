@@ -23,7 +23,7 @@
 
 ## License note
 
-The CLI may be **GPL-2.0-or-later** until the QR dependency cleanup described in the root [README.md](../README.md) and [FOLLOWUP-custom-qrcode-writer.md](FOLLOWUP-custom-qrcode-writer.md). **Do not** change license without maintainer intent.
+The CLI is licensed under **MIT** (see [`LICENSE`](LICENSE)).
 
 ---
 
