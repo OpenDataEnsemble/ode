@@ -99,6 +99,37 @@ export interface NavigationConfig {
 }
 
 /**
+ * Basemap for the Observations map (`maps` in app.config.json).
+ *
+ * Offline map files shipped in the app bundle under `maps/` are picked up
+ * without configuration: raster `*.mbtiles` / `*.pmtiles` are layered over the
+ * online basemap, and `maps/style.json` (vector) replaces it.
+ */
+export interface MapsConfig {
+  /**
+   * MapLibre style URL for the online basemap (e.g. a vector style from a
+   * hosted tile provider). Overrides `tiles`.
+   */
+  styleUrl?: string;
+  /** Raster XYZ tile URL templates for the online basemap. */
+  tiles?: string[];
+  /** Attribution text required by the tile provider. */
+  attribution?: string;
+  /** Raster tile size in pixels (default 256). */
+  tileSize?: number;
+  /** Highest zoom the online tile source serves (default 19). */
+  maxZoom?: number;
+  /**
+   * Whether enumerators may download areas of the online basemap for offline
+   * use. Only enable this when the provider's terms allow bulk download. It is
+   * never enabled for the public OpenStreetMap tile servers.
+   */
+  allowOfflineDownload?: boolean;
+  /** Highest zoom an area download fetches (default 16 raster, 14 vector). */
+  offlineMaxZoom?: number;
+}
+
+/**
  * Root shape of app.config.json.
  */
 export interface AppConfig {
@@ -122,6 +153,8 @@ export interface AppConfig {
    * Used when Formulus Settings language is Auto.
    */
   defaultLocale?: string;
+  /** Basemap and offline map settings for the Observations map. */
+  maps?: MapsConfig;
 }
 
 // Keep this alias exported so app-config consumers can strongly type

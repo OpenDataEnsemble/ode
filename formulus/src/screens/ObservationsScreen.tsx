@@ -1,4 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -10,6 +18,8 @@ import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { useObservations } from '../hooks/useObservations';
+import { useObservationMap } from '../hooks/useObservationMap';
+import { boundsOfPoints, framingPoints } from '../database/observationMapQuery';
 import {
   EmptyState,
   FormTypeSelector,
@@ -18,7 +28,11 @@ import {
   ObservationPager,
 } from '../components/common';
 import { FormService } from '../services/FormService';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+} from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import colors from '../theme/colors';
@@ -34,6 +48,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import { logger } from '../diagnostics/logger';
 import type { ObservationListRow } from '../database/observationListQuery';
+
+type ViewMode = 'list' | 'map';
+
+// The map engine loads only when someone opens the Map view.
+const ObservationMap = lazy(() => import('../components/map/ObservationMap'));
+const OfflineMapsSheet = lazy(
+  () => import('../components/map/OfflineMapsSheet'),
+);
 
 type ObservationsScreenNavigationProp = StackNavigationProp<
   MainAppStackParamList,
@@ -88,6 +110,29 @@ const ObservationsScreen: React.FC = () => {
     [],
   );
   const [showSearch, setShowSearch] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [offlineSheet, setOfflineSheet] = useState<{
+    viewBounds: [number, number, number, number] | null;
+  } | null>(null);
+  // The map holds GPU and tile memory: keep it mounted only while this screen
+  // is visible (not under ObservationDetail or a form).
+  const isFocused = useIsFocused();
+  const mapActive = viewMode === 'map' && isFocused;
+  const map = useObservationMap(mapActive, {
+    formType: selectedFormType,
+    syncStatus,
+    search: searchQuery,
+  });
+  const observationsBounds = useMemo(
+    () => boundsOfPoints(framingPoints(map.points)),
+    [map.points],
+  );
+  const mapOfflineNotice =
+    map.online !== false || !map.basemap
+      ? null
+      : map.basemap.usesBundledStyle || map.basemap.bundledFiles.length > 0
+        ? t('observations.map.offlineWithStudyMaps')
+        : t('observations.map.offlineNotice');
   const refreshRef = useRef(refresh);
   const skipFocusRefresh = useRef(true);
 
@@ -128,6 +173,13 @@ const ObservationsScreen: React.FC = () => {
   );
 
   const showSubtitle = total > 0;
+
+  const openObservation = useCallback(
+    (observationId: string) => {
+      navigation.navigate('ObservationDetail', { observationId });
+    },
+    [navigation],
+  );
 
   const handleRowPress = useCallback(
     (row: ObservationListRow) => {
@@ -232,10 +284,149 @@ const ObservationsScreen: React.FC = () => {
               onStatusChange={setSyncStatus}
               containerStyle={{ alignSelf: 'stretch', maxWidth: undefined }}
             />
+            <View
+              style={[
+                styles.viewToggle,
+                { borderColor: themeColors.primary as string },
+              ]}
+              accessibilityRole="tablist">
+              {(['list', 'map'] as const).map(mode => {
+                const active = viewMode === mode;
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    onPress={() => setViewMode(mode)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={
+                      mode === 'list'
+                        ? t('observations.viewList')
+                        : t('observations.viewMap')
+                    }
+                    style={[
+                      styles.viewToggleButton,
+                      active && {
+                        backgroundColor: themeColors.primary as string,
+                      },
+                    ]}>
+                    <Icon
+                      name={
+                        mode === 'list' ? 'format-list-bulleted' : 'map-outline'
+                      }
+                      size={20}
+                      color={
+                        active
+                          ? (themeColors.onPrimary as string)
+                          : (themeColors.primary as string)
+                      }
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         </View>
 
-        {loading ? (
+        {viewMode === 'map' ? (
+          <View style={styles.tableSection}>
+            {map.points.length > 0 &&
+            (map.withoutLocation > 0 || map.truncated) ? (
+              <View
+                style={[
+                  styles.mapNotice,
+                  {
+                    backgroundColor: themeColors.surface as string,
+                    borderBottomColor: themeColors.divider as string,
+                  },
+                ]}>
+                <Icon
+                  name="map-marker-off-outline"
+                  size={16}
+                  color={themeColors.onSurface as string}
+                />
+                <Text
+                  style={[
+                    styles.mapNoticeText,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  {map.truncated
+                    ? t('observations.map.truncated', {
+                        count: map.points.length,
+                      })
+                    : t('observations.map.withoutLocation', {
+                        count: map.withoutLocation,
+                        total: map.total,
+                      })}
+                </Text>
+              </View>
+            ) : null}
+            {map.error && map.points.length === 0 ? (
+              <EmptyState
+                icon="alert-circle-outline"
+                title={t('observations.map.errorTitle')}
+                message={map.error}
+                actionLabel={t('common.retry')}
+                onAction={map.refresh}
+              />
+            ) : !map.basemap || (map.loading && map.points.length === 0) ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={themeColors.primary} />
+                <Text
+                  style={[
+                    styles.loadingText,
+                    { color: themeColors.onBackground },
+                  ]}>
+                  {t('observations.map.loading')}
+                </Text>
+              </View>
+            ) : map.points.length === 0 ? (
+              <EmptyState
+                icon="map-marker-off-outline"
+                title={t('observations.map.emptyTitle')}
+                message={
+                  map.total > 0
+                    ? t('observations.map.emptyNoLocation', {
+                        count: map.total,
+                      })
+                    : t('observations.emptyFoundMessage')
+                }
+              />
+            ) : mapActive ? (
+              <Suspense
+                fallback={
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator
+                      size="large"
+                      color={themeColors.primary}
+                    />
+                  </View>
+                }>
+                <ObservationMap
+                  points={map.points}
+                  basemap={map.basemap}
+                  formNames={formNames}
+                  offlineNotice={mapOfflineNotice}
+                  onOpenObservation={openObservation}
+                  onOpenOfflineMaps={viewBounds =>
+                    setOfflineSheet({ viewBounds })
+                  }
+                />
+              </Suspense>
+            ) : null}
+            {map.basemap && offlineSheet != null ? (
+              <Suspense fallback={null}>
+                <OfflineMapsSheet
+                  visible
+                  onClose={() => setOfflineSheet(null)}
+                  basemap={map.basemap}
+                  online={map.online !== false}
+                  observationsBounds={observationsBounds}
+                  viewBounds={offlineSheet.viewBounds}
+                />
+              </Suspense>
+            ) : null}
+          </View>
+        ) : loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
             <Text
@@ -355,6 +546,31 @@ const styles = StyleSheet.create({
     flex: 1,
     alignSelf: 'stretch',
     minHeight: 44,
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    borderWidth: odeBorderWidth.hairline,
+    borderRadius: odeRadius.inner,
+    overflow: 'hidden',
+  },
+  viewToggleButton: {
+    paddingHorizontal: odeSpacing.sm,
+    minHeight: 40,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.xs,
+    paddingHorizontal: odeSpacing.md,
+    paddingVertical: odeSpacing.xs,
+    borderBottomWidth: odeBorderWidth.hairline,
+  },
+  mapNoticeText: {
+    flex: 1,
+    fontSize: odeTypography.caption,
   },
   tableSection: {
     flex: 1,
