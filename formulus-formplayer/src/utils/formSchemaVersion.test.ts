@@ -17,8 +17,8 @@ it.each([
   ]),
   ...['', ' \t\n', null, 2, false, {}, []].map(version => [{ version }, '1.0']),
   [{ schemaVersion: ' ', version: 2 }, '1.0'],
-  [{ schemaVersion: ' 2 ' }, ' 2 '],
-  [{ version: ' 3 ' }, ' 3 '],
+  [{ schemaVersion: ' 2.0 ' }, '2.0'],
+  [{ version: ' 3 ' }, '3'],
   [{ properties: { schemaVersion: '2', version: '3' } }, '1.0'],
 ])('resolves root metadata %j to %s', (schema, expected) => {
   expect(resolveFormSchemaVersion(schema)).toBe(expected);

@@ -35,8 +35,9 @@ function resolveSchemaVersion(schema: unknown): string {
   if (schema && typeof schema === 'object') {
     const { schemaVersion, version } = schema as Record<string, unknown>;
     for (const candidate of [schemaVersion, version]) {
-      if (typeof candidate === 'string' && candidate.trim().length > 0) {
-        return candidate;
+      const trimmed = typeof candidate === 'string' ? candidate.trim() : '';
+      if (trimmed) {
+        return trimmed;
       }
     }
   }

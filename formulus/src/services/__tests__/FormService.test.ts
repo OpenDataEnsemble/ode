@@ -209,7 +209,8 @@ describe('FormService', () => {
         '1.0',
       ]),
       ['both whitespace-only', { schemaVersion: '  ', version: '\t\n' }, '1.0'],
-      ['authored whitespace preserved', { schemaVersion: ' 2.0 ' }, ' 2.0 '],
+      ['trimmed schemaVersion', { schemaVersion: ' 2.0 ' }, '2.0'],
+      ['trimmed version', { version: ' 2.0 ' }, '2.0'],
       ['nested metadata ignored', { properties: { version: '3.0' } }, '1.0'],
     ])(
       'uses the expected version for %s',

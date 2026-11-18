@@ -783,7 +783,7 @@ The authored form version is resolved from the **root of `schema.json`** in this
 2. Otherwise, `version`, when it is a non-empty string (supported for legacy forms).
 3. Otherwise, `"1.0"`.
 
-Blank strings, whitespace-only strings, and non-string values are ignored and fall through to the next candidate. When both keys contain valid strings, `schemaVersion` takes precedence. Valid authored strings are preserved exactly as written. Nested version-like fields, such as fields inside `properties`, do not define the form version.
+Blank strings, whitespace-only strings, and non-string values are ignored and fall through to the next candidate. When both keys contain valid strings, `schemaVersion` takes precedence. Nested version-like fields, such as fields inside `properties`, do not define the form version.
 
 For example, this `schema.json` declares form version `"3"`:
 
