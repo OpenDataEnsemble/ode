@@ -269,3 +269,54 @@ test('manager reset rejects queued sends and clears delayed ready callbacks', as
   expect(ref.current.injectJavaScript).not.toHaveBeenCalled();
   jest.useRealTimers();
 });
+
+describe('headless host-resolved form version', () => {
+  const { FormService } = require('../../services/FormService');
+  const { databaseService } = require('../../database/DatabaseService');
+  const {
+    persistObservationWithAttachments,
+  } = require('../../services/attachmentStorage');
+
+  test.each([
+    [{ schemaVersion: '4.2' }, '4.2'],
+    [undefined, '1.0'],
+  ])('resolves create version from host spec %p', async (spec, expected) => {
+    const getFormSpecById = jest.fn(() => spec);
+    FormService.getInstance.mockResolvedValue({ getFormSpecById });
+    databaseService.getLocalRepo.mockReturnValue({
+      saveObservation: jest.fn(),
+      updateObservation: jest.fn(),
+    });
+    await createFormulusMessageHandlers().onPersistObservation({
+      input: { formType: 'person', finalData: {}, formVersion: 'untrusted' },
+    } as never);
+    expect(getFormSpecById).toHaveBeenCalledWith('person');
+    expect(persistObservationWithAttachments).toHaveBeenCalledWith(
+      expect.objectContaining({ formVersion: expected }),
+      expect.anything(),
+    );
+  });
+
+  test('updates skip version resolution and ignore incoming version', async () => {
+    databaseService.getLocalRepo.mockReturnValue({
+      saveObservation: jest.fn(),
+      updateObservation: jest.fn(),
+    });
+    await createFormulusMessageHandlers().onPersistObservation({
+      input: {
+        formType: 'person',
+        observationId: 'existing',
+        finalData: {},
+        formVersion: 'untrusted',
+      },
+    } as never);
+    expect(FormService.getInstance).not.toHaveBeenCalled();
+    expect(persistObservationWithAttachments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        observationId: 'existing',
+        formVersion: undefined,
+      }),
+      expect.anything(),
+    );
+  });
+});

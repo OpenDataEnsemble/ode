@@ -50,6 +50,7 @@ import {
   applyStickyDefaults,
 } from './utils/stickyFieldHelpers';
 import { stickyService } from './services/StickyService';
+import { resolveFormSchemaVersion } from './utils/formSchemaVersion';
 import { applyFormUiTranslations } from './i18n/applyFormUiTranslations';
 import {
   resolveEffectiveFormLocale,
@@ -803,8 +804,7 @@ function App() {
             ),
           );
         } else if (!isSubObservationSession(initData)) {
-          const formVersion = (formSchemaTyped as { version?: string })
-            ?.version;
+          const formVersion = resolveFormSchemaVersion(formSchemaTyped);
           const layoutRoot = ensureSwipeLayoutRoot(uiSchema as FormUISchema);
           const stickyPaths = collectStickyFieldPaths(layoutRoot);
           const stored = stickyService.getStickyValues(
@@ -925,7 +925,7 @@ function App() {
         ) {
           const availableDrafts = draftService.getDraftsForForm(
             receivedFormType,
-            (formSchema as any)?.version,
+            resolveFormSchemaVersion(formSchema),
           );
           if (availableDrafts.length > 0) {
             console.log(
@@ -1541,8 +1541,7 @@ function App() {
           }
           // Persist sticky field values for next new observation of this form.
           if (!isSubObservationSession(payloadFormInit) && uischema) {
-            const formVersion = (schema as { version?: string } | null)
-              ?.version;
+            const formVersion = resolveFormSchemaVersion(schema);
             const stickyPaths = collectStickyFieldPaths(uischema);
             const stickyValues = extractStickyValues(payloadData, stickyPaths);
             if (Object.keys(stickyValues).length > 0) {
@@ -1673,7 +1672,7 @@ function App() {
         <FormplayerLocaleContext.Provider value={uiLocale}>
           <DraftSelector
             formType={pendingFormInit.formType}
-            formVersion={(pendingFormInit.formSchema as any)?.version}
+            formVersion={resolveFormSchemaVersion(pendingFormInit.formSchema)}
             onResumeDraft={handleResumeDraft}
             onStartNew={handleStartNewForm}
             fullScreen={true}

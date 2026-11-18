@@ -78,3 +78,79 @@ it('does not report a saved draft when storage rejects the write or read', async
     draft.saveDraft('household', {}, undefined, 'session-a'),
   ).toThrow('blocked');
 });
+
+it.each([
+  [{ schemaVersion: '2' }, '2'],
+  [{ version: '3' }, '3'],
+  [{}, '1.0'],
+  [{ schemaVersion: '2', version: '3' }, '2'],
+])(
+  'stores resolved version for a new draft with schema %j',
+  async (formSchema, expected) => {
+    const { draft } = await services('profile-a');
+    const id = draft.saveDraft(
+      'household',
+      {},
+      {
+        formType: 'household',
+        observationId: null,
+        params: {},
+        savedData: {},
+        formSchema,
+      },
+      'session-a',
+    );
+    expect(draft.getDraft(id)?.formVersion).toBe(expected);
+  },
+);
+
+it('keeps legacy unversioned drafts discoverable without relabeling on update', async () => {
+  const { draft } = await services('profile-a');
+  const { formplayerStorage } = await import('./ProfileStorage');
+  const now = new Date().toISOString();
+  formplayerStorage.setItem(
+    'formulus_drafts',
+    JSON.stringify([
+      {
+        id: 'legacy',
+        formType: 'household',
+        data: {},
+        createdAt: now,
+        updatedAt: now,
+        observationId: null,
+        draftSessionKey: 'legacy-session',
+      },
+    ]),
+  );
+  const init = (schemaVersion: string) => ({
+    formType: 'household',
+    observationId: null,
+    params: {},
+    savedData: {},
+    formSchema: { schemaVersion },
+  });
+  // Draft IDs use Date.now(); keep the two new drafts distinct deterministically.
+  vi.spyOn(Date, 'now').mockReturnValueOnce(100).mockReturnValueOnce(101);
+  const matching = draft.saveDraft('household', {}, init('2'), 'matching');
+  const mismatched = draft.saveDraft('household', {}, init('3'), 'mismatched');
+  expect(
+    draft
+      .getDraftsForForm('household', '2')
+      .map(item => item.id)
+      .sort(),
+  ).toEqual(['legacy', matching].sort());
+  expect(
+    draft.getDraftsForForm('household', '2').map(item => item.id),
+  ).not.toContain(mismatched);
+  draft.saveDraft(
+    'household',
+    { name: 'Resumed' },
+    init('2'),
+    'legacy-session',
+  );
+  expect(draft.getDraft('legacy')?.formVersion).toBeUndefined();
+  expect(draft.getDraft('legacy')?.data).toEqual({ name: 'Resumed' });
+  expect(
+    draft.getDraftsForForm('household', '2').map(item => item.id),
+  ).toContain('legacy');
+});

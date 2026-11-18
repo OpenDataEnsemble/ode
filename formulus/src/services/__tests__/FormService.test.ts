@@ -209,7 +209,8 @@ describe('FormService', () => {
         '1.0',
       ]),
       ['both whitespace-only', { schemaVersion: '  ', version: '\t\n' }, '1.0'],
-      ['authored whitespace preserved', { schemaVersion: ' 2.0 ' }, ' 2.0 '],
+      ['trimmed schemaVersion', { schemaVersion: ' 2.0 ' }, '2.0'],
+      ['trimmed version', { version: ' 2.0 ' }, '2.0'],
       ['nested metadata ignored', { properties: { version: '3.0' } }, '1.0'],
     ])(
       'uses the expected version for %s',
@@ -228,6 +229,23 @@ describe('FormService', () => {
         expect(formSpec?.schema).toEqual(schema);
       },
     );
+  });
+
+  describe('direct observation creation', () => {
+    test.each([
+      ['person', '7.2'],
+      ['unknown', '1.0'],
+    ])('uses the host version for %s', async (formType, expected) => {
+      setupFormSpecsFromFsMocks({ type: 'object', schemaVersion: '7.2' });
+      await formServiceInstance.invalidateCache();
+      mockSaveObservation.mockResolvedValue('new-id');
+      await formServiceInstance.addNewObservation(formType, { name: 'Test' });
+      expect(mockSaveObservation).toHaveBeenCalledWith({
+        formType,
+        formVersion: expected,
+        data: { name: 'Test' },
+      });
+    });
   });
 
   describe('getFormSpecById', () => {

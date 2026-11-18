@@ -51,6 +51,12 @@ vi.mock('../tauriClient', () => ({
       .fn()
       .mockResolvedValue('file:///tmp/ws/attachments/synced/'),
     workspaceAttachmentFileUrl: vi.fn().mockResolvedValue(null),
+    readBundleFormSpec: vi
+      .fn()
+      .mockResolvedValue({ formType: 'demo', formSchema: {}, uiSchema: {} }),
+    getObservation: vi
+      .fn()
+      .mockResolvedValue({ extras: { formVersion: '7', author: 'Alice' } }),
     saveObservation: vi.fn().mockResolvedValue({ id: 'saved-1' }),
   },
 }));
@@ -226,6 +232,8 @@ describe('handleFormPreviewBridgeMessage', () => {
   });
 
   it('completes nested finalize without calling onFinalize when hook returns payload', async () => {
+    vi.mocked(tauriClient.saveObservation).mockClear();
+    vi.mocked(tauriClient.readBundleFormSpec).mockClear();
     const postNested = vi.fn();
     const nestedCw = { postMessage: postNested } as unknown as Window;
     const nestedIframe = {
@@ -254,6 +262,8 @@ describe('handleFormPreviewBridgeMessage', () => {
 
     expect(tryNested).toHaveBeenCalled();
     expect(onFinalize).not.toHaveBeenCalled();
+    expect(tauriClient.saveObservation).not.toHaveBeenCalled();
+    expect(tauriClient.readBundleFormSpec).not.toHaveBeenCalled();
     expect(postNested).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(postNested.mock.calls[0][0] as string);
     expect(payload.type).toBe('submitObservation_response');
@@ -620,6 +630,7 @@ describe('postFormplayerBridgeReply', () => {
 
     expect(tauriClient.saveObservation).toHaveBeenCalledWith({
       id: 'existing-id-42',
+      extras: { formVersion: '7', author: 'Alice' },
       formType: 'inclusion_decision',
       payload: finalData,
     });
@@ -674,5 +685,100 @@ describe('postFormplayerBridgeReply', () => {
     const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
     expect(payload.type).toBe('openFormplayer_response');
     expect(payload.messageId).toBe('msg-parent');
+  });
+});
+
+describe('headless host version provenance', () => {
+  it.each([
+    [{ version: '3' }, '3'],
+    [{ schemaVersion: '2', version: '3' }, '2'],
+    [{}, '1.0'],
+    [null, '1.0'],
+  ])('resolves installed schema %j', async (schema, expected) => {
+    vi.mocked(tauriClient.readBundleFormSpec).mockReset();
+    if (schema === null)
+      vi.mocked(tauriClient.readBundleFormSpec).mockRejectedValueOnce(
+        new Error('missing'),
+      );
+    else
+      vi.mocked(tauriClient.readBundleFormSpec).mockResolvedValueOnce({
+        formType: 'demo',
+        formSchema: schema,
+        uiSchema: {},
+      });
+    const iframe = {
+      contentWindow: { postMessage: vi.fn() },
+    } as unknown as HTMLIFrameElement;
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'persistObservation',
+        messageId: 'create-version',
+        input: { formType: 'demo', finalData: {}, formVersion: 'untrusted' },
+      }),
+      { iframe, onFinalize: async () => ({}) },
+    );
+    expect(tauriClient.saveObservation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ extras: { formVersion: expected } }),
+    );
+  });
+
+  it('uses a matching captured session without reading the bundle', async () => {
+    vi.mocked(tauriClient.readBundleFormSpec).mockClear();
+    const iframe = {
+      contentWindow: { postMessage: vi.fn() },
+    } as unknown as HTMLIFrameElement;
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'persistObservation',
+        messageId: 'session-version',
+        input: { formType: 'demo', finalData: {}, formVersion: 'untrusted' },
+      }),
+      {
+        iframe,
+        onFinalize: async () => ({}),
+        getSessionFormVersion: formType =>
+          formType === 'demo' ? '2' : undefined,
+      },
+    );
+    expect(tauriClient.readBundleFormSpec).not.toHaveBeenCalled();
+    expect(tauriClient.saveObservation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ extras: { formVersion: '2' } }),
+    );
+  });
+
+  it('preserves all update extras and never resolves a version', async () => {
+    const extras = {
+      formVersion: '7',
+      author: 'Alice',
+      tags: ['keep'],
+      deleted: false,
+      geolocation: { latitude: 1 },
+    };
+    vi.mocked(tauriClient.getObservation).mockResolvedValueOnce({
+      extras,
+    } as never);
+    vi.mocked(tauriClient.readBundleFormSpec).mockClear();
+    const getSessionFormVersion = vi.fn();
+    const iframe = {
+      contentWindow: { postMessage: vi.fn() },
+    } as unknown as HTMLIFrameElement;
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'persistObservation',
+        messageId: 'edit-version',
+        input: {
+          formType: 'demo',
+          observationId: 'old',
+          finalData: {},
+          formVersion: 'untrusted',
+        },
+      }),
+      { iframe, onFinalize: async () => ({}), getSessionFormVersion },
+    );
+    expect(tauriClient.saveObservation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'old', extras }),
+    );
+    expect(getSessionFormVersion).not.toHaveBeenCalled();
+    expect(tauriClient.readBundleFormSpec).not.toHaveBeenCalled();
   });
 });

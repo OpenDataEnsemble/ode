@@ -111,6 +111,8 @@ export interface FormplayerModalHandle {
 const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({ visible, isActive = true, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
+    // Snapshot the opening spec; bundle/cache refreshes must not change this session.
+    const sessionFormVersionRef = useRef('1.0');
     const [profileId] = useState(() => getActiveProfile().id);
     const flushSequence = useRef(0);
     const pendingFlushes = useRef(
@@ -368,6 +370,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           );
         }
 
+        sessionFormVersionRef.current = formType.schemaVersion;
         subObservationModeRef.current = subObservationMode;
         skipFinalizeRef.current = skipFinalize;
 
@@ -690,6 +693,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             const persistResult = await persistObservationWithAttachments(
               {
                 formType,
+                formVersion: sessionFormVersionRef.current,
                 finalData,
                 observationId: effectiveObservationId,
                 subObservationMode,
