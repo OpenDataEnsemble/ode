@@ -23,6 +23,51 @@ function removePrefix(storage: Storage, prefix: string): void {
   }
 }
 
+export function isQuotaError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = (error as { code?: unknown }).code;
+  return (
+    error.name === 'QuotaExceededError' ||
+    error.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    code === 22 ||
+    code === 1014 ||
+    /quota/i.test(error.message)
+  );
+}
+
+/**
+ * Move one legacy key into profile storage, then drop the legacy copy.
+ *
+ * The scoped copy is written first. Only when that hits the quota is the legacy
+ * key removed before writing (restored if the write still fails), so a nearly
+ * full storage never needs room for two copies. A key that already has scoped
+ * data is left alone (the scoped copy wins).
+ */
+function moveLegacyKey(
+  storage: Storage,
+  scoped: ProfileLocalStorage,
+  key: string,
+): void {
+  const legacy = storage.getItem(key);
+  if (legacy === null) return;
+  if (scoped.getItem(key) === null) {
+    try {
+      scoped.setItem(key, legacy);
+    } catch (error) {
+      if (!isQuotaError(error)) throw error;
+      storage.removeItem(key);
+      try {
+        scoped.setItem(key, legacy);
+      } catch (retryError) {
+        storage.setItem(key, legacy);
+        throw retryError;
+      }
+      return;
+    }
+  }
+  storage.removeItem(key);
+}
+
 export function createNamespacedStorage(
   profileId: string,
   namespace: 'app' | 'formplayer',
@@ -65,15 +110,17 @@ export class FormplayerProfileStorage implements ProfileLocalStorage {
       throw new Error('Active profile has been deleted');
     const scoped = createNamespacedStorage(id, 'formplayer', storage);
     if (owner === id && scoped.getItem(migrationMarker) !== '1') {
-      for (const key of legacyKeys) {
-        const legacy = storage.getItem(key);
-        if (legacy !== null && scoped.getItem(key) === null) {
-          scoped.setItem(key, legacy);
-        }
+      try {
+        for (const key of legacyKeys) moveLegacyKey(storage, scoped, key);
+        // Last write: interrupted/quota-failed migrations can retry without
+        // overwriting already scoped data.
+        scoped.setItem(migrationMarker, '1');
+      } catch (error) {
+        // A full storage must not block opening forms. Unmoved legacy data stays
+        // in place and the migration retries on the next open.
+        if (!isQuotaError(error)) throw error;
+        console.warn('[ProfileStorage] Legacy migration deferred:', error);
       }
-      // Last write: interrupted/quota-failed migrations can retry without overwriting
-      // already scoped data. Legacy sources remain for designated-owner deletion.
-      scoped.setItem(migrationMarker, '1');
     }
     this.profileId = id;
     this.storage = scoped;
