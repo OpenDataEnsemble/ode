@@ -1,13 +1,29 @@
 /**
  * DraftService.ts
  *
- * Service for managing form drafts in localStorage.
- * Drafts survive profile inactivity until explicitly deleted or successfully submitted.
+ * Service for managing form drafts in profile-scoped localStorage.
+ *
+ * Storage layout (all keys live inside the profile's formplayer namespace):
+ * - `drafts_index_v2`: small JSON array of draft metadata (no form data)
+ * - `draft_v2:<id>`: one entry per draft holding its data and params
+ *
+ * Older builds kept every draft in a single `formulus_drafts` array. That blob
+ * is migrated on first access. Keeping drafts in separate entries means a
+ * single large draft cannot block saving every other draft, and listing drafts
+ * no longer parses all form data.
+ *
+ * Drafts not edited for {@link DEFAULT_DRAFT_MAX_AGE_DAYS} days are removed by
+ * {@link DraftService.cleanupExpiredDrafts}.
  */
 
 import { FormInitData } from '../types/FormulusInterfaceDefinition';
-import { formplayerStorage } from './ProfileStorage';
+import { formplayerStorage, isQuotaError } from './ProfileStorage';
 import { resolveFormSchemaVersion } from '../utils/formSchemaVersion';
+
+/** Drafts not edited for this many days are removed automatically. */
+export const DEFAULT_DRAFT_MAX_AGE_DAYS = 7;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Interface for a saved draft
@@ -49,14 +65,77 @@ export interface DraftSummary {
   /** Preview of form data for display */
   dataPreview: string;
   draftSessionKey?: string | null;
+  /**
+   * True when the draft was saved with a different form version than the one
+   * being opened. Such drafts are still listed so they can be resumed or deleted.
+   */
+  isOtherVersion: boolean;
+  /** When the draft will be removed by age-based cleanup if not edited again. */
+  expiresAt: Date;
 }
+
+export interface DraftCleanupOptions {
+  /** Maximum age in days since the last edit. Defaults to 7. */
+  maxAgeDays?: number;
+  /** Reference time, for tests. Defaults to now. */
+  now?: Date;
+  /** Draft rows to keep regardless of age (e.g. the one being opened). */
+  keep?: (draft: DraftMeta) => boolean;
+}
+
+/** Draft metadata kept in the index (everything except data and params). */
+export type DraftMeta = Omit<Draft, 'data' | 'params'>;
+
+interface StoredMeta {
+  id: string;
+  formType: string;
+  formVersion?: string;
+  createdAt: string;
+  updatedAt: string;
+  observationId?: string | null;
+  draftSessionKey?: string | null;
+}
+
+interface StoredPayload {
+  data: Record<string, any>;
+  params?: Record<string, any>;
+}
+
+const toMeta = (stored: StoredMeta): DraftMeta => ({
+  ...stored,
+  createdAt: new Date(stored.createdAt),
+  updatedAt: new Date(stored.updatedAt),
+});
+
+/** Corrupt dates are stored as '' (still invalid when read back) instead of throwing. */
+const isoOrEmpty = (date: Date): string =>
+  Number.isFinite(date.getTime()) ? date.toISOString() : '';
+
+const toStoredMeta = (meta: DraftMeta): StoredMeta => ({
+  id: meta.id,
+  formType: meta.formType,
+  formVersion: meta.formVersion,
+  createdAt: isoOrEmpty(meta.createdAt),
+  updatedAt: isoOrEmpty(meta.updatedAt),
+  observationId: meta.observationId,
+  draftSessionKey: meta.draftSessionKey,
+});
+
+/** Valid timestamp, or null for a missing/corrupt date. */
+const timeOf = (date: Date): number | null => {
+  const time = date.getTime();
+  return Number.isFinite(time) ? time : null;
+};
 
 /**
  * Service for managing form drafts
  */
 export class DraftService {
   private static instance: DraftService;
-  private readonly STORAGE_KEY = 'formulus_drafts';
+  /** Pre-v2 single-array storage, migrated on first access. */
+  private readonly LEGACY_STORAGE_KEY = 'formulus_drafts';
+  private readonly INDEX_KEY = 'drafts_index_v2';
+  private readonly ITEM_PREFIX = 'draft_v2:';
 
   private constructor() {}
 
@@ -75,64 +154,136 @@ export class DraftService {
    */
   private generateDraftId(
     formType: string,
-    observationId?: string | null,
+    observationId: string | null | undefined,
+    existing: DraftMeta[],
   ): string {
     const base = observationId ? `${formType}_${observationId}` : formType;
-    return `draft_${base}_${Date.now()}`;
+    const id = `draft_${base}_${Date.now()}`;
+    // Each draft has its own storage entry, so IDs must never collide.
+    let unique = id;
+    for (let n = 1; existing.some(meta => meta.id === unique); n++) {
+      unique = `${id}_${n}`;
+    }
+    return unique;
+  }
+
+  private itemKey(id: string): string {
+    return `${this.ITEM_PREFIX}${id}`;
+  }
+
+  /** Legacy rows without a session key get a stable one so they can be resumed. */
+  private normalize(meta: DraftMeta): DraftMeta {
+    if (meta.observationId != null || meta.draftSessionKey) return meta;
+    return { ...meta, draftSessionKey: `legacy_${meta.id}` };
   }
 
   /**
-   * Get all drafts from localStorage
+   * Move the pre-v2 `formulus_drafts` array into per-draft entries.
+   *
+   * New entries are written first and the blob removed afterwards. If that
+   * hits the storage quota, the blob is removed before writing so the
+   * migration never needs room for two copies. Any failure removes the new
+   * entries and keeps (or restores) the blob, so the next access can retry.
    */
-  private getAllDrafts(): Draft[] {
-    try {
-      const stored = formplayerStorage.getItem(this.STORAGE_KEY);
-      if (!stored) return [];
+  private migrateLegacyBlob(): DraftMeta[] | null {
+    const raw = formplayerStorage.getItem(this.LEGACY_STORAGE_KEY);
+    if (raw === null) return null;
 
-      const drafts = JSON.parse(stored) as Draft[];
-      const withDates = drafts.map(draft => ({
-        ...draft,
-        createdAt: new Date(draft.createdAt),
-        updatedAt: new Date(draft.updatedAt),
-      }));
-      let migrated = false;
-      const normalized = withDates.map(draft => {
-        if (draft.observationId != null) return draft;
-        if (draft.draftSessionKey) return draft;
-        migrated = true;
-        return { ...draft, draftSessionKey: `legacy_${draft.id}` };
-      });
-      if (migrated) {
-        try {
+    const parsed = JSON.parse(raw) as Array<StoredMeta & StoredPayload>;
+    const rows = Array.isArray(parsed) ? parsed : [];
+    const metas = rows.map(row =>
+      this.normalize(
+        toMeta({
+          id: row.id,
+          formType: row.formType,
+          formVersion: row.formVersion,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          observationId: row.observationId,
+          draftSessionKey: row.draftSessionKey,
+        }),
+      ),
+    );
+
+    const writeAll = () => {
+      const written: string[] = [];
+      try {
+        rows.forEach(row => {
+          const payload: StoredPayload = { data: row.data ?? {} };
+          if (row.params !== undefined) payload.params = row.params;
           formplayerStorage.setItem(
-            this.STORAGE_KEY,
-            JSON.stringify(normalized),
+            this.itemKey(row.id),
+            JSON.stringify(payload),
           );
-        } catch {
-          /* ignore */
-        }
+          written.push(row.id);
+        });
+        this.writeIndex(metas);
+      } catch (error) {
+        formplayerStorage.removeItem(this.INDEX_KEY);
+        written.forEach(id => formplayerStorage.removeItem(this.itemKey(id)));
+        throw error;
       }
-      return normalized;
+    };
+
+    try {
+      writeAll();
+    } catch (error) {
+      if (!isQuotaError(error)) throw error;
+      formplayerStorage.removeItem(this.LEGACY_STORAGE_KEY);
+      try {
+        writeAll();
+      } catch (retryError) {
+        formplayerStorage.setItem(this.LEGACY_STORAGE_KEY, raw);
+        throw retryError;
+      }
+    }
+    formplayerStorage.removeItem(this.LEGACY_STORAGE_KEY);
+    console.log(
+      `DraftService: Migrated ${metas.length} draft(s) to v2 storage`,
+    );
+    return metas;
+  }
+
+  /**
+   * Read draft metadata. Throws when storage cannot be read, so callers never
+   * mistake a failed read for "no drafts".
+   */
+  private readIndex(): DraftMeta[] {
+    try {
+      const raw = formplayerStorage.getItem(this.INDEX_KEY);
+      if (raw === null) return this.migrateLegacyBlob() ?? [];
+      const stored = JSON.parse(raw) as StoredMeta[];
+      return (Array.isArray(stored) ? stored : []).map(toMeta);
     } catch (error) {
       console.error('Error loading drafts from localStorage:', error);
       throw error;
     }
   }
 
-  /**
-   * Save all drafts to localStorage
-   */
-  private saveAllDrafts(drafts: Draft[]): void {
-    try {
-      formplayerStorage.setItem(this.STORAGE_KEY, JSON.stringify(drafts));
-    } catch (error) {
-      console.error('Error saving drafts to localStorage:', error);
-      throw error;
-    }
+  private writeIndex(metas: DraftMeta[]): void {
+    formplayerStorage.setItem(
+      this.INDEX_KEY,
+      JSON.stringify(metas.map(toStoredMeta)),
+    );
+  }
+
+  private readPayload(id: string): StoredPayload | null {
+    const raw = formplayerStorage.getItem(this.itemKey(id));
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw) as StoredPayload;
+    return { data: parsed?.data ?? {}, params: parsed?.params };
+  }
+
+  /** Remove index rows first, then their entries, so the index never points at missing data. */
+  private removeDrafts(ids: string[]): void {
+    if (ids.length === 0) return;
+    const remove = new Set(ids);
+    this.writeIndex(this.readIndex().filter(meta => !remove.has(meta.id)));
+    ids.forEach(id => formplayerStorage.removeItem(this.itemKey(id)));
   }
 
   private draftMatches(
-    draft: Draft,
+    draft: DraftMeta,
     formType: string,
     observationId: string | null,
     draftSessionKey: string | null,
@@ -150,7 +301,7 @@ export class DraftService {
   }
 
   /**
-   * Save or update a draft.
+   * Save or update a draft. Throws if storage rejects the write.
    * @param draftSessionKey — Formplayer-only; required when `observationId` is null (pass from App / FormContext).
    */
   public saveDraft(
@@ -159,7 +310,7 @@ export class DraftService {
     formInitData?: FormInitData,
     draftSessionKey?: string | null,
   ): string {
-    const drafts = this.getAllDrafts();
+    const metas = this.readIndex();
     const now = new Date();
 
     const observationId = formInitData?.observationId ?? null;
@@ -173,85 +324,95 @@ export class DraftService {
       return '';
     }
 
-    const existingIndex = drafts.findIndex(draft =>
-      this.draftMatches(draft, formType, observationId, sessionKey),
+    const payload: StoredPayload = { data, params: formInitData?.params };
+    const existingIndex = metas.findIndex(meta =>
+      this.draftMatches(
+        this.normalize(meta),
+        formType,
+        observationId,
+        sessionKey,
+      ),
     );
 
-    let draftId: string;
-
     if (existingIndex >= 0) {
-      const existingDraft = drafts[existingIndex];
-      draftId = existingDraft.id;
-      drafts[existingIndex] = {
-        ...existingDraft,
-        data,
+      const existing = this.normalize(metas[existingIndex]);
+      formplayerStorage.setItem(
+        this.itemKey(existing.id),
+        JSON.stringify(payload),
+      );
+      metas[existingIndex] = {
+        ...metas[existingIndex],
         updatedAt: now,
-        params: formInitData?.params,
         draftSessionKey:
           observationId === null
-            ? (sessionKey ?? existingDraft.draftSessionKey)
-            : existingDraft.draftSessionKey,
+            ? (sessionKey ?? existing.draftSessionKey)
+            : metas[existingIndex].draftSessionKey,
       };
+      this.writeIndex(metas);
       console.log(
-        `DraftService: Updated existing draft ${draftId} for ${formType}`,
+        `DraftService: Updated existing draft ${existing.id} for ${formType}`,
       );
-    } else {
-      draftId = this.generateDraftId(formType, formInitData?.observationId);
-      const newDraft: Draft = {
-        id: draftId,
-        formType,
-        formVersion: resolveFormSchemaVersion(formInitData?.formSchema),
-        data,
-        createdAt: now,
-        updatedAt: now,
-        observationId,
-        draftSessionKey: observationId === null ? sessionKey : null,
-        params: formInitData?.params,
-      };
-      drafts.push(newDraft);
-      console.log(`DraftService: Created new draft ${draftId} for ${formType}`);
+      return existing.id;
     }
 
-    this.saveAllDrafts(drafts);
-
+    const draftId = this.generateDraftId(
+      formType,
+      formInitData?.observationId,
+      metas,
+    );
+    formplayerStorage.setItem(this.itemKey(draftId), JSON.stringify(payload));
+    try {
+      this.writeIndex([
+        ...metas,
+        {
+          id: draftId,
+          formType,
+          formVersion: resolveFormSchemaVersion(formInitData?.formSchema),
+          createdAt: now,
+          updatedAt: now,
+          observationId,
+          draftSessionKey: observationId === null ? sessionKey : null,
+        },
+      ]);
+    } catch (error) {
+      formplayerStorage.removeItem(this.itemKey(draftId));
+      throw error;
+    }
+    console.log(`DraftService: Created new draft ${draftId} for ${formType}`);
     return draftId;
   }
 
   /**
-   * Get drafts for a specific form type
+   * Get drafts for a specific form type, most recent first.
+   *
+   * Drafts saved with another form version are included and flagged with
+   * `isOtherVersion`, so users can still resume or delete them.
    */
   public getDraftsForForm(
     formType: string,
     formVersion?: string,
+    maxAgeDays: number = DEFAULT_DRAFT_MAX_AGE_DAYS,
   ): DraftSummary[] {
-    const drafts = this.getAllDrafts();
-    const formDrafts = drafts.filter(draft => {
-      if (draft.formType !== formType) return false;
-
-      // If formVersion is specified, only return drafts with matching version
-      if (
-        formVersion &&
-        draft.formVersion &&
-        draft.formVersion !== formVersion
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-
-    // Convert to summaries and sort by most recent first
-    return formDrafts
-      .map(draft => ({
-        id: draft.id,
-        formType: draft.formType,
-        formVersion: draft.formVersion,
-        createdAt: draft.createdAt,
-        updatedAt: draft.updatedAt,
-        observationId: draft.observationId,
-        dataPreview: this.generateDataPreview(draft.data),
-        draftSessionKey: draft.draftSessionKey,
-      }))
+    return this.readIndex()
+      .filter(meta => meta.formType === formType)
+      .map(raw => {
+        const meta = this.normalize(raw);
+        const payload = this.readPayload(meta.id);
+        return {
+          id: meta.id,
+          formType: meta.formType,
+          formVersion: meta.formVersion,
+          createdAt: meta.createdAt,
+          updatedAt: meta.updatedAt,
+          observationId: meta.observationId,
+          dataPreview: this.generateDataPreview(payload?.data ?? {}),
+          draftSessionKey: meta.draftSessionKey,
+          isOtherVersion: Boolean(
+            formVersion && meta.formVersion && meta.formVersion !== formVersion,
+          ),
+          expiresAt: new Date(meta.updatedAt.getTime() + maxAgeDays * DAY_MS),
+        };
+      })
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
 
@@ -259,25 +420,24 @@ export class DraftService {
    * Get a specific draft by ID
    */
   public getDraft(draftId: string): Draft | null {
-    const drafts = this.getAllDrafts();
-    return drafts.find(draft => draft.id === draftId) || null;
+    const meta = this.readIndex().find(draft => draft.id === draftId);
+    if (!meta) return null;
+    const payload = this.readPayload(draftId);
+    return {
+      ...this.normalize(meta),
+      data: payload?.data ?? {},
+      params: payload?.params,
+    };
   }
 
   /**
    * Delete a specific draft
    */
   public deleteDraft(draftId: string): boolean {
-    const drafts = this.getAllDrafts();
-    const initialLength = drafts.length;
-    const filteredDrafts = drafts.filter(draft => draft.id !== draftId);
-
-    if (filteredDrafts.length < initialLength) {
-      this.saveAllDrafts(filteredDrafts);
-      console.log(`DraftService: Deleted draft ${draftId}`);
-      return true;
-    }
-
-    return false;
+    if (!this.readIndex().some(draft => draft.id === draftId)) return false;
+    this.removeDrafts([draftId]);
+    console.log(`DraftService: Deleted draft ${draftId}`);
+    return true;
   }
 
   /**
@@ -287,24 +447,19 @@ export class DraftService {
     formType: string,
     observationId: string,
   ): number {
-    const drafts = this.getAllDrafts();
-    const initialLength = drafts.length;
-
-    const filteredDrafts = drafts.filter(
-      draft =>
-        !(draft.formType === formType && draft.observationId === observationId),
-    );
-
-    const deletedCount = initialLength - filteredDrafts.length;
-
-    if (deletedCount > 0) {
-      this.saveAllDrafts(filteredDrafts);
+    const ids = this.readIndex()
+      .filter(
+        draft =>
+          draft.formType === formType && draft.observationId === observationId,
+      )
+      .map(draft => draft.id);
+    this.removeDrafts(ids);
+    if (ids.length > 0) {
       console.log(
-        `DraftService: Deleted ${deletedCount} draft(s) for ${formType} (observationId: ${observationId})`,
+        `DraftService: Deleted ${ids.length} draft(s) for ${formType} (observationId: ${observationId})`,
       );
     }
-
-    return deletedCount;
+    return ids.length;
   }
 
   /**
@@ -314,24 +469,50 @@ export class DraftService {
     formType: string,
     draftSessionKey: string,
   ): number {
-    const drafts = this.getAllDrafts();
-    const initialLength = drafts.length;
-    const filteredDrafts = drafts.filter(
-      draft =>
-        !(
+    const ids = this.readIndex()
+      .map(meta => this.normalize(meta))
+      .filter(
+        draft =>
           draft.formType === formType &&
           (draft.observationId === null || draft.observationId === undefined) &&
-          draft.draftSessionKey === draftSessionKey
-        ),
-    );
-    const deletedCount = initialLength - filteredDrafts.length;
-    if (deletedCount > 0) {
-      this.saveAllDrafts(filteredDrafts);
+          draft.draftSessionKey === draftSessionKey,
+      )
+      .map(draft => draft.id);
+    this.removeDrafts(ids);
+    if (ids.length > 0) {
       console.log(
-        `DraftService: Deleted ${deletedCount} draft(s) for ${formType} (new observation session)`,
+        `DraftService: Deleted ${ids.length} draft(s) for ${formType} (new observation session)`,
       );
     }
-    return deletedCount;
+    return ids.length;
+  }
+
+  /**
+   * Remove drafts that have not been edited for `maxAgeDays`.
+   *
+   * Drafts with a missing date or a date in the future (e.g. a device clock
+   * that was wrong when the draft was saved) are kept, as are any rows the
+   * `keep` predicate selects. Returns the number of drafts removed.
+   */
+  public cleanupExpiredDrafts(options: DraftCleanupOptions = {}): number {
+    const maxAgeDays = options.maxAgeDays ?? DEFAULT_DRAFT_MAX_AGE_DAYS;
+    if (!(maxAgeDays > 0)) return 0;
+    const now = (options.now ?? new Date()).getTime();
+    const cutoff = now - maxAgeDays * DAY_MS;
+
+    const ids = this.readIndex()
+      .filter(meta => {
+        const updated = timeOf(meta.updatedAt);
+        if (updated === null || updated > now) return false;
+        if (options.keep?.(meta)) return false;
+        return updated <= cutoff;
+      })
+      .map(meta => meta.id);
+    this.removeDrafts(ids);
+    if (ids.length > 0) {
+      console.log(`DraftService: Removed ${ids.length} expired draft(s)`);
+    }
+    return ids.length;
   }
 
   /**
@@ -374,14 +555,17 @@ export class DraftService {
    * Get total number of drafts
    */
   public getTotalDraftCount(): number {
-    return this.getAllDrafts().length;
+    return this.readIndex().length;
   }
 
   /**
    * Clear all drafts (for testing/debugging)
    */
   public clearAllDrafts(): void {
-    formplayerStorage.removeItem(this.STORAGE_KEY);
+    const ids = this.readIndex().map(meta => meta.id);
+    formplayerStorage.removeItem(this.INDEX_KEY);
+    ids.forEach(id => formplayerStorage.removeItem(this.itemKey(id)));
+    formplayerStorage.removeItem(this.LEGACY_STORAGE_KEY);
     console.log('DraftService: Cleared all drafts');
   }
 }
