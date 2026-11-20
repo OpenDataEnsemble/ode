@@ -238,34 +238,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         ? `file://${commonAncestor(RNFS.MainBundlePath, RNFS.DocumentDirectoryPath)}`
         : undefined;
 
-    // Create a debounced close handler to prevent multiple rapid close attempts
-    const performClose = useCallback(async () => {
-      // Prevent multiple close attempts
-      if (isClosing || isSubmitting) return;
-
-      setIsClosing(true);
-      // Keep the document mounted until a root draft is durably saved. Nested
-      // sessions return data only, and successful submits must not recreate drafts.
-      if (!formSubmitted && currentFormType && !subObservationModeRef.current) {
-        try {
-          await flushDraftAsync();
-        } catch (error) {
-          console.error(
-            'Cannot close Formplayer before saving its draft:',
-            error,
-          );
-          setIsClosing(false);
-          showConfirm({
-            title: t('common.error'),
-            message: t('formplayer.saveFailed'),
-            buttons: [
-              { text: t('common.ok'), variant: 'primary', onPress: () => {} },
-            ],
-          });
-          return;
-        }
-      }
-
+    // Resolve the pending operation and close. Callers decide whether the draft
+    // had to be saved first.
+    const completeClose = useCallback(() => {
       // Clear any existing timeout
       if (closeTimeoutRef.current) {
         clearTimeout(closeTimeoutRef.current);
@@ -299,14 +274,58 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       closeTimeoutRef.current = setTimeout(() => {
         setIsClosing(false);
       }, 500);
+    }, [onClose, currentOperationId, currentFormType, formSubmitted]);
+
+    // Create a debounced close handler to prevent multiple rapid close attempts
+    const performClose = useCallback(async () => {
+      // Prevent multiple close attempts
+      if (isClosing || isSubmitting) return;
+
+      setIsClosing(true);
+      // Keep the document mounted until a root draft is durably saved. Nested
+      // sessions return data only, and successful submits must not recreate drafts.
+      if (!formSubmitted && currentFormType && !subObservationModeRef.current) {
+        try {
+          await flushDraftAsync();
+        } catch (error) {
+          console.error(
+            'Cannot close Formplayer before saving its draft:',
+            error,
+          );
+          setIsClosing(false);
+          // Never trap the user in the form: let them stay, or knowingly
+          // close and lose the unsaved changes.
+          showConfirm({
+            title: t('formplayer.draftNotSavedTitle'),
+            message: t('formplayer.draftNotSavedMessage'),
+            buttons: [
+              {
+                text: t('formplayer.stayInForm'),
+                variant: 'tertiary',
+                onPress: () => {},
+              },
+              {
+                text: t('formplayer.closeAnyway'),
+                variant: 'danger',
+                onPress: () => {
+                  setIsClosing(true);
+                  completeClose();
+                },
+              },
+            ],
+          });
+          return;
+        }
+      }
+
+      completeClose();
     }, [
       isClosing,
       isSubmitting,
-      onClose,
-      currentOperationId,
       currentFormType,
       formSubmitted,
       flushDraftAsync,
+      completeClose,
       showConfirm,
       t,
     ]);

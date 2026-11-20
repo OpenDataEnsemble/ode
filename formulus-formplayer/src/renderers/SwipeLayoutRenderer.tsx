@@ -26,6 +26,7 @@ import { Button } from '@ode/components/react-web';
 import { FormContext, useFormContext } from '../App';
 import { primaryKeyboardEnterKeyHint } from '../utils/keyboardEnterKeyHint';
 import { draftService } from '../services/DraftService';
+import type { FormInitData } from '../types/FormulusInterfaceDefinition';
 import FormProgressBar from '../components/FormProgressBar';
 import FormLayout from '../components/FormLayout';
 import {
@@ -827,6 +828,29 @@ const SwipeLayoutRenderer = ({
   );
 };
 
+/**
+ * Save a draft without blocking navigation. A failed save (e.g. full storage)
+ * must not stop the user from moving between pages: the data stays in memory,
+ * and closing the form reports the failure.
+ */
+function saveDraftWithoutBlocking(
+  formInitData: FormInitData,
+  data: Record<string, any>,
+  draftSessionKey: string | null | undefined,
+  reason: string,
+): void {
+  try {
+    draftService.saveDraft(
+      formInitData.formType,
+      data,
+      formInitData,
+      draftSessionKey,
+    );
+  } catch (error) {
+    console.warn(`[SwipeLayout] Draft not saved on ${reason}:`, error);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper – manages page state and draft persistence
 // ---------------------------------------------------------------------------
@@ -848,12 +872,11 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
     (page: number) => {
       // Save the current form data before changing the page
       if (data && formInitData && !skipDraftPersistence) {
-        console.log('Saving draft data on page change:', data);
-        draftService.saveDraft(
-          formInitData.formType,
-          data,
+        saveDraftWithoutBlocking(
           formInitData,
+          data,
           draftSessionKey,
+          'page change',
         );
       }
       setCurrentPage(page);
@@ -865,12 +888,11 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
     const handleNavigateToPage = (event: CustomEvent) => {
       // Save the current form data before navigating to a specific page
       if (data && formInitData && !skipDraftPersistence) {
-        console.log('Saving draft data before navigation event:', data);
-        draftService.saveDraft(
-          formInitData.formType,
-          data,
+        saveDraftWithoutBlocking(
           formInitData,
+          data,
           draftSessionKey,
+          'navigation event',
         );
       }
       setCurrentPage(event.detail.page);

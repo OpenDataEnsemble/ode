@@ -137,6 +137,34 @@ import { formDataJsonEqual } from './renderers/subObservationHelpers';
 import { mergeIncomingFormData } from './jsonforms/clearHiddenControlData';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
+/**
+ * Age-based draft cleanup on open. Never removes the draft of the observation
+ * being opened, and never blocks opening the form if storage misbehaves.
+ */
+function removeExpiredDrafts(init: FormInitData): void {
+  if (isSubObservationSession(init)) return;
+  try {
+    draftService.cleanupExpiredDrafts({
+      keep: draft =>
+        init.observationId != null &&
+        draft.formType === init.formType &&
+        draft.observationId === init.observationId,
+    });
+  } catch (error) {
+    console.warn('[App.tsx] Draft cleanup skipped:', error);
+  }
+}
+
+/** Unreadable draft storage opens a fresh form instead of an error screen. */
+function listDraftsWithoutBlocking(formType: string, formVersion: string) {
+  try {
+    return draftService.getDraftsForForm(formType, formVersion);
+  } catch (error) {
+    console.warn('[App.tsx] Could not read drafts:', error);
+    return [];
+  }
+}
+
 function isSubObservationSession(init: FormInitData): boolean {
   const i = init as FormInitData & { returnOnly?: boolean };
   return Boolean(i.subObservationMode || i.returnOnly);
@@ -911,6 +939,8 @@ function App() {
           return; // Exit early
         }
 
+        removeExpiredDrafts(initData);
+
         // Check if this is a new form (no savedData) and if drafts exist
         if (
           shouldOfferDraftSelector(
@@ -923,7 +953,7 @@ function App() {
             savedData,
           )
         ) {
-          const availableDrafts = draftService.getDraftsForForm(
+          const availableDrafts = listDraftsWithoutBlocking(
             receivedFormType,
             resolveFormSchemaVersion(formSchema),
           );
@@ -1528,15 +1558,24 @@ function App() {
             draftFlushQueue.current.retire();
           }
           await draftFlushQueue.current.settled();
-          if (payloadFormInit.observationId != null) {
-            draftService.deleteDraftsForFormInstance(
-              payloadFormInit.formType,
-              payloadFormInit.observationId,
-            );
-          } else if (draftSessionKey) {
-            draftService.deleteDraftForNewObservationSession(
-              payloadFormInit.formType,
-              draftSessionKey,
+          // The observation is already saved natively; local cleanup failing
+          // (e.g. blocked storage) must not report the submit as failed.
+          try {
+            if (payloadFormInit.observationId != null) {
+              draftService.deleteDraftsForFormInstance(
+                payloadFormInit.formType,
+                payloadFormInit.observationId,
+              );
+            } else if (draftSessionKey) {
+              draftService.deleteDraftForNewObservationSession(
+                payloadFormInit.formType,
+                draftSessionKey,
+              );
+            }
+          } catch (cleanupError) {
+            console.warn(
+              '[App.tsx] Draft cleanup after submit failed:',
+              cleanupError,
             );
           }
           // Persist sticky field values for next new observation of this form.
