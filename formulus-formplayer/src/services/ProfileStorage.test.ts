@@ -52,7 +52,6 @@ describe('Formplayer profile storage', () => {
     expect(a.getItem(drafts)).toBe('["legacy draft"]');
     expect(a.getItem(sticky)).toBe('{"legacy":"sticky"}');
     expect(a.getItem('legacy-migration-v1')).toBe('1');
-    // Moved, not copied: the legacy keys no longer take up quota.
     expect(localStorage.getItem(drafts)).toBeNull();
     expect(localStorage.getItem(sticky)).toBeNull();
     a.removeItem(drafts);
@@ -107,12 +106,10 @@ describe('Formplayer profile storage', () => {
       if (key === scoped(owner, sticky)) throw new Error('quota');
       setItem.call(this, key, value);
     });
-    // A full storage defers the migration instead of blocking the form.
     expect(() => initialize(owner)).not.toThrow();
     expect(
       localStorage.getItem(scoped(owner, 'legacy-migration-v1')),
     ).toBeNull();
-    // Drafts moved; the failed sticky write was rolled back to its legacy key.
     expect(localStorage.getItem(drafts)).toBeNull();
     expect(localStorage.getItem(scoped(owner, drafts))).toBe('legacy');
     expect(localStorage.getItem(sticky)).toBe('sticky');

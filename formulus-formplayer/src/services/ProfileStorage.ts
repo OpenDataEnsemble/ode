@@ -36,12 +36,8 @@ export function isQuotaError(error: unknown): boolean {
 }
 
 /**
- * Move one legacy key into profile storage, then drop the legacy copy.
- *
- * The scoped copy is written first. Only when that hits the quota is the legacy
- * key removed before writing (restored if the write still fails), so a nearly
- * full storage never needs room for two copies. A key that already has scoped
- * data is left alone (the scoped copy wins).
+ * Move a legacy key into profile storage. On a quota error the legacy key is
+ * removed first so two copies never need to fit; it is restored on failure.
  */
 function moveLegacyKey(
   storage: Storage,
@@ -116,8 +112,7 @@ export class FormplayerProfileStorage implements ProfileLocalStorage {
         // overwriting already scoped data.
         scoped.setItem(migrationMarker, '1');
       } catch (error) {
-        // A full storage must not block opening forms. Unmoved legacy data stays
-        // in place and the migration retries on the next open.
+        // A full storage must not block opening forms; retried on next open.
         if (!isQuotaError(error)) throw error;
         console.warn('[ProfileStorage] Legacy migration deferred:', error);
       }

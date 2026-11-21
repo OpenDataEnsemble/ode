@@ -1,26 +1,13 @@
 /**
- * DraftService.ts
- *
- * Service for managing form drafts in profile-scoped localStorage.
- *
- * Storage layout (all keys live inside the profile's formplayer namespace):
- * - `drafts_index_v2`: small JSON array of draft metadata (no form data)
- * - `draft_v2:<id>`: one entry per draft holding its data and params
- *
- * Older builds kept every draft in a single `formulus_drafts` array. That blob
- * is migrated on first access. Keeping drafts in separate entries means a
- * single large draft cannot block saving every other draft, and listing drafts
- * no longer parses all form data.
- *
- * Drafts not edited for {@link DEFAULT_DRAFT_MAX_AGE_DAYS} days are removed by
- * {@link DraftService.cleanupExpiredDrafts}.
+ * Form drafts in profile-scoped localStorage: an index (`drafts_index_v2`) plus
+ * one entry per draft (`draft_v2:<id>`). The old single `formulus_drafts` array
+ * is migrated on first access.
  */
 
 import { FormInitData } from '../types/FormulusInterfaceDefinition';
 import { formplayerStorage, isQuotaError } from './ProfileStorage';
 import { resolveFormSchemaVersion } from '../utils/formSchemaVersion';
 
-/** Drafts not edited for this many days are removed automatically. */
 export const DEFAULT_DRAFT_MAX_AGE_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -65,25 +52,17 @@ export interface DraftSummary {
   /** Preview of form data for display */
   dataPreview: string;
   draftSessionKey?: string | null;
-  /**
-   * True when the draft was saved with a different form version than the one
-   * being opened. Such drafts are still listed so they can be resumed or deleted.
-   */
+  /** Saved with a different form version than the one being opened. */
   isOtherVersion: boolean;
-  /** When the draft will be removed by age-based cleanup if not edited again. */
   expiresAt: Date;
 }
 
 export interface DraftCleanupOptions {
-  /** Maximum age in days since the last edit. Defaults to 7. */
   maxAgeDays?: number;
-  /** Reference time, for tests. Defaults to now. */
   now?: Date;
-  /** Draft rows to keep regardless of age (e.g. the one being opened). */
   keep?: (draft: DraftMeta) => boolean;
 }
 
-/** Draft metadata kept in the index (everything except data and params). */
 export type DraftMeta = Omit<Draft, 'data' | 'params'>;
 
 interface StoredMeta {
@@ -107,7 +86,6 @@ const toMeta = (stored: StoredMeta): DraftMeta => ({
   updatedAt: new Date(stored.updatedAt),
 });
 
-/** Corrupt dates are stored as '' (still invalid when read back) instead of throwing. */
 const isoOrEmpty = (date: Date): string =>
   Number.isFinite(date.getTime()) ? date.toISOString() : '';
 
@@ -121,7 +99,6 @@ const toStoredMeta = (meta: DraftMeta): StoredMeta => ({
   draftSessionKey: meta.draftSessionKey,
 });
 
-/** Valid timestamp, or null for a missing/corrupt date. */
 const timeOf = (date: Date): number | null => {
   const time = date.getTime();
   return Number.isFinite(time) ? time : null;
@@ -132,7 +109,6 @@ const timeOf = (date: Date): number | null => {
  */
 export class DraftService {
   private static instance: DraftService;
-  /** Pre-v2 single-array storage, migrated on first access. */
   private readonly LEGACY_STORAGE_KEY = 'formulus_drafts';
   private readonly INDEX_KEY = 'drafts_index_v2';
   private readonly ITEM_PREFIX = 'draft_v2:';
@@ -159,7 +135,6 @@ export class DraftService {
   ): string {
     const base = observationId ? `${formType}_${observationId}` : formType;
     const id = `draft_${base}_${Date.now()}`;
-    // Each draft has its own storage entry, so IDs must never collide.
     let unique = id;
     for (let n = 1; existing.some(meta => meta.id === unique); n++) {
       unique = `${id}_${n}`;
@@ -171,19 +146,14 @@ export class DraftService {
     return `${this.ITEM_PREFIX}${id}`;
   }
 
-  /** Legacy rows without a session key get a stable one so they can be resumed. */
   private normalize(meta: DraftMeta): DraftMeta {
     if (meta.observationId != null || meta.draftSessionKey) return meta;
     return { ...meta, draftSessionKey: `legacy_${meta.id}` };
   }
 
   /**
-   * Move the pre-v2 `formulus_drafts` array into per-draft entries.
-   *
-   * New entries are written first and the blob removed afterwards. If that
-   * hits the storage quota, the blob is removed before writing so the
-   * migration never needs room for two copies. Any failure removes the new
-   * entries and keeps (or restores) the blob, so the next access can retry.
+   * Migrate the old `formulus_drafts` array. On a quota error the array is
+   * removed first so two copies never need to fit; any failure restores it.
    */
   private migrateLegacyBlob(): DraftMeta[] | null {
     const raw = formplayerStorage.getItem(this.LEGACY_STORAGE_KEY);
@@ -244,10 +214,7 @@ export class DraftService {
     return metas;
   }
 
-  /**
-   * Read draft metadata. Throws when storage cannot be read, so callers never
-   * mistake a failed read for "no drafts".
-   */
+  /** Throws on unreadable storage so a failed read is never taken as "no drafts". */
   private readIndex(): DraftMeta[] {
     try {
       const raw = formplayerStorage.getItem(this.INDEX_KEY);
@@ -274,7 +241,6 @@ export class DraftService {
     return { data: parsed?.data ?? {}, params: parsed?.params };
   }
 
-  /** Remove index rows first, then their entries, so the index never points at missing data. */
   private removeDrafts(ids: string[]): void {
     if (ids.length === 0) return;
     const remove = new Set(ids);
@@ -384,9 +350,6 @@ export class DraftService {
 
   /**
    * Get drafts for a specific form type, most recent first.
-   *
-   * Drafts saved with another form version are included and flagged with
-   * `isOtherVersion`, so users can still resume or delete them.
    */
   public getDraftsForForm(
     formType: string,
@@ -488,11 +451,8 @@ export class DraftService {
   }
 
   /**
-   * Remove drafts that have not been edited for `maxAgeDays`.
-   *
-   * Drafts with a missing date or a date in the future (e.g. a device clock
-   * that was wrong when the draft was saved) are kept, as are any rows the
-   * `keep` predicate selects. Returns the number of drafts removed.
+   * Remove drafts not edited for `maxAgeDays`. Drafts with an invalid or future
+   * date (wrong device clock) are kept.
    */
   public cleanupExpiredDrafts(options: DraftCleanupOptions = {}): number {
     const maxAgeDays = options.maxAgeDays ?? DEFAULT_DRAFT_MAX_AGE_DAYS;

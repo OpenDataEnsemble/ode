@@ -137,10 +137,6 @@ import { formDataJsonEqual } from './renderers/subObservationHelpers';
 import { mergeIncomingFormData } from './jsonforms/clearHiddenControlData';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
-/**
- * Age-based draft cleanup on open. Never removes the draft of the observation
- * being opened, and never blocks opening the form if storage misbehaves.
- */
 function removeExpiredDrafts(init: FormInitData): void {
   if (isSubObservationSession(init)) return;
   try {
@@ -155,7 +151,6 @@ function removeExpiredDrafts(init: FormInitData): void {
   }
 }
 
-/** Unreadable draft storage opens a fresh form instead of an error screen. */
 function listDraftsWithoutBlocking(formType: string, formVersion: string) {
   try {
     return draftService.getDraftsForForm(formType, formVersion);
@@ -1558,8 +1553,7 @@ function App() {
             draftFlushQueue.current.retire();
           }
           await draftFlushQueue.current.settled();
-          // The observation is already saved natively; local cleanup failing
-          // (e.g. blocked storage) must not report the submit as failed.
+          // Already saved natively: cleanup failing must not fail the submit.
           try {
             if (payloadFormInit.observationId != null) {
               draftService.deleteDraftsForFormInstance(

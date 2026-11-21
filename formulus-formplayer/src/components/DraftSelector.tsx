@@ -54,7 +54,6 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   const theme = useTheme();
   const t = useOdeT();
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
-  // Reference time for expiry labels, captured when drafts load.
   const [loadedAt, setLoadedAt] = useState(0);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);

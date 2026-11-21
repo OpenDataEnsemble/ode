@@ -238,8 +238,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         ? `file://${commonAncestor(RNFS.MainBundlePath, RNFS.DocumentDirectoryPath)}`
         : undefined;
 
-    // Resolve the pending operation and close. Callers decide whether the draft
-    // had to be saved first.
     const completeClose = useCallback(() => {
       // Clear any existing timeout
       if (closeTimeoutRef.current) {
@@ -293,8 +291,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             error,
           );
           setIsClosing(false);
-          // Never trap the user in the form: let them stay, or knowingly
-          // close and lose the unsaved changes.
           showConfirm({
             title: t('formplayer.draftNotSavedTitle'),
             message: t('formplayer.draftNotSavedMessage'),

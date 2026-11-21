@@ -828,11 +828,7 @@ const SwipeLayoutRenderer = ({
   );
 };
 
-/**
- * Save a draft without blocking navigation. A failed save (e.g. full storage)
- * must not stop the user from moving between pages: the data stays in memory,
- * and closing the form reports the failure.
- */
+/** A failed draft save (e.g. full storage) must not block page navigation. */
 function saveDraftWithoutBlocking(
   formInitData: FormInitData,
   data: Record<string, any>,
