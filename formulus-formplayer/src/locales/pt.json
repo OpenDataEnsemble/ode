@@ -30,6 +30,9 @@
   "draft.formLabel": "Formulário: {{formType}}",
   "draft.newFormSection": "Novo formulário",
   "draft.deleteConfirm": "Tem a certeza de que pretende eliminar este rascunho? Esta ação não pode ser anulada.",
+  "draft.otherVersion": "Outra versão do formulário",
+  "draft.expiresToday": "Excluído em menos de um dia",
+  "draft.expiresInDays": "Excluído em {{count}} dias",
 
   "finalize.title": "Finalizar",
   "finalize.summary": "RESUMO DO FORMULÁRIO",

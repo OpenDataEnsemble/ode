@@ -52,6 +52,8 @@ describe('Formplayer profile storage', () => {
     expect(a.getItem(drafts)).toBe('["legacy draft"]');
     expect(a.getItem(sticky)).toBe('{"legacy":"sticky"}');
     expect(a.getItem('legacy-migration-v1')).toBe('1');
+    expect(localStorage.getItem(drafts)).toBeNull();
+    expect(localStorage.getItem(sticky)).toBeNull();
     a.removeItem(drafts);
     expect(initialize(owner).getItem(drafts)).toBeNull();
   });
@@ -104,17 +106,47 @@ describe('Formplayer profile storage', () => {
       if (key === scoped(owner, sticky)) throw new Error('quota');
       setItem.call(this, key, value);
     });
-    expect(() => initialize(owner)).toThrow('quota');
+    expect(() => initialize(owner)).not.toThrow();
     expect(
       localStorage.getItem(scoped(owner, 'legacy-migration-v1')),
     ).toBeNull();
-    expect(localStorage.getItem(drafts)).toBe('legacy');
+    expect(localStorage.getItem(drafts)).toBeNull();
+    expect(localStorage.getItem(scoped(owner, drafts))).toBe('legacy');
+    expect(localStorage.getItem(sticky)).toBe('sticky');
     vi.restoreAllMocks();
     localStorage.setItem(scoped(owner, drafts), 'newer scoped draft');
     const a = initialize(owner);
     expect(a.getItem(drafts)).toBe('newer scoped draft');
     expect(a.getItem(sticky)).toBe('sticky');
     expect(a.getItem('legacy-migration-v1')).toBe('1');
+  });
+
+  it('never needs room for two copies of legacy data while moving it', () => {
+    localStorage.setItem(drafts, 'x'.repeat(10));
+    const setItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+      this: Storage,
+      key,
+      value,
+    ) {
+      if (key === scoped(owner, drafts) && localStorage.getItem(drafts)) {
+        throw new Error('quota');
+      }
+      setItem.call(this, key, value);
+    });
+    const a = initialize(owner);
+    expect(a.getItem(drafts)).toBe('x'.repeat(10));
+    expect(localStorage.getItem(drafts)).toBeNull();
+  });
+
+  it('still propagates non-quota errors during migration', () => {
+    localStorage.setItem(drafts, 'legacy');
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(() => initialize(owner)).toThrow('blocked');
+    vi.restoreAllMocks();
+    expect(localStorage.getItem(drafts)).toBe('legacy');
   });
 
   it('propagates blocked storage/deletion errors instead of copying legacy data', () => {

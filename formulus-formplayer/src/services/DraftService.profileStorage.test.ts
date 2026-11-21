@@ -136,12 +136,15 @@ it('keeps legacy unversioned drafts discoverable without relabeling on update', 
   expect(
     draft
       .getDraftsForForm('household', '2')
+      .filter(item => !item.isOtherVersion)
       .map(item => item.id)
       .sort(),
   ).toEqual(['legacy', matching].sort());
-  expect(
-    draft.getDraftsForForm('household', '2').map(item => item.id),
-  ).not.toContain(mismatched);
+  const listed = draft.getDraftsForForm('household', '2');
+  expect(listed.find(item => item.id === mismatched)?.isOtherVersion).toBe(
+    true,
+  );
+  expect(listed.find(item => item.id === matching)?.isOtherVersion).toBe(false);
   draft.saveDraft(
     'household',
     { name: 'Resumed' },

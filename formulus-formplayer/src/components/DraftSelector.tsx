@@ -41,6 +41,7 @@ interface DraftSelectorProps {
 // Container style – matched with other confirm UIs (no semi-transparent overlay)
 const CONFIRM_CARD_RADIUS = 0.7;
 const CONFIRM_BORDER_WIDTH = 1;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const DraftSelector: React.FC<DraftSelectorProps> = ({
   formType,
@@ -53,12 +54,14 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   const theme = useTheme();
   const t = useOdeT();
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
+  const [loadedAt, setLoadedAt] = useState(0);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
 
   // Load drafts on component mount and when formType changes
   const loadDrafts = useCallback(() => {
     const formDrafts = draftService.getDraftsForForm(formType, formVersion);
+    setLoadedAt(Date.now());
     setDrafts(formDrafts);
   }, [formType, formVersion]);
 
@@ -81,6 +84,14 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
     }
     setDeleteConfirmOpen(false);
     setDraftToDelete(null);
+  };
+
+  const expiryText = (expiresAt: Date): string => {
+    const days = Math.ceil((expiresAt.getTime() - loadedAt) / DAY_MS);
+    if (days <= 1) return t('draft.expiresToday', 'Deleted within a day');
+    return t('draft.expiresInDays', 'Deleted in {{count}} days', {
+      count: days,
+    });
   };
 
   const formatDate = (date: Date): string =>
@@ -135,6 +146,20 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
                   {t('draft.savedAtLine', 'Draft saved {{date}}', {
                     date: formatDate(draft.updatedAt),
                   })}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  noWrap
+                  sx={{ display: 'block', textAlign: 'left' }}>
+                  {[
+                    draft.isOtherVersion
+                      ? t('draft.otherVersion', 'Different form version')
+                      : null,
+                    expiryText(draft.expiresAt),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </Typography>
               </Box>
               <Box

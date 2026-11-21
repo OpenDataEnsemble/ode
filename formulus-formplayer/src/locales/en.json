@@ -30,6 +30,9 @@
   "draft.formLabel": "Form: {{formType}}",
   "draft.newFormSection": "New Form",
   "draft.deleteConfirm": "Are you sure you want to delete this draft? This action cannot be undone.",
+  "draft.otherVersion": "Different form version",
+  "draft.expiresToday": "Deleted within a day",
+  "draft.expiresInDays": "Deleted in {{count}} days",
 
   "finalize.title": "Finalize",
   "finalize.summary": "FORM SUMMARY",
