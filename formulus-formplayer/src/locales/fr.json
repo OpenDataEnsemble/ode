@@ -30,6 +30,9 @@
   "draft.formLabel": "Formulaire : {{formType}}",
   "draft.newFormSection": "Nouveau formulaire",
   "draft.deleteConfirm": "Voulez-vous vraiment supprimer ce brouillon ? Cette action est irréversible.",
+  "draft.otherVersion": "Autre version du formulaire",
+  "draft.expiresToday": "Supprimé dans moins d’un jour",
+  "draft.expiresInDays": "Supprimé dans {{count}} jours",
 
   "finalize.title": "Finaliser",
   "finalize.summary": "RÉSUMÉ DU FORMULAIRE",
