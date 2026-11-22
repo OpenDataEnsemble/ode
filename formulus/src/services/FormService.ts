@@ -35,8 +35,9 @@ function resolveSchemaVersion(schema: unknown): string {
   if (schema && typeof schema === 'object') {
     const { schemaVersion, version } = schema as Record<string, unknown>;
     for (const candidate of [schemaVersion, version]) {
-      if (typeof candidate === 'string' && candidate.trim().length > 0) {
-        return candidate;
+      const trimmed = typeof candidate === 'string' ? candidate.trim() : '';
+      if (trimmed) {
+        return trimmed;
       }
     }
   }
@@ -454,7 +455,7 @@ export class FormService {
     const input: NewObservationInput = {
       formType,
       data,
-      formVersion: '1.0', // Default version
+      formVersion: this.getFormSpecById(formType)?.schemaVersion ?? '1.0',
     };
 
     if (input.formType === undefined) {

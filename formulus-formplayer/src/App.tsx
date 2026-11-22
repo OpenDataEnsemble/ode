@@ -50,6 +50,7 @@ import {
   applyStickyDefaults,
 } from './utils/stickyFieldHelpers';
 import { stickyService } from './services/StickyService';
+import { resolveFormSchemaVersion } from './utils/formSchemaVersion';
 import { applyFormUiTranslations } from './i18n/applyFormUiTranslations';
 import {
   resolveEffectiveFormLocale,
@@ -136,6 +137,29 @@ import { formDataJsonEqual } from './renderers/subObservationHelpers';
 import { mergeIncomingFormData } from './jsonforms/clearHiddenControlData';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
+function removeExpiredDrafts(init: FormInitData): void {
+  if (isSubObservationSession(init)) return;
+  try {
+    draftService.cleanupExpiredDrafts({
+      keep: draft =>
+        init.observationId != null &&
+        draft.formType === init.formType &&
+        draft.observationId === init.observationId,
+    });
+  } catch (error) {
+    console.warn('[App.tsx] Draft cleanup skipped:', error);
+  }
+}
+
+function listDraftsWithoutBlocking(formType: string, formVersion: string) {
+  try {
+    return draftService.getDraftsForForm(formType, formVersion);
+  } catch (error) {
+    console.warn('[App.tsx] Could not read drafts:', error);
+    return [];
+  }
+}
+
 function isSubObservationSession(init: FormInitData): boolean {
   const i = init as FormInitData & { returnOnly?: boolean };
   return Boolean(i.subObservationMode || i.returnOnly);
@@ -803,8 +827,7 @@ function App() {
             ),
           );
         } else if (!isSubObservationSession(initData)) {
-          const formVersion = (formSchemaTyped as { version?: string })
-            ?.version;
+          const formVersion = resolveFormSchemaVersion(formSchemaTyped);
           const layoutRoot = ensureSwipeLayoutRoot(uiSchema as FormUISchema);
           const stickyPaths = collectStickyFieldPaths(layoutRoot);
           const stored = stickyService.getStickyValues(
@@ -911,6 +934,8 @@ function App() {
           return; // Exit early
         }
 
+        removeExpiredDrafts(initData);
+
         // Check if this is a new form (no savedData) and if drafts exist
         if (
           shouldOfferDraftSelector(
@@ -923,9 +948,9 @@ function App() {
             savedData,
           )
         ) {
-          const availableDrafts = draftService.getDraftsForForm(
+          const availableDrafts = listDraftsWithoutBlocking(
             receivedFormType,
-            (formSchema as any)?.version,
+            resolveFormSchemaVersion(formSchema),
           );
           if (availableDrafts.length > 0) {
             console.log(
@@ -1528,21 +1553,28 @@ function App() {
             draftFlushQueue.current.retire();
           }
           await draftFlushQueue.current.settled();
-          if (payloadFormInit.observationId != null) {
-            draftService.deleteDraftsForFormInstance(
-              payloadFormInit.formType,
-              payloadFormInit.observationId,
-            );
-          } else if (draftSessionKey) {
-            draftService.deleteDraftForNewObservationSession(
-              payloadFormInit.formType,
-              draftSessionKey,
+          // Already saved natively: cleanup failing must not fail the submit.
+          try {
+            if (payloadFormInit.observationId != null) {
+              draftService.deleteDraftsForFormInstance(
+                payloadFormInit.formType,
+                payloadFormInit.observationId,
+              );
+            } else if (draftSessionKey) {
+              draftService.deleteDraftForNewObservationSession(
+                payloadFormInit.formType,
+                draftSessionKey,
+              );
+            }
+          } catch (cleanupError) {
+            console.warn(
+              '[App.tsx] Draft cleanup after submit failed:',
+              cleanupError,
             );
           }
           // Persist sticky field values for next new observation of this form.
           if (!isSubObservationSession(payloadFormInit) && uischema) {
-            const formVersion = (schema as { version?: string } | null)
-              ?.version;
+            const formVersion = resolveFormSchemaVersion(schema);
             const stickyPaths = collectStickyFieldPaths(uischema);
             const stickyValues = extractStickyValues(payloadData, stickyPaths);
             if (Object.keys(stickyValues).length > 0) {
@@ -1673,7 +1705,7 @@ function App() {
         <FormplayerLocaleContext.Provider value={uiLocale}>
           <DraftSelector
             formType={pendingFormInit.formType}
-            formVersion={(pendingFormInit.formSchema as any)?.version}
+            formVersion={resolveFormSchemaVersion(pendingFormInit.formSchema)}
             onResumeDraft={handleResumeDraft}
             onStartNew={handleStartNewForm}
             fullScreen={true}

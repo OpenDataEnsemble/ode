@@ -173,6 +173,7 @@ export async function sweepStaleDraftAttachments(
 export interface ObservationPersistDeps {
   saveObservation: (args: {
     formType: string;
+    formVersion: string;
     data: Record<string, unknown>;
   }) => Promise<string | null>;
   updateObservation: (args: {
@@ -184,6 +185,7 @@ export interface ObservationPersistDeps {
 
 export interface PersistObservationInput {
   formType: string;
+  formVersion?: string;
   finalData: Record<string, unknown>;
   observationId?: string | null;
   subObservationMode: boolean;
@@ -229,7 +231,11 @@ export async function persistObservationWithAttachments(
       return { observationId, formData: committedData };
     }
 
-    const newId = await deps.saveObservation({ formType, data: committedData });
+    const newId = await deps.saveObservation({
+      formType,
+      formVersion: input.formVersion ?? '1.0',
+      data: committedData,
+    });
     if (!newId) {
       throw new Error('Failed to save new observation');
     }

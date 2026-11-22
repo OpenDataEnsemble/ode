@@ -111,6 +111,8 @@ export interface FormplayerModalHandle {
 const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({ visible, isActive = true, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
+    // Snapshot the opening spec; bundle/cache refreshes must not change this session.
+    const sessionFormVersionRef = useRef('1.0');
     const [profileId] = useState(() => getActiveProfile().id);
     const flushSequence = useRef(0);
     const pendingFlushes = useRef(
@@ -236,34 +238,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         ? `file://${commonAncestor(RNFS.MainBundlePath, RNFS.DocumentDirectoryPath)}`
         : undefined;
 
-    // Create a debounced close handler to prevent multiple rapid close attempts
-    const performClose = useCallback(async () => {
-      // Prevent multiple close attempts
-      if (isClosing || isSubmitting) return;
-
-      setIsClosing(true);
-      // Keep the document mounted until a root draft is durably saved. Nested
-      // sessions return data only, and successful submits must not recreate drafts.
-      if (!formSubmitted && currentFormType && !subObservationModeRef.current) {
-        try {
-          await flushDraftAsync();
-        } catch (error) {
-          console.error(
-            'Cannot close Formplayer before saving its draft:',
-            error,
-          );
-          setIsClosing(false);
-          showConfirm({
-            title: t('common.error'),
-            message: t('formplayer.saveFailed'),
-            buttons: [
-              { text: t('common.ok'), variant: 'primary', onPress: () => {} },
-            ],
-          });
-          return;
-        }
-      }
-
+    const completeClose = useCallback(() => {
       // Clear any existing timeout
       if (closeTimeoutRef.current) {
         clearTimeout(closeTimeoutRef.current);
@@ -297,14 +272,56 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       closeTimeoutRef.current = setTimeout(() => {
         setIsClosing(false);
       }, 500);
+    }, [onClose, currentOperationId, currentFormType, formSubmitted]);
+
+    // Create a debounced close handler to prevent multiple rapid close attempts
+    const performClose = useCallback(async () => {
+      // Prevent multiple close attempts
+      if (isClosing || isSubmitting) return;
+
+      setIsClosing(true);
+      // Keep the document mounted until a root draft is durably saved. Nested
+      // sessions return data only, and successful submits must not recreate drafts.
+      if (!formSubmitted && currentFormType && !subObservationModeRef.current) {
+        try {
+          await flushDraftAsync();
+        } catch (error) {
+          console.error(
+            'Cannot close Formplayer before saving its draft:',
+            error,
+          );
+          setIsClosing(false);
+          showConfirm({
+            title: t('formplayer.draftNotSavedTitle'),
+            message: t('formplayer.draftNotSavedMessage'),
+            buttons: [
+              {
+                text: t('formplayer.stayInForm'),
+                variant: 'tertiary',
+                onPress: () => {},
+              },
+              {
+                text: t('formplayer.closeAnyway'),
+                variant: 'danger',
+                onPress: () => {
+                  setIsClosing(true);
+                  completeClose();
+                },
+              },
+            ],
+          });
+          return;
+        }
+      }
+
+      completeClose();
     }, [
       isClosing,
       isSubmitting,
-      onClose,
-      currentOperationId,
       currentFormType,
       formSubmitted,
       flushDraftAsync,
+      completeClose,
       showConfirm,
       t,
     ]);
@@ -368,6 +385,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           );
         }
 
+        sessionFormVersionRef.current = formType.schemaVersion;
         subObservationModeRef.current = subObservationMode;
         skipFinalizeRef.current = skipFinalize;
 
@@ -690,6 +708,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             const persistResult = await persistObservationWithAttachments(
               {
                 formType,
+                formVersion: sessionFormVersionRef.current,
                 finalData,
                 observationId: effectiveObservationId,
                 subObservationMode,
