@@ -9,6 +9,8 @@ param(
     [string]$InstallDir = "$env:LOCALAPPDATA\Programs\synkronus-cli"
 )
 
+$originalErrorActionPreference = $ErrorActionPreference
+$originalProgressPreference = $ProgressPreference
 $ErrorActionPreference = "Stop"
 $ProgressPreference = 'SilentlyContinue'
 
@@ -169,6 +171,9 @@ try {
     Write-Host "  $CommandName --help"
 }
 finally {
+    $ErrorActionPreference = $originalErrorActionPreference
+    $ProgressPreference = $originalProgressPreference
+
     if (Test-Path $tempRoot) {
         Remove-Item -Path $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
