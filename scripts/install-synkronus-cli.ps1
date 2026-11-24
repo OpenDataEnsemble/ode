@@ -3,13 +3,20 @@ param(
     [string]$Version = "latest",
     [string]$Owner = "OpenDataEnsemble",
     [string]$Repo = "ode",
-    [string]$AssetName = "synkronus-cli-windows-amd.zip",
+    [string]$AssetName = "synkronus-cli-windows-amd64.exe",
     [string]$BinaryName = "synk.exe",
     [string]$CommandName = "synk",
     [string]$InstallDir = "$env:LOCALAPPDATA\Programs\synkronus-cli"
 )
 
+$originalErrorActionPreference = $ErrorActionPreference
+$originalProgressPreference = $ProgressPreference
 $ErrorActionPreference = "Stop"
+$ProgressPreference = 'SilentlyContinue'
+
+if (-not $PSBoundParameters.ContainsKey("AssetName") -and ($env:PROCESSOR_ARCHITEW6432 -eq 'ARM64' -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64')) {
+    $AssetName = "synkronus-cli-windows-arm64.exe"
+}
 
 function Write-Step($Message) {
     Write-Host "==> $Message"
@@ -127,37 +134,25 @@ $markerEnd
 }
 
 Ensure-CommandAvailable "Invoke-WebRequest"
-Ensure-CommandAvailable "Expand-Archive"
 
 $downloadUrl = Get-DownloadUrl -Owner $Owner -Repo $Repo -Version $Version -AssetName $AssetName
 $tempRoot = Join-Path $env:TEMP ("synkronus-cli-install-" + [guid]::NewGuid().ToString("N"))
-$archivePath = Join-Path $tempRoot $AssetName
-$extractDir = Join-Path $tempRoot "extract"
+$tempBinaryPath = Join-Path $tempRoot $BinaryName
 $binaryPath = Join-Path $InstallDir $BinaryName
 
 try {
     Write-Step "Preparing temporary workspace"
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
-    New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
 
     Write-Step "Downloading $downloadUrl"
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath
-
-    Write-Step "Extracting archive"
-    Expand-Archive -Path $archivePath -DestinationPath $extractDir -Force
-
-    Write-Step "Finding executable"
-    $exe = Get-ChildItem -Path $extractDir -Recurse -File | Where-Object { $_.Name -eq $BinaryName } | Select-Object -First 1
-    if (-not $exe) {
-        throw "Could not find $BinaryName inside archive $AssetName"
-    }
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $tempBinaryPath
 
     Write-Step "Installing to $InstallDir"
     if (Test-Path $InstallDir) {
         Remove-Item -Path $InstallDir -Recurse -Force
     }
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-    Copy-Item -Path $exe.FullName -Destination $binaryPath -Force
+    Copy-Item -Path $tempBinaryPath -Destination $binaryPath -Force
 
     Write-Step "Updating PATH"
     Add-ToUserPathIfMissing -PathToAdd $InstallDir
@@ -176,6 +171,9 @@ try {
     Write-Host "  $CommandName --help"
 }
 finally {
+    $ErrorActionPreference = $originalErrorActionPreference
+    $ProgressPreference = $originalProgressPreference
+
     if (Test-Path $tempRoot) {
         Remove-Item -Path $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
