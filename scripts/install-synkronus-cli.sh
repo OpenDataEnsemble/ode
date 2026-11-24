@@ -4,11 +4,14 @@ set -euo pipefail
 VERSION="latest"
 OWNER="OpenDataEnsemble"
 REPO="ode"
-ASSET_NAME="synkronus-cli-darwin-arm64"
+ASSET_NAME=""
+ASSET_OVERRIDDEN=0
 BINARY_NAME="synk"
 COMMAND_NAME="synk"
 INSTALL_DIR="${HOME}/.local/bin"
-ZSH_COMPLETIONS_DIR="${HOME}/.zsh/completions"
+SHELL_NAME="${SHELL:-/bin/sh}"
+SHELL_NAME="${SHELL_NAME##*/}"
+SHELL_CONFIG_FILE=""
 
 usage() {
   cat <<EOF
@@ -18,7 +21,7 @@ Options:
   --version <tag|latest>    Release tag to install (default: latest)
   --owner <owner>           GitHub owner/org (default: OpenDataEnsemble)
   --repo <repo>             GitHub repo (default: ode)
-  --asset <name>            Release asset name (default: synkronus-cli_Darwin_arm64.tar.gz)
+  --asset <name>            Release asset name (default: detected from OS and CPU)
   --install-dir <dir>       Install directory (default: ~/.local/bin)
   --help                    Show this help
 EOF
@@ -40,6 +43,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --asset)
       ASSET_NAME="$2"
+      ASSET_OVERRIDDEN=1
       shift 2
       ;;
     --install-dir)
@@ -69,6 +73,33 @@ need_cmd() {
   }
 }
 
+detect_asset_name() {
+  local os arch os_part arch_part
+
+  os="$(uname -s)"
+  arch="$(uname -m)"
+
+  case "$os" in
+    Darwin) os_part="darwin" ;;
+    Linux) os_part="linux" ;;
+    *)
+      echo "Unsupported operating system: $os" >&2
+      exit 1
+      ;;
+  esac
+
+  case "$arch" in
+    x86_64 | amd64) arch_part="amd64" ;;
+    arm64 | aarch64) arch_part="arm64" ;;
+    *)
+      echo "Unsupported architecture: $arch" >&2
+      exit 1
+      ;;
+  esac
+
+  echo "synkronus-cli-${os_part}-${arch_part}"
+}
+
 get_download_url() {
   if [[ "$VERSION" == "latest" ]]; then
     echo "https://github.com/$OWNER/$REPO/releases/latest/download/$ASSET_NAME"
@@ -77,102 +108,148 @@ get_download_url() {
   fi
 }
 
-ensure_install_dir_on_path_in_zshrc() {
-  local zshrc="$HOME/.zshrc"
-  local marker_start="# >>> synkronus-cli path >>>"
-  local marker_end="# <<< synkronus-cli path <<<"
+upsert_block() {
+  local file="$1"
+  local marker_start="$2"
+  local marker_end="$3"
+  local block="$4"
+  local tmp_file
 
-  mkdir -p "$(dirname "$zshrc")"
-  touch "$zshrc"
+  mkdir -p "$(dirname "$file")"
+  touch "$file"
 
-  local block
-  block=$(cat <<EOF
-$marker_start
-if [[ ":\$PATH:" != *":$INSTALL_DIR:"* ]]; then
-  export PATH="$INSTALL_DIR:\$PATH"
-fi
-$marker_end
-EOF
-)
-
-  if grep -Fq "$marker_start" "$zshrc"; then
-    python3 - "$zshrc" "$marker_start" "$marker_end" "$block" <<'PY'
-import re
-import sys
-path, start, end, block = sys.argv[1:]
-with open(path, "r", encoding="utf-8") as f:
-    content = f.read()
-pattern = re.escape(start) + r".*?" + re.escape(end)
-updated = re.sub(pattern, block, content, flags=re.S)
-with open(path, "w", encoding="utf-8") as f:
-    f.write(updated)
-PY
-    echo "Updated PATH block in $zshrc"
-  else
-    {
-      [[ -s "$zshrc" ]] && tail -c 1 "$zshrc" | read -r _ || true
-      echo
-      echo "$block"
-    } >> "$zshrc"
-    echo "Added PATH block to $zshrc"
+  if grep -Fqx "$marker_start" "$file" && ! grep -Fqx "$marker_end" "$file"; then
+    echo "Warning: $file has \"$marker_start\" but no \"$marker_end\"; leaving it unchanged." >&2
+    echo "Fix or remove that block by hand, then re-run this installer." >&2
+    return 0
   fi
+
+  tmp_file="$(mktemp)"
+  awk -v start="$marker_start" -v end="$marker_end" '
+    $0 == start { skipping = 1; blanks = 0; next }
+    skipping && $0 == end { skipping = 0; next }
+    skipping { next }
+    /^[[:space:]]*$/ { blanks++; next }
+    { while (blanks > 0) { print ""; blanks-- } print }
+  ' "$file" > "$tmp_file"
+  if [[ -s "$tmp_file" ]]; then
+    printf '\n' >> "$tmp_file"
+  fi
+  printf '%s\n%s\n%s\n' "$marker_start" "$block" "$marker_end" >> "$tmp_file"
+  cat "$tmp_file" > "$file"
+  rm -f "$tmp_file"
 }
 
-setup_zsh_completion() {
-  local zshrc="$HOME/.zshrc"
-  local completion_file="$ZSH_COMPLETIONS_DIR/_${COMMAND_NAME}"
-  local marker_start="# >>> synkronus-cli completion >>>"
-  local marker_end="# <<< synkronus-cli completion <<<"
-
-  mkdir -p "$ZSH_COMPLETIONS_DIR"
-  touch "$zshrc"
-
-  step "Generating zsh completion"
-  "$INSTALL_DIR/$BINARY_NAME" completion zsh > "$completion_file"
-
+setup_fish_config() {
+  local config_file="$HOME/.config/fish/config.fish"
+  local completion_dir="$HOME/.config/fish/completions"
+  local completion_file="$completion_dir/${COMMAND_NAME}.fish"
   local block
+
+  SHELL_CONFIG_FILE="$config_file"
   block=$(cat <<EOF
-$marker_start
-fpath=("$ZSH_COMPLETIONS_DIR" \$fpath)
-autoload -Uz compinit
-compinit
-$marker_end
+if not contains "$INSTALL_DIR" \$PATH
+  set -gx PATH "$INSTALL_DIR" \$PATH
+end
 EOF
 )
 
-  if grep -Fq "$marker_start" "$zshrc"; then
-    python3 - "$zshrc" "$marker_start" "$marker_end" "$block" <<'PY'
-import re
-import sys
-path, start, end, block = sys.argv[1:]
-with open(path, "r", encoding="utf-8") as f:
-    content = f.read()
-pattern = re.escape(start) + r".*?" + re.escape(end)
-updated = re.sub(pattern, block, content, flags=re.S)
-with open(path, "w", encoding="utf-8") as f:
-    f.write(updated)
-PY
-    echo "Updated completion block in $zshrc"
-  else
-    {
-      [[ -s "$zshrc" ]] && tail -c 1 "$zshrc" | read -r _ || true
-      echo
-      echo "$block"
-    } >> "$zshrc"
-    echo "Added completion block to $zshrc"
-  fi
+  step "Updating PATH config in $config_file"
+  upsert_block "$config_file" "# >>> synkronus-cli path >>>" "# <<< synkronus-cli path <<<" "$block"
 
-  echo "Installed zsh completion to $completion_file"
+  mkdir -p "$completion_dir"
+  step "Generating fish completion"
+  "$INSTALL_DIR/$BINARY_NAME" completion fish > "$completion_file"
+  echo "Installed fish completion to $completion_file"
+}
+
+setup_posix_config() {
+  local rc_file completion_dir completion_file block marker_start marker_end
+
+  case "$SHELL_NAME" in
+    zsh) rc_file="$HOME/.zshrc" ;;
+    bash) rc_file="$HOME/.bashrc" ;;
+    *) rc_file="$HOME/.profile" ;;
+  esac
+
+  SHELL_CONFIG_FILE="$rc_file"
+  marker_start="# >>> synkronus-cli path >>>"
+  marker_end="# <<< synkronus-cli path <<<"
+  block=$(cat <<EOF
+case ":\$PATH:" in
+  *":$INSTALL_DIR:"*) ;;
+  *) PATH="$INSTALL_DIR:\$PATH"; export PATH ;;
+esac
+EOF
+)
+
+  step "Updating PATH config in $rc_file"
+  upsert_block "$rc_file" "$marker_start" "$marker_end" "$block"
+
+  marker_start="# >>> synkronus-cli completion >>>"
+  marker_end="# <<< synkronus-cli completion <<<"
+
+  case "$SHELL_NAME" in
+    zsh)
+      completion_dir="$HOME/.zsh/completions"
+      completion_file="$completion_dir/_${COMMAND_NAME}"
+      mkdir -p "$completion_dir"
+      step "Generating zsh completion"
+      "$INSTALL_DIR/$BINARY_NAME" completion zsh > "$completion_file"
+      block=$(cat <<EOF
+fpath=("$completion_dir" \$fpath)
+autoload -Uz compinit
+compinit
+EOF
+)
+      upsert_block "$rc_file" "$marker_start" "$marker_end" "$block"
+      ;;
+    bash)
+      completion_dir="$HOME/.local/share/bash-completion/completions"
+      completion_file="$completion_dir/${COMMAND_NAME}"
+      mkdir -p "$completion_dir"
+      step "Generating bash completion"
+      "$INSTALL_DIR/$BINARY_NAME" completion bash > "$completion_file"
+      block=$(cat <<EOF
+if [[ -f "$completion_file" ]]; then
+  source "$completion_file"
+fi
+EOF
+)
+      upsert_block "$rc_file" "$marker_start" "$marker_end" "$block"
+      ;;
+    *)
+      echo "Completion setup skipped for shell: $SHELL_NAME"
+      return
+      ;;
+  esac
+
+  echo "Installed completion to $completion_file"
+}
+
+setup_shell_config() {
+  if [[ "$SHELL_NAME" == "fish" ]]; then
+    setup_fish_config
+  else
+    setup_posix_config
+  fi
 }
 
 need_cmd curl
-need_cmd tar
 need_cmd mktemp
-need_cmd python3
+need_cmd awk
+need_cmd grep
+need_cmd install
+need_cmd chmod
+need_cmd uname
+
+if [[ "$ASSET_OVERRIDDEN" -eq 0 ]]; then
+  ASSET_NAME="$(detect_asset_name)"
+fi
 
 DOWNLOAD_URL="$(get_download_url)"
 TMP_DIR="$(mktemp -d)"
-ARCHIVE_PATH="$TMP_DIR/$ASSET_NAME"
+TEMP_BINARY_PATH="$TMP_DIR/$BINARY_NAME"
 
 cleanup() {
   rm -rf "$TMP_DIR"
@@ -183,33 +260,20 @@ step "Preparing install directory"
 mkdir -p "$INSTALL_DIR"
 
 step "Downloading $DOWNLOAD_URL"
-curl -fsSL "$DOWNLOAD_URL" -o "$ARCHIVE_PATH"
-
-step "Extracting archive"
-tar -xzf "$ARCHIVE_PATH" -C "$TMP_DIR"
-
-step "Finding executable"
-BIN_PATH="$(find "$TMP_DIR" -type f -name "$BINARY_NAME" | head -n 1 || true)"
-if [[ -z "$BIN_PATH" ]]; then
-  echo "Could not find $BINARY_NAME inside archive $ASSET_NAME" >&2
-  exit 1
-fi
+curl -fsSL "$DOWNLOAD_URL" -o "$TEMP_BINARY_PATH"
 
 step "Installing $BINARY_NAME to $INSTALL_DIR"
-install -m 0755 "$BIN_PATH" "$INSTALL_DIR/$BINARY_NAME"
+chmod +x "$TEMP_BINARY_PATH"
+install -m 0755 "$TEMP_BINARY_PATH" "$INSTALL_DIR/$BINARY_NAME"
 
-step "Updating zsh PATH config"
-ensure_install_dir_on_path_in_zshrc
-
-step "Updating zsh completion config"
-setup_zsh_completion
+setup_shell_config
 
 step "Done"
 echo
 echo "Installed: $INSTALL_DIR/$BINARY_NAME"
 echo
 echo "Open a new terminal, or run:"
-echo "  source ~/.zshrc"
+echo "  source $SHELL_CONFIG_FILE"
 echo
 echo "Then try:"
 echo "  $COMMAND_NAME --help"
