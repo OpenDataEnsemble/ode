@@ -118,13 +118,21 @@ upsert_block() {
   mkdir -p "$(dirname "$file")"
   touch "$file"
 
+  if grep -Fqx "$marker_start" "$file" && ! grep -Fqx "$marker_end" "$file"; then
+    echo "Warning: $file has \"$marker_start\" but no \"$marker_end\"; leaving it unchanged." >&2
+    echo "Fix or remove that block by hand, then re-run this installer." >&2
+    return 0
+  fi
+
   tmp_file="$(mktemp)"
   awk -v start="$marker_start" -v end="$marker_end" '
-    $0 == start { skipping = 1; next }
+    $0 == start { skipping = 1; blanks = 0; next }
     skipping && $0 == end { skipping = 0; next }
-    !skipping { print }
+    skipping { next }
+    /^[[:space:]]*$/ { blanks++; next }
+    { while (blanks > 0) { print ""; blanks-- } print }
   ' "$file" > "$tmp_file"
-  if [[ -s "$file" ]]; then
+  if [[ -s "$tmp_file" ]]; then
     printf '\n' >> "$tmp_file"
   fi
   printf '%s\n%s\n%s\n' "$marker_start" "$block" "$marker_end" >> "$tmp_file"
