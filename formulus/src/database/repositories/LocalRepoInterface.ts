@@ -8,6 +8,10 @@ import type {
   ObservationListPage,
   ObservationListQuery,
 } from '../observationListQuery';
+import type {
+  ObservationMapQuery,
+  ObservationMapResult,
+} from '../observationMapQuery';
 /**
  * Interface for local data repository operations
  * This allows us to abstract the storage implementation for testability
@@ -45,6 +49,14 @@ export interface LocalRepoInterface {
   listObservationsPage(
     query: ObservationListQuery,
   ): Promise<ObservationListPage>;
+
+  /**
+   * Located observations for the Observations map, using the table's filters.
+   * Reads the stored geolocation, never `data`.
+   */
+  listObservationMapPoints(
+    query: ObservationMapQuery,
+  ): Promise<ObservationMapResult>;
 
   /**
    * Query observations with structured filter AST (SQLite + local indexes).
